@@ -1,0 +1,97 @@
+{
+  "responseTimestamp": "2026-08-22T22:51:28.985496165Z",
+  "status": true,
+  "validUntil": "2026-08-22T22:52:28.985496165Z",
+  "estimatedJourneyVersionFrame": [
+    {
+      "recordedAtTime": "2026-08-22T22:51:28.985496165Z",
+      "estimatedVehicleJourney": [
+        {
+          "lineRef": {
+            "value": "50819:2026-08-22"
+          },
+          "datedVehicleJourneyRef": {
+            "value": "50819:2026-08-22"
+          },
+          "cancellation": false,
+          "publishedLineName": [
+            {
+              "value": "50819"
+            }
+          ],
+          "vehicleJourneyName": [
+            {
+              "value": "50819"
+            }
+          ],
+          "firstOrLastJourney": "FIRST_SERVICE_OF_DAY",
+          "estimatedCalls": {
+            "estimatedCall": []
+          },
+          "recordedCalls": {
+            "recordedCall": [
+              {
+                "stopPointRef": {
+                  "value": "XPB"
+                },
+                "order": 1,
+                "stopPointName": [
+                  {
+                    "value": "Paris - Bercy-Seine Bus Station",
+                    "lang": "ENG"
+                  }
+                ],
+                "extraCall": false,
+                "cancellation": false,
+                "arrivalStatus": "ON_TIME",
+                "aimedDepartureTime": "2026-08-22T09:50:00Z",
+                "actualDepartureTime": "2026-08-22T09:55:31Z",
+                "departureStatus": "DELAYED"
+              },
+              {
+                "stopPointRef": {
+                  "value": "XOS"
+                },
+                "order": 2,
+                "stopPointName": [
+                  {
+                    "value": "Orléans - Georges Pompidou Bus Stop",
+                    "lang": "ENG"
+                  }
+                ],
+                "extraCall": false,
+                "cancellation": false,
+                "aimedArrivalTime": "2026-08-22T11:35:00Z",
+                "actualArrivalTime": "2026-08-22T11:31:01Z",
+                "arrivalStatus": "ON_TIME",
+                "aimedDepartureTime": "2026-08-22T11:40:00Z",
+                "actualDepartureTime": "2026-08-22T11:40:15Z",
+                "departureStatus": "DEPARTED"
+              },
+              {
+                "stopPointRef": {
+                  "value": "XTO"
+                },
+                "order": 3,
+                "stopPointName": [
+                  {
+                    "value": "Tours - Vaucanson Bus Station",
+                    "lang": "ENG"
+                  }
+                ],
+                "extraCall": false,
+                "cancellation": false,
+                "aimedArrivalTime": "2026-08-22T13:00:00Z",
+                "actualArrivalTime": "2026-08-22T12:50:56Z",
+                "arrivalStatus": "ON_TIME",
+                "departureStatus": "DEPARTED"
+              }
+            ]
+          },
+          "isCompleteStopSequence": true
+        }
+      ]
+    }
+  ],
+  "version": "2.0"
+}

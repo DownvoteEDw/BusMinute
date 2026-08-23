@@ -1,0 +1,10 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_url,route_color,route_text_color
+0727142413,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+4084739966,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+1207081247,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+8144394302,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+1541845674,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+7094139687,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+8916982594,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+8973070463,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff
+8198870759,0,BlaBlaCar Bus,Paris City Centre - Bercy Seine > Orléans > Tours,3,,f25455,ffffff

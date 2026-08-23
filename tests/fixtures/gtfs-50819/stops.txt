@@ -1,0 +1,4 @@
+stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,stop_timezone,wheelchair_boarding
+XPB,,Paris - Bercy-Seine Bus Station,,48.835687,2.380161,Europe/Paris,1
+XOS,,Orléans - Georges Pompidou Bus Stop,,47.896134,1.854014,Europe/Paris,1
+XTO,,Tours - Vaucanson Bus Station,,47.423712,0.710621,Europe/Paris,1
