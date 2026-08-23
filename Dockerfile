@@ -6,11 +6,16 @@ COPY package.json package-lock.json ./
 
 RUN npm ci
 
+FROM dependencies AS production-dependencies
+
+RUN npm prune --omit=dev
+
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS=--max-old-space-size=768
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
@@ -28,6 +33,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/migrations ./migrations

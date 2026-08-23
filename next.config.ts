@@ -4,7 +4,8 @@ const nextConfig: NextConfig = {
     agentRules: false,
     allowedDevOrigins: ["127.0.0.1", "localhost"],
     experimental: {
-        cpus: 2,
+        cpus: 1,
+        webpackBuildWorker: true,
         webpackMemoryOptimizations: true
     },
     output: "standalone",

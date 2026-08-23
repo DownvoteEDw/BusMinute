@@ -2,9 +2,6 @@ name: busminute
 
 x-busminute-image: &busminute-image
   image: busminute:${IMAGE_TAG:-local}
-  build:
-    context: .
-    dockerfile: Dockerfile
 
 x-busminute-environment: &busminute-environment
   NODE_ENV: production
@@ -57,6 +54,9 @@ services:
 
   app:
     <<: *busminute-image
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment: *busminute-environment
     depends_on:

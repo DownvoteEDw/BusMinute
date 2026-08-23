@@ -9,6 +9,9 @@ describe("artefacts de déploiement", () =>
 
         expect(dockerfile).toContain("/app/.next/standalone");
         expect(dockerfile).toContain("/app/.next/static");
+        expect(dockerfile).toContain("FROM dependencies AS production-dependencies");
+        expect(dockerfile).toContain("npm prune --omit=dev");
+        expect(dockerfile).toContain("/app/node_modules ./node_modules");
         expect(dockerfile).toContain("/app/public");
         expect(dockerfile).toContain("/api/health");
         expect(dockerfile).toContain("USER node");
@@ -16,7 +19,7 @@ describe("artefacts de déploiement", () =>
 
     it("déclare le site, le worker, la migration et PostgreSQL dans la stack", async () =>
     {
-        const compose = await readFile("compose.yaml", "utf8");
+        const compose = await readFile("docker-compose.yaml", "utf8");
 
         expect(compose).toContain("  postgres:");
         expect(compose).toContain("  migration:");
@@ -26,6 +29,7 @@ describe("artefacts de déploiement", () =>
         expect(compose).toContain("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?");
         expect(compose).toContain("condition: service_completed_successfully");
         expect(compose).toContain("busminute-postgres:/var/lib/postgresql/data");
+        expect(compose.match(/^    build:$/gm)).toHaveLength(1);
     });
 
     it("conserve les observations temps réel dans une migration dédiée", async () =>
@@ -39,7 +43,7 @@ describe("artefacts de déploiement", () =>
 
     it("réserve les ports publiés au développement local", async () =>
     {
-        const productionCompose = await readFile("compose.yaml", "utf8");
+        const productionCompose = await readFile("docker-compose.yaml", "utf8");
         const localCompose = await readFile("compose.local.yaml", "utf8");
 
         expect(productionCompose).not.toContain("127.0.0.1:");

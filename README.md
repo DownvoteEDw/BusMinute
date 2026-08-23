@@ -40,21 +40,21 @@ La stack de production contient le site BusMinute, son worker de synchronisation
 
 ```powershell
 Copy-Item .env.example .env
-docker compose -f compose.yaml -f compose.local.yaml up --build -d
+docker compose -f docker-compose.yaml -f compose.local.yaml up --build -d
 ```
 
 Remplacer impérativement `POSTGRES_PASSWORD` dans `.env` avant le premier démarrage, puis ouvrir [http://localhost:3000](http://localhost:3000).
 
 ```powershell
-docker compose -f compose.yaml -f compose.local.yaml ps
-docker compose -f compose.yaml -f compose.local.yaml logs app
-docker compose -f compose.yaml -f compose.local.yaml logs worker
+docker compose -f docker-compose.yaml -f compose.local.yaml ps
+docker compose -f docker-compose.yaml -f compose.local.yaml logs app
+docker compose -f docker-compose.yaml -f compose.local.yaml logs worker
 ```
 
 Arrêter la stack sans supprimer les données :
 
 ```powershell
-docker compose -f compose.yaml -f compose.local.yaml down
+docker compose -f docker-compose.yaml -f compose.local.yaml down
 ```
 
 Le volume `busminute-postgres` conserve PostgreSQL entre les déploiements.
@@ -63,12 +63,12 @@ Le volume `busminute-postgres` conserve PostgreSQL entre les déploiements.
 
 1. Créer un dépôt GitHub privé avec les fichiers du projet.
 2. Dans Coolify, créer une application depuis ce dépôt et choisir le build pack Docker Compose.
-3. Sélectionner `compose.yaml` comme fichier de déploiement.
+3. Sélectionner `docker-compose.yaml` comme fichier de déploiement.
 4. Définir `SITE_URL` avec le domaine HTTPS public et générer un `POSTGRES_PASSWORD` long.
 5. Associer le domaine au service `app` sur le port `3000`.
 6. Déployer puis vérifier `/api/health`.
 
-Coolify utilise uniquement `compose.yaml`. Le fichier `compose.local.yaml` sert au développement et ne doit pas être ajouté au déploiement Coolify.
+Coolify utilise uniquement `docker-compose.yaml`. Le fichier `compose.local.yaml` sert au développement et ne doit pas être ajouté au déploiement Coolify.
 
 Variables disponibles :
 
@@ -197,7 +197,7 @@ Les horaires GTFS sont interprétés dans `agency_timezone` et les valeurs supé
 app/                 pages et API Next.js
 components/          composants interactifs
 Dockerfile           image autonome de production
-compose.yaml         stack Coolify et production
+docker-compose.yaml  stack Coolify et production
 compose.local.yaml   ports réservés au développement local
 src/application/     services destinés au front
 src/cli/             migration, import et worker de synchronisation
