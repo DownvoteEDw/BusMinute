@@ -50,4 +50,12 @@ describe("artefacts de déploiement", () =>
         expect(localCompose).toContain("127.0.0.1:${APP_PORT:-3000}:3000");
         expect(localCompose).toContain("127.0.0.1:${POSTGRES_PORT:-5432}:5432");
     });
+
+    it("utilise le fichier Compose de production dans GitHub Actions", async () =>
+    {
+        const workflow = await readFile(".github/workflows/ci.yml", "utf8");
+
+        expect(workflow).toContain("-f docker-compose.yaml");
+        expect(workflow).not.toContain("-f compose.yaml");
+    });
 });
