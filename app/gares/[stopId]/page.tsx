@@ -113,6 +113,12 @@ export default async function StopPage({ params }: PageProps)
                     <div><span className="live-pill light"><i /> Direct</span><h2>Prochains passages à cette gare</h2></div>
                     <span>{board.journeys.length} bus trouvé{board.journeys.length > 1 ? "s" : ""}</span>
                 </div>
+                <div className="station-delay-legend" aria-label="Légende des états de circulation">
+                    <span className="late"><i /> Retard</span>
+                    <span className="on-time"><i /> À l’heure</span>
+                    <span className="early"><i /> En avance</span>
+                    <span className="scheduled"><i /> Programmé</span>
+                </div>
                 {board.journeys.length === 0 ? (
                     <div className="empty-state"><h2>Aucun bus dans le flux actuel</h2><p>Revenez à l’approche des prochains départs.</p></div>
                 ) : (

@@ -13,13 +13,15 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
 {
     const event = journeyEvent(journey, stopId ?? originStopId, destinationStopId);
     const delaySeconds = event.stop?.delaySeconds ?? journey.delaySeconds;
+    const delayState = journeyDelayState(journey, delaySeconds);
+    const isStationContext = Boolean(stopId && !destinationStopId);
     const segmentOrigin = findStop(journey, originStopId);
     const segmentDestination = findStop(journey, destinationStopId);
     const originCity = segmentOrigin?.city ?? journey.originCity;
     const destinationCity = segmentDestination?.city ?? journey.destinationCity;
 
     return (
-        <Link className="journey-card" href={`/suivi/${encodeURIComponent(journey.journeyRef)}`}>
+        <Link className={`journey-card${isStationContext ? ` is-station is-${delayState}` : ""}`} href={`/suivi/${encodeURIComponent(journey.journeyRef)}`}>
             <div className="journey-card-time">
                 <time dateTime={event.time ?? undefined}>{formatTime(event.time)}</time>
                 <span>{event.label}</span>
@@ -32,9 +34,9 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
                 <h2>{originCity} <span>→</span> {destinationCity}</h2>
                 <p>{event.detail}</p>
             </div>
-            <div className={`journey-card-delay ${delayTone(delaySeconds)}`}>
-                <strong>{delayLabel(delaySeconds)}</strong>
-                <span>Information temps réel</span>
+            <div className={`journey-card-delay ${delayState}`}>
+                <strong>{delayLabel(delaySeconds, delayState)}</strong>
+                <span>{delayDetail(delayState)}</span>
             </div>
             <span className="journey-card-arrow" aria-hidden="true">›</span>
         </Link>
@@ -152,11 +154,16 @@ function statusLabel(status: JourneyView["status"]): string
     return labels[status];
 }
 
-function delayLabel(seconds: number | null): string
+function delayLabel(seconds: number | null, state: DelayState): string
 {
+    if (state === "cancelled")
+    {
+        return "Annulé";
+    }
+
     if (seconds === null)
     {
-        return "Horaire prévu";
+        return "Prévu";
     }
 
     const minutes = Math.round(seconds / 60);
@@ -169,12 +176,36 @@ function delayLabel(seconds: number | null): string
     return minutes > 0 ? `+${minutes} min` : `${Math.abs(minutes)} min d'avance`;
 }
 
-function delayTone(seconds: number | null): string
+type DelayState = "scheduled" | "on-time" | "late" | "early" | "cancelled";
+
+function journeyDelayState(journey: JourneyView, seconds: number | null): DelayState
 {
-    if (seconds === null || Math.abs(seconds) < 300)
+    if (journey.cancelled || journey.status === "cancelled")
+    {
+        return "cancelled";
+    }
+
+    if (seconds === null)
+    {
+        return "scheduled";
+    }
+
+    if (Math.abs(seconds) < 300)
     {
         return "on-time";
     }
 
     return seconds > 0 ? "late" : "early";
+}
+
+function delayDetail(state: DelayState): string
+{
+    const labels: Record<DelayState, string> = {
+        scheduled: "Horaire programmé",
+        "on-time": "À moins de 5 minutes",
+        late: "Retard estimé",
+        early: "Avance estimée",
+        cancelled: "Circulation annulée"
+    };
+    return labels[state];
 }
