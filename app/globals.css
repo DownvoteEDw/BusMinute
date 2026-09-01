@@ -1364,8 +1364,7 @@ h1 em {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.place-card,
-.station-card {
+.place-card {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 15px;
@@ -1383,8 +1382,7 @@ h1 em {
     transform: translateY(-2px);
 }
 
-.place-card > span,
-.station-card > span {
+.place-card > span {
     color: var(--coral);
     font-size: 12px;
     font-weight: 850;
@@ -1392,18 +1390,157 @@ h1 em {
     text-transform: uppercase;
 }
 
-.place-card strong,
-.station-card strong {
+.place-card strong {
     font-size: 22px;
     letter-spacing: -.02em;
     margin: 13px 0 8px;
 }
 
-.place-card small,
-.station-card small {
+.place-card small {
     align-self: end;
     color: var(--muted);
     font-size: 13px;
+}
+
+.station-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    min-height: 190px;
+    padding: 22px;
+    transition: border-color .15s, transform .15s;
+}
+
+.station-card.is-primary {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: white;
+    grid-column: 1 / -1;
+    min-height: 210px;
+    padding: 28px;
+}
+
+.station-card-top,
+.station-card-main,
+.station-card-footer {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+}
+
+.station-card-code {
+    color: var(--coral);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+.station-card.is-primary .station-card-code {
+    color: var(--mint);
+}
+
+.station-card-popular {
+    background: var(--mint);
+    border-radius: 999px;
+    color: var(--green);
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: .06em;
+    padding: 7px 10px;
+    text-transform: uppercase;
+}
+
+.station-card-main {
+    gap: 24px;
+    margin: 22px 0;
+}
+
+.station-card-name {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.station-card-name strong {
+    font-size: 25px;
+    letter-spacing: -.03em;
+    line-height: 1.08;
+}
+
+.station-card-name small {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.station-card.is-primary .station-card-name strong {
+    font-size: 34px;
+}
+
+.station-card.is-primary .station-card-name small {
+    color: #9fb0aa;
+}
+
+.station-card-activity {
+    display: grid;
+    flex: 0 0 auto;
+    justify-items: end;
+}
+
+.station-card-activity b {
+    color: var(--green);
+    font-size: 32px;
+    letter-spacing: -.055em;
+    line-height: 1;
+}
+
+.station-card-activity span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 750;
+    margin-top: 4px;
+}
+
+.station-card.is-primary .station-card-activity b {
+    color: #ffd166;
+    font-size: 50px;
+}
+
+.station-card.is-primary .station-card-activity span {
+    color: #d4ddd9;
+}
+
+.station-card-footer {
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: auto;
+    padding-top: 14px;
+}
+
+.station-card-footer > strong {
+    color: var(--green);
+    font-size: 12px;
+}
+
+.station-card-footer > strong b {
+    color: var(--coral);
+    font-size: 18px;
+    margin-left: 5px;
+}
+
+.station-card.is-primary .station-card-footer {
+    border-color: rgba(255, 255, 255, .15);
+    color: #aebcb7;
+}
+
+.station-card.is-primary .station-card-footer > strong {
+    color: white;
 }
 
 .city-directory {
@@ -1905,5 +2042,40 @@ h1 em {
     .route-station-links {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .station-card,
+    .station-card.is-primary {
+        min-height: 0;
+        padding: 20px;
+    }
+
+    .station-card-main {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .station-card-name strong,
+    .station-card.is-primary .station-card-name strong {
+        font-size: 25px;
+    }
+
+    .station-card-name small {
+        white-space: normal;
+    }
+
+    .station-card-activity {
+        justify-items: start;
+    }
+
+    .station-card.is-primary .station-card-activity b {
+        font-size: 40px;
+    }
+
+    .station-card-footer {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
     }
 }

@@ -157,23 +157,33 @@ export class TransitDataService
         }
 
         const stopIds = new Set(stops.map((stop) => stop.externalId));
+        const currentTime = Date.now();
         const journeys = timetable.journeys.filter((journey) =>
         {
             return journey.calls.some((call) => stopIds.has(call.stopPointRef));
         }).sort((first, second) => compareJourneysAtStops(first, second, stopIds));
+        const rankedStops = stops.map((stop) =>
+        {
+            const activity = stopUpcomingActivity(timetable.journeys, stop.externalId, currentTime);
+            return {
+                stopId: stop.externalId,
+                name: stop.name,
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+                upcomingJourneyCount: activity.count,
+                nextJourneyAt: activity.nextJourneyAt
+            };
+        }).sort((first, second) =>
+        {
+            return second.upcomingJourneyCount - first.upcomingJourneyCount
+                || nextJourneyTime(first.nextJourneyAt) - nextJourneyTime(second.nextJourneyAt)
+                || first.name.localeCompare(second.name, "fr");
+        });
 
         return {
             slug,
             name: cityName(stops[0]?.name ?? slug),
-            stops: stops.map((stop) =>
-            {
-                return {
-                    stopId: stop.externalId,
-                    name: stop.name,
-                    latitude: stop.latitude,
-                    longitude: stop.longitude
-                };
-            }),
+            stops: rankedStops,
             journeys: this.toViews(feed, journeys, 40)
         };
     }
@@ -874,6 +884,49 @@ function boardCallTime(call: SiriJourney["calls"][number] | undefined): number
         ?? call?.actualDepartureTime
         ?? call?.actualArrivalTime;
     return value?.getTime() ?? Number.MAX_SAFE_INTEGER;
+}
+
+function stopUpcomingActivity(
+    journeys: SiriJourney[],
+    stopId: string,
+    currentTime: number
+): { count: number; nextJourneyAt: string | null }
+{
+    let count = 0;
+    let nextTime = Number.MAX_SAFE_INTEGER;
+
+    for (const journey of journeys)
+    {
+        if (journey.cancellation)
+        {
+            continue;
+        }
+
+        const call = journey.calls.find((candidate) => candidate.stopPointRef === stopId);
+        const eventTime = boardCallTime(call);
+
+        if (!call
+            || call.cancellation
+            || call.actualDepartureTime
+            || call.actualArrivalTime
+            || eventTime < currentTime - 300_000)
+        {
+            continue;
+        }
+
+        count += 1;
+        nextTime = Math.min(nextTime, eventTime);
+    }
+
+    return {
+        count,
+        nextJourneyAt: nextTime === Number.MAX_SAFE_INTEGER ? null : new Date(nextTime).toISOString()
+    };
+}
+
+function nextJourneyTime(value: string | null): number
+{
+    return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 }
 
 function placeSearchScore(place: PlaceSearchResultView, query: string): number

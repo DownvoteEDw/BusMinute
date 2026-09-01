@@ -76,6 +76,8 @@ export interface CityStopView
     name: string;
     latitude: number;
     longitude: number;
+    upcomingJourneyCount: number;
+    nextJourneyAt: string | null;
 }
 
 export interface CityDirectoryEntryView

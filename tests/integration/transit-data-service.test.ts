@@ -40,6 +40,8 @@ describe("TransitDataService", () =>
         expect(stop?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(route?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(city?.stops[0]?.stopId).toBe("XPB");
+        expect(city?.stops[0]?.upcomingJourneyCount).toBe(0);
+        expect(city?.stops[0]?.nextJourneyAt).toBeNull();
         expect(city?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(departure?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
     });

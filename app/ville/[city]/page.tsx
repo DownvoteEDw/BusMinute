@@ -94,16 +94,33 @@ export default async function CityPage({ params }: PageProps)
             <section className="station-section">
                 <div className="section-heading-row">
                     <h2>Gares routières à {board.name}</h2>
-                    <span>{board.stops.length} résultat{board.stops.length > 1 ? "s" : ""}</span>
+                    <span>Classées par nombre de bus à venir</span>
                 </div>
                 <div className="station-grid">
-                    {board.stops.map((stop) =>
+                    {board.stops.map((stop, index) =>
                     {
+                        const isPrimary = index === 0 && stop.upcomingJourneyCount > 0;
+
                         return (
-                            <Link className="station-card" href={`/gares/${encodeURIComponent(stop.stopId)}`} key={stop.stopId}>
-                                <span>Gare · {stop.stopId}</span>
-                                <strong>{stop.name}</strong>
-                                <small>Voir les passages et retards</small>
+                            <Link className={`station-card${isPrimary ? " is-primary" : ""}`} href={`/gares/${encodeURIComponent(stop.stopId)}`} key={stop.stopId}>
+                                <span className="station-card-top">
+                                    <span className="station-card-code">Gare · {stop.stopId}</span>
+                                    {isPrimary && <span className="station-card-popular">La plus active</span>}
+                                </span>
+                                <span className="station-card-main">
+                                    <span className="station-card-name">
+                                        <strong>{shortStationName(stop.name, board.name)}</strong>
+                                        <small>{stop.name}</small>
+                                    </span>
+                                    <span className="station-card-activity">
+                                        <b>{stop.upcomingJourneyCount}</b>
+                                        <span>bus à venir</span>
+                                    </span>
+                                </span>
+                                <span className="station-card-footer">
+                                    <span>{stop.nextJourneyAt ? `Prochain passage à ${formatTime(stop.nextJourneyAt)}` : "Aucun passage annoncé"}</span>
+                                    <strong>Voir la gare <b aria-hidden="true">›</b></strong>
+                                </span>
                             </Link>
                         );
                     })}
@@ -143,4 +160,21 @@ function formatDate(value: string): string
         dateStyle: "long",
         timeZone: "Europe/Paris"
     }).format(new Date(`${value}T12:00:00Z`));
+}
+
+function formatTime(value: string): string
+{
+    return new Intl.DateTimeFormat("fr-FR",
+    {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "Europe/Paris"
+    }).format(new Date(value));
+}
+
+function shortStationName(name: string, city: string): string
+{
+    const prefix = `${city} - `;
+    return name.startsWith(prefix) ? name.slice(prefix.length) : name;
 }
