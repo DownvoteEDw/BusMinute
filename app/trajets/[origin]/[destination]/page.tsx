@@ -103,7 +103,17 @@ export default async function RoutePage({ params }: PageProps)
                 {board.journeys.length === 0 ? (
                     <div className="empty-state"><h2>Aucun départ dans le flux actuel</h2><p>Les prochains services apparaîtront automatiquement.</p></div>
                 ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
+                    <div className="journey-list">{board.journeys.map((journey) =>
+                    {
+                        return (
+                            <JourneyCard
+                                destinationStopId={board.destinationStopId}
+                                journey={journey}
+                                key={journey.journeyRef}
+                                originStopId={board.originStopId}
+                            />
+                        );
+                    })}</div>
                 )}
             </section>
             <StructuredData value={structuredData} />

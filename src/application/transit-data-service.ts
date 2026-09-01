@@ -160,7 +160,7 @@ export class TransitDataService
         const journeys = timetable.journeys.filter((journey) =>
         {
             return journey.calls.some((call) => stopIds.has(call.stopPointRef));
-        });
+        }).sort((first, second) => compareJourneysAtStops(first, second, stopIds));
 
         return {
             slug,
@@ -280,6 +280,9 @@ export class TransitDataService
         const journeys = timetable.journeys.filter((journey) =>
         {
             return journey.calls.some((call) => call.stopPointRef === stop.externalId);
+        }).sort((first, second) =>
+        {
+            return compareJourneysAtStops(first, second, new Set([stop.externalId]));
         });
 
         return {
@@ -308,6 +311,9 @@ export class TransitDataService
             const originIndex = journey.calls.findIndex((call) => call.stopPointRef === origin.externalId);
             const destinationIndex = journey.calls.findIndex((call) => call.stopPointRef === destination.externalId);
             return originIndex >= 0 && destinationIndex > originIndex;
+        }).sort((first, second) =>
+        {
+            return compareJourneysAtStops(first, second, new Set([origin.externalId]));
         });
 
         return {
@@ -833,6 +839,41 @@ function boardEventTime(journey: JourneyView): number
         ?? currentStop?.actualArrivalAt
         ?? journey.updatedAt;
     return new Date(value).getTime();
+}
+
+function compareJourneysAtStops(first: SiriJourney, second: SiriJourney, stopIds: Set<string>): number
+{
+    const firstCall = journeyBoardCall(first, stopIds);
+    const secondCall = journeyBoardCall(second, stopIds);
+    return boardCallRank(firstCall) - boardCallRank(secondCall)
+        || boardCallTime(firstCall) - boardCallTime(secondCall)
+        || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
+}
+
+function journeyBoardCall(journey: SiriJourney, stopIds: Set<string>): SiriJourney["calls"][number] | undefined
+{
+    const calls = journey.calls.filter((call) => stopIds.has(call.stopPointRef));
+    return calls.find((call) => !call.actualDepartureTime && !call.actualArrivalTime)
+        ?? calls[calls.length - 1];
+}
+
+function boardCallRank(call: SiriJourney["calls"][number] | undefined): number
+{
+    const eventTime = boardCallTime(call);
+    const hasPassed = Boolean(call?.actualDepartureTime || call?.actualArrivalTime)
+        || eventTime < Date.now() - 300_000;
+    return hasPassed ? 1 : 0;
+}
+
+function boardCallTime(call: SiriJourney["calls"][number] | undefined): number
+{
+    const value = call?.expectedDepartureTime
+        ?? call?.aimedDepartureTime
+        ?? call?.expectedArrivalTime
+        ?? call?.aimedArrivalTime
+        ?? call?.actualDepartureTime
+        ?? call?.actualArrivalTime;
+    return value?.getTime() ?? Number.MAX_SAFE_INTEGER;
 }
 
 function placeSearchScore(place: PlaceSearchResultView, query: string): number

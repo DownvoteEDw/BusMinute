@@ -110,13 +110,13 @@ export default async function StopPage({ params }: PageProps)
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Direct</span><h2>Circulations du moment</h2></div>
+                    <div><span className="live-pill light"><i /> Direct</span><h2>Prochains passages à cette gare</h2></div>
                     <span>{board.journeys.length} bus trouvé{board.journeys.length > 1 ? "s" : ""}</span>
                 </div>
                 {board.journeys.length === 0 ? (
                     <div className="empty-state"><h2>Aucun bus dans le flux actuel</h2><p>Revenez à l’approche des prochains départs.</p></div>
                 ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
+                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} stopId={board.stopId} />)}</div>
                 )}
             </section>
             {destinationList.length > 0 && (

@@ -1,12 +1,14 @@
 :root {
     --ink: #10211b;
-    --muted: #5f6e68;
+    --muted: #46534e;
     --paper: #f4f0e8;
     --card: #fffdf8;
     --line: #d8d6cd;
     --coral: #fa684b;
     --mint: #bde9d5;
     --green: #0c5b43;
+    --font-body: Arial, Helvetica, sans-serif;
+    --font-display: Arial, Helvetica, sans-serif;
 }
 
 * {
@@ -16,12 +18,21 @@
 html {
     background: var(--paper);
     color: var(--ink);
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-body);
+    font-size: 16px;
+    text-rendering: optimizeLegibility;
 }
 
 body {
+    font-size: 16px;
+    line-height: 1.5;
     margin: 0;
     min-height: 100vh;
+}
+
+button,
+input {
+    font-family: inherit;
 }
 
 a {
@@ -101,7 +112,8 @@ a {
 
 h1 {
     font-size: clamp(62px, 7vw, 102px);
-    letter-spacing: -.075em;
+    font-family: var(--font-display);
+    letter-spacing: -.055em;
     line-height: .88;
     margin: 0;
     max-width: 760px;
@@ -109,8 +121,9 @@ h1 {
 
 h1 em {
     color: var(--coral);
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 800;
 }
 
 .hero-copy > p {
@@ -522,7 +535,7 @@ h1 em {
 
 .delay-display strong {
     color: var(--coral);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 72px;
     font-weight: 500;
     letter-spacing: -.08em;
@@ -607,7 +620,7 @@ h1 em {
 
 .value-strip article > span {
     color: var(--coral);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 15px;
 }
 
@@ -683,21 +696,21 @@ h1 em {
 
 .featured-city-grid span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
     margin-top: 7px;
 }
 
 .featured-city-grid small {
     align-self: end;
     color: var(--green);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
 }
 
 .site-footer {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     padding-bottom: 48px;
     padding-top: 48px;
 }
@@ -717,7 +730,7 @@ h1 em {
     align-items: center;
     color: var(--muted);
     display: flex;
-    font-size: 12px;
+    font-size: 14px;
     gap: 10px;
     padding: 25px 0;
 }
@@ -728,7 +741,7 @@ h1 em {
 
 .section-kicker {
     color: var(--green);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 850;
     letter-spacing: .12em;
     text-transform: uppercase;
@@ -745,8 +758,8 @@ h1 em {
 .route-heading h1,
 .listing-heading h1,
 .editorial-page h1 {
-    font-size: clamp(48px, 7vw, 84px);
-    letter-spacing: -.07em;
+    font-size: clamp(46px, 6vw, 74px);
+    letter-spacing: -.045em;
     line-height: .95;
     margin: 12px 0 18px;
 }
@@ -759,7 +772,7 @@ h1 em {
 .route-heading p,
 .listing-heading > p {
     color: var(--muted);
-    font-size: 15px;
+    font-size: 17px;
     line-height: 1.5;
     margin: 0;
 }
@@ -858,7 +871,7 @@ h1 em {
 }
 
 .big-delay strong {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 78px;
     font-weight: 500;
     letter-spacing: -.08em;
@@ -1078,7 +1091,7 @@ h1 em {
 
 .punctuality-card strong {
     color: var(--green);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 38px;
     font-weight: 500;
     letter-spacing: -.06em;
@@ -1118,14 +1131,15 @@ h1 em {
 }
 
 .listing-heading {
-    padding: 70px 0 55px;
+    padding: 48px 0 44px;
 }
 
 .listing-heading h1 em,
 .editorial-page h1 em {
     color: var(--coral);
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 800;
 }
 
 .listing-heading .is-compact {
@@ -1138,7 +1152,7 @@ h1 em {
 }
 
 .section-heading-row {
-    align-items: end;
+    align-items: center;
     display: flex;
     justify-content: space-between;
     margin-bottom: 18px;
@@ -1151,20 +1165,21 @@ h1 em {
 }
 
 .section-heading-row h2 {
-    font-size: 20px;
-    letter-spacing: -.04em;
+    font-size: 27px;
+    letter-spacing: -.025em;
     margin: 0;
 }
 
 .section-heading-row > span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .live-pill.light {
     background: var(--mint);
     color: var(--green);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 850;
     text-transform: uppercase;
 }
@@ -1175,56 +1190,142 @@ h1 em {
 
 .journey-list {
     display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    grid-template-columns: 1fr;
 }
 
 .journey-card {
+    align-items: center;
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    display: block;
-    padding: 22px;
-    transition: border-color .15s, transform .15s;
+    border-radius: 14px;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 96px minmax(0, 1fr) minmax(128px, auto) 18px;
+    min-height: 106px;
+    padding: 16px 20px;
+    transition: background .15s, border-color .15s, transform .15s;
 }
 
 .journey-card:hover {
+    background: #ffffff;
     border-color: #9ba59f;
-    transform: translateY(-2px);
+    transform: translateX(3px);
 }
 
-.journey-card-head,
-.journey-card-meta {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
+.journey-card-time {
+    border-right: 1px solid var(--line);
+    display: grid;
+    gap: 3px;
+    padding-right: 20px;
 }
 
-.journey-card-head {
+.journey-card-time time {
+    color: var(--ink);
+    font-size: 26px;
+    font-weight: 850;
+    letter-spacing: -.045em;
+    line-height: 1;
+}
+
+.journey-card-time span {
     color: var(--muted);
     font-size: 10px;
     font-weight: 800;
-    letter-spacing: .08em;
+    letter-spacing: .07em;
     text-transform: uppercase;
 }
 
+.journey-card-body {
+    min-width: 0;
+}
+
+.journey-card-head {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+}
+
+.journey-card-head {
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.journey-status {
+    align-items: center;
+    background: #edf3ef;
+    border-radius: 999px;
+    color: var(--muted);
+    display: inline-flex;
+    font-size: 9px;
+    gap: 5px;
+    letter-spacing: .03em;
+    padding: 4px 7px;
+}
+
+.journey-status i {
+    background: var(--green);
+    border-radius: 50%;
+    height: 6px;
+    width: 6px;
+}
+
+.journey-status.cancelled i {
+    background: var(--coral);
+}
+
+.journey-status.arrived i {
+    background: #87948f;
+}
+
 .journey-card h2 {
-    font-size: 25px;
-    letter-spacing: -.055em;
-    margin: 24px 0 30px;
+    font-size: 22px;
+    letter-spacing: -.025em;
+    line-height: 1.15;
+    margin: 7px 0 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .journey-card h2 span {
     color: var(--coral);
 }
 
-.journey-card-meta {
+.journey-card-body p {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.journey-card-meta strong {
-    font-size: 12px;
+.journey-card-delay {
+    display: grid;
+    gap: 2px;
+    justify-items: end;
+    text-align: right;
+}
+
+.journey-card-delay strong {
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.journey-card-delay span {
+    color: var(--muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.journey-card-arrow {
+    color: var(--muted);
+    font-size: 26px;
+    justify-self: end;
 }
 
 .empty-state {
@@ -1285,7 +1386,7 @@ h1 em {
 .place-card > span,
 .station-card > span {
     color: var(--coral);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 850;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -1293,8 +1394,8 @@ h1 em {
 
 .place-card strong,
 .station-card strong {
-    font-size: 19px;
-    letter-spacing: -.035em;
+    font-size: 22px;
+    letter-spacing: -.02em;
     margin: 13px 0 8px;
 }
 
@@ -1302,7 +1403,7 @@ h1 em {
 .station-card small {
     align-self: end;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .city-directory {
@@ -1330,14 +1431,14 @@ h1 em {
 
 .city-directory-card span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
     margin-top: 7px;
 }
 
 .city-directory-card small {
     align-self: end;
     color: var(--green);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 850;
     text-transform: uppercase;
 }
@@ -1384,15 +1485,16 @@ h1 em {
     border: 1px solid var(--line);
     border-radius: 15px;
     display: grid;
-    gap: 5px;
+    gap: 7px;
     grid-template-columns: auto 20px minmax(0, 1fr);
-    padding: 20px;
+    min-height: 112px;
+    padding: 22px;
     transition: border-color .15s, transform .15s;
 }
 
 .route-suggestion-grid span,
 .route-suggestion-grid strong {
-    font-size: 16px;
+    font-size: 18px;
 }
 
 .route-suggestion-grid b {
@@ -1401,7 +1503,7 @@ h1 em {
 
 .route-suggestion-grid small {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 13px;
     grid-column: 1 / -1;
     margin-top: 8px;
 }
@@ -1446,7 +1548,7 @@ h1 em {
 
 .method-grid article > span {
     color: var(--coral);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-display);
 }
 
 .method-grid h2 {
@@ -1490,7 +1592,7 @@ h1 em {
 
 .not-found-page > span {
     color: var(--coral);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 24px;
 }
 
@@ -1599,6 +1701,12 @@ h1 em {
 
     h1 {
         font-size: 57px;
+    }
+
+    .listing-heading h1,
+    .route-heading h1 {
+        font-size: 44px;
+        line-height: 1;
     }
 
     .search-box div {
@@ -1728,6 +1836,52 @@ h1 em {
         align-items: flex-start;
         flex-direction: column;
         gap: 12px;
+    }
+
+    .section-heading-row h2 {
+        font-size: 24px;
+    }
+
+    .journey-card {
+        align-items: start;
+        gap: 10px 13px;
+        grid-template-columns: 72px minmax(0, 1fr) 15px;
+        padding: 15px;
+    }
+
+    .journey-card-time {
+        grid-row: 1 / span 2;
+        padding-right: 12px;
+    }
+
+    .journey-card-time time {
+        font-size: 21px;
+    }
+
+    .journey-card h2 {
+        font-size: 19px;
+        white-space: normal;
+    }
+
+    .journey-card-body p {
+        font-size: 12px;
+        white-space: normal;
+    }
+
+    .journey-card-delay {
+        grid-column: 2;
+        justify-items: start;
+        text-align: left;
+    }
+
+    .journey-card-delay span {
+        display: none;
+    }
+
+    .journey-card-arrow {
+        align-self: center;
+        grid-column: 3;
+        grid-row: 1 / span 2;
     }
 
     .featured-cities {
