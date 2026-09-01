@@ -30,6 +30,7 @@ import
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
 const siriLifetimeMilliseconds = 45_000;
+const liveBoardLifetimeMilliseconds = 30_000;
 const databaseFeedLifetimeMilliseconds = 300_000;
 const punctualityLifetimeMilliseconds = 600_000;
 
@@ -47,6 +48,7 @@ export class TransitDataService
     private gtfsPromise: Promise<GtfsFeed> | null = null;
     private databaseFeedCache: TimedValue<GtfsFeed> | null = null;
     private siriCache: TimedValue<SiriEstimatedTimetable> | null = null;
+    private liveBoardCache: TimedValue<JourneyView[]> | null = null;
     private databaseRepository: PostgresTransitSnapshotRepository | null = null;
     private readonly punctualityCache = new Map<string, TimedValue<PunctualitySummaryView | null>>();
 
@@ -60,16 +62,17 @@ export class TransitDataService
         }
 
         const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const journeys = timetable.journeys.filter((journey) =>
-        {
-            return normalizeSearch(journey.serviceNumber).includes(normalized)
-                || normalizeSearch(journey.journeyRef).includes(normalized)
-                || journey.calls.some((call) =>
-                {
-                    return normalizeSearch(call.stopPointRef).includes(normalized)
-                        || call.stopPointName !== null && normalizeSearch(call.stopPointName).includes(normalized);
-                });
-        });
+        const journeys = timetable.journeys
+            .map((journey) =>
+            {
+                return {
+                    journey,
+                    score: journeySearchScore(journey, normalized)
+                };
+            })
+            .filter((candidate) => Number.isFinite(candidate.score))
+            .sort((first, second) => first.score - second.score)
+            .map((candidate) => candidate.journey);
 
         return this.toViews(feed, journeys, limit);
     }
@@ -318,9 +321,32 @@ export class TransitDataService
 
     public async getFeaturedJourneys(limit = 4): Promise<JourneyView[]>
     {
+        return this.getLiveBoard(limit);
+    }
+
+    public async getLiveBoard(limit = 8): Promise<JourneyView[]>
+    {
+        if (this.liveBoardCache && this.liveBoardCache.expiresAt > Date.now())
+        {
+            return this.liveBoardCache.value.slice(0, limit);
+        }
+
         const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const viable = timetable.journeys.filter((journey) => !journey.cancellation && journey.calls.length >= 2);
-        return this.toViews(feed, viable, limit);
+        const viable = timetable.journeys.filter((journey) => journey.calls.length >= 2);
+        const views = this.toViews(feed, viable, viable.length);
+        const sortedViews = views.sort((first, second) =>
+        {
+            return boardStatusRank(first.status) - boardStatusRank(second.status)
+                || boardEventTime(first) - boardEventTime(second)
+                || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
+        });
+        this.liveBoardCache =
+        {
+            value: sortedViews,
+            expiresAt: Date.now() + liveBoardLifetimeMilliseconds
+        };
+
+        return sortedViews.slice(0, limit);
     }
 
     public async getSyncStatuses(): Promise<TransitSyncStatus[]>
@@ -682,6 +708,131 @@ function normalizeSearch(value: string): string
         .replace(/[\u0300-\u036f]/g, "")
         .toLocaleLowerCase("fr")
         .trim();
+}
+
+function journeySearchScore(journey: SiriJourney, query: string): number
+{
+    const serviceNumber = normalizeSearch(journey.serviceNumber);
+    const journeyRef = normalizeSearch(journey.journeyRef);
+
+    if (serviceNumber === query || journeyRef === query)
+    {
+        return 0;
+    }
+
+    if (serviceNumber.includes(query) || journeyRef.includes(query))
+    {
+        return 5;
+    }
+
+    const routeMatch = findRouteMatch(journey, query);
+
+    if (routeMatch)
+    {
+        const startsAtOrigin = routeMatch.originIndex === 0 ? 0 : 4;
+        const endsAtDestination = routeMatch.destinationIndex === journey.calls.length - 1 ? 0 : 4;
+        const intermediateStops = routeMatch.destinationIndex - routeMatch.originIndex - 1;
+        return 10 + startsAtOrigin + endsAtDestination + intermediateStops;
+    }
+
+    if (journey.calls.some((call) => callMatchesPlace(call, query)))
+    {
+        return 50;
+    }
+
+    return Number.POSITIVE_INFINITY;
+}
+
+function findRouteMatch(
+    journey: SiriJourney,
+    query: string
+): { originIndex: number; destinationIndex: number } | null
+{
+    for (const [origin, destination] of routeQueryCandidates(query))
+    {
+        const originIndex = journey.calls.findIndex((call) => callMatchesPlace(call, origin));
+
+        if (originIndex < 0)
+        {
+            continue;
+        }
+
+        const relativeDestinationIndex = journey.calls
+            .slice(originIndex + 1)
+            .findIndex((call) => callMatchesPlace(call, destination));
+
+        if (relativeDestinationIndex >= 0)
+        {
+            return {
+                originIndex,
+                destinationIndex: originIndex + relativeDestinationIndex + 1
+            };
+        }
+    }
+
+    return null;
+}
+
+function routeQueryCandidates(query: string): Array<[string, string]>
+{
+    const explicit = query
+        .split(/\s*(?:→|->)\s*|\s+-\s+|\s+vers\s+/)
+        .map((part) => part.trim())
+        .filter((part) => part.length >= 2);
+
+    if (explicit.length === 2 && explicit[0] && explicit[1])
+    {
+        return [[explicit[0], explicit[1]]];
+    }
+
+    const words = query.split(/\s+/).filter((word) => word.length > 0);
+    const candidates: Array<[string, string]> = [];
+
+    for (let split = 1; split < words.length; split += 1)
+    {
+        const origin = words.slice(0, split).join(" ");
+        const destination = words.slice(split).join(" ");
+
+        if (origin.length >= 2 && destination.length >= 2)
+        {
+            candidates.push([origin, destination]);
+        }
+    }
+
+    return candidates;
+}
+
+function callMatchesPlace(call: SiriJourney["calls"][number], query: string): boolean
+{
+    const stopName = call.stopPointName ?? call.stopPointRef;
+    return normalizeSearch(call.stopPointRef).includes(query)
+        || normalizeSearch(stopName).includes(query)
+        || normalizeSearch(cityName(stopName)) === query;
+}
+
+function boardStatusRank(status: JourneyView["status"]): number
+{
+    const ranks: Record<JourneyView["status"], number> = {
+        in_transit: 0,
+        scheduled: 1,
+        cancelled: 2,
+        arrived: 3
+    };
+    return ranks[status];
+}
+
+function boardEventTime(journey: JourneyView): number
+{
+    const currentStop = journey.stops.find((stop) => stop.phase === "current")
+        ?? journey.stops.find((stop) => stop.phase === "upcoming")
+        ?? journey.stops[journey.stops.length - 1];
+    const value = currentStop?.expectedDepartureAt
+        ?? currentStop?.aimedDepartureAt
+        ?? currentStop?.expectedArrivalAt
+        ?? currentStop?.aimedArrivalAt
+        ?? currentStop?.actualArrivalAt
+        ?? journey.updatedAt;
+    return new Date(value).getTime();
 }
 
 function placeSearchScore(place: PlaceSearchResultView, query: string): number

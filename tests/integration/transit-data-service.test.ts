@@ -75,6 +75,27 @@ describe("TransitDataService", () =>
         expect(index.departures).toContainEqual({ citySlug: "paris", serviceDate: "2026-08-22" });
         expect(index.journeys).toContainEqual({ journeyRef: "50819:2026-08-22" });
     });
+
+    it("trouve un trajet par origine et destination dans les deux sens", async () =>
+    {
+        const service = new TransitDataService();
+        const direct = await service.search("Paris Tours");
+        const explicit = await service.search("Paris vers Tours");
+        const reverse = await service.search("Tours Paris");
+
+        expect(direct[0]?.journeyRef).toBe("50819:2026-08-22");
+        expect(explicit[0]?.journeyRef).toBe("50819:2026-08-22");
+        expect(reverse).toHaveLength(0);
+    });
+
+    it("alimente le panneau temps réel", async () =>
+    {
+        const service = new TransitDataService();
+        const board = await service.getLiveBoard(6);
+
+        expect(board).toHaveLength(1);
+        expect(board[0]?.journeyRef).toBe("50819:2026-08-22");
+    });
 });
 
 function restoreEnvironment(name: string, value: string | undefined): void

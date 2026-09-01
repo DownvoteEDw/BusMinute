@@ -59,7 +59,7 @@ export default async function SearchPage({ searchParams }: PageProps)
                     <h2>{journeys.length} résultat{journeys.length > 1 ? "s" : ""}</h2>
                 </div>
                 {journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucune circulation trouvée</h2><p>Essayez un numéro de bus, une ville ou un identifiant de gare.</p></div>
+                    <div className="empty-state"><h2>Aucun bus trouvé aujourd’hui</h2><p>Essayez un numéro, une ville ou un trajet comme Paris → Tours.</p></div>
                 ) : (
                     <div className="journey-list">{journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
                 )}

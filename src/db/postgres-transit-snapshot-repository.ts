@@ -268,11 +268,11 @@ export class PostgresTransitSnapshotRepository
         };
     }
 
-    public async loadTimetable(recentHours = 48): Promise<SiriEstimatedTimetable | null>
+    public async loadTimetable(recentMinutes = 5): Promise<SiriEstimatedTimetable | null>
     {
         const rows = await this.loadRealtimeRows(
-            `AND instance.source_updated_at >= now() - make_interval(hours => $2)`,
-            [this.operatorSlug, recentHours]
+            `AND instance.source_updated_at >= now() - make_interval(mins => $2)`,
+            [this.operatorSlug, recentMinutes]
         );
         return buildTimetable(rows);
     }

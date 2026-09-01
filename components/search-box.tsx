@@ -129,8 +129,8 @@ export function SearchBox({ initialQuery = "", compact = false }: SearchBoxProps
                         id={compact ? "service-number-compact" : "service-number"}
                         name="q"
                         onChange={(event) => setQuery(event.target.value)}
-                        onFocus={() => setOpen(results.length > 0)}
-                        placeholder="Ex. 50819, Paris, Tours"
+                        onFocus={() => setOpen(results.length > 0 || places.length > 0)}
+                        placeholder="Ex. 50819 ou Paris → Tours"
                         value={query}
                     />
                     <button type="submit">{loading ? "Recherche…" : "Voir le direct"}</button>
@@ -139,7 +139,7 @@ export function SearchBox({ initialQuery = "", compact = false }: SearchBoxProps
             {open && (
                 <div className="search-results" role="listbox" aria-label="Circulations trouvées">
                     {places.length === 0 && results.length === 0 ? (
-                        <p>Aucune circulation trouvée dans le flux actuel.</p>
+                        <p>Aucun bus trouvé aujourd’hui. Essayez une ville, un numéro ou un trajet comme Paris → Tours.</p>
                     ) : (
                         <>
                             {places.map((place) =>

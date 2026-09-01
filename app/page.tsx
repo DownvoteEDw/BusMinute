@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveDeparturesBoard } from "../components/live-departures-board";
 import { SearchBox } from "../components/search-box";
 import { transitDataService } from "../src/application/transit-data-service";
 
@@ -6,38 +7,26 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage()
 {
-    const cities = await transitDataService.getFeaturedCities(6);
+    const [cities, journeys] = await Promise.all(
+    [
+        transitDataService.getFeaturedCities(6),
+        transitDataService.getLiveBoard(7)
+    ]);
 
     return (
         <>
             <section className="hero">
                 <div className="hero-copy">
-                    <span className="eyebrow">Le direct des cars longue distance</span>
-                    <h1>Votre bus.<br /><em>Minute par minute.</em></h1>
-                    <p>Horaires réels, retard à chaque arrêt et informations partagées par les voyageurs.</p>
+                    <span className="eyebrow">Le panneau des cars longue distance</span>
+                    <h1>Votre bus.<br /><em>En temps réel.</em></h1>
+                    <p>Trouvez un trajet ou un numéro de bus et consultez les prochains passages comme sur le panneau de votre gare.</p>
                     <SearchBox />
                     <div className="trust-row">
                         <span><b>Officiel</b> Horaires GTFS</span>
-                        <span><b>Temps réel</b> Actualisé chaque minute</span>
+                        <span><b>Temps réel</b> Actualisé automatiquement</span>
                     </div>
                 </div>
-                <div className="live-card" aria-label="Exemple de suivi en direct">
-                    <div className="live-card-top">
-                        <span className="live-pill"><i /> Exemple réel</span>
-                        <span>Bus 50819</span>
-                    </div>
-                    <h2>Paris <span>→</span> Tours</h2>
-                    <div className="delay-display">
-                        <strong>+5</strong>
-                        <span>minutes<br />au départ</span>
-                    </div>
-                    <ol className="mini-timeline">
-                        <li className="done"><span>Paris Bercy</span><b>09:55</b></li>
-                        <li className="done"><span>Orléans</span><b>11:40</b></li>
-                        <li><span>Tours</span><b>12:50</b></li>
-                    </ol>
-                    <Link href="/suivi/50819%3A2026-08-22">Ouvrir le suivi complet <span>↗</span></Link>
-                </div>
+                <LiveDeparturesBoard initialJourneys={journeys} />
             </section>
             <section className="value-strip" aria-label="Fonctionnalités">
                 <article><span>01</span><h2>Le vrai retard</h2><p>Calculé arrêt par arrêt, pas seulement au départ.</p></article>

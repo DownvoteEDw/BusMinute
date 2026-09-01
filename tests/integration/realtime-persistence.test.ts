@@ -109,6 +109,25 @@ describe("persistance du temps réel", () =>
             thresholdMinutes: 15
         });
     });
+
+    it("limite les tableaux en direct aux données des cinq dernières minutes", async () =>
+    {
+        let capturedSql = "";
+        let capturedValues: unknown[] = [];
+        const pool = {
+            async query(sql: string, values: unknown[] = [])
+            {
+                capturedSql = sql;
+                capturedValues = values;
+                return { rowCount: 0, rows: [] };
+            }
+        } as unknown as Pool;
+
+        await new PostgresTransitSnapshotRepository(pool).loadTimetable();
+
+        expect(capturedSql).toContain("make_interval(mins => $2)");
+        expect(capturedValues).toEqual(["blablacar-bus", 5]);
+    });
 });
 
 function fakePool(queries: CapturedQuery[]): Pool
