@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import type { ReactNode } from "react";
 import { StructuredData } from "../components/structured-data";
 import { absoluteUrl } from "../src/application/seo";
@@ -89,6 +90,12 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
                     <span>Service indépendant, non affilié à BlaBlaCar.</span>
                 </footer>
                 <StructuredData value={structuredData} />
+                <Script
+                    defer
+                    src="https://analytics.bopomofo-master.xyz/script.js"
+                    data-website-id="153fbeff-a8c0-4fad-a62e-4030ad09abea"
+                    strategy="afterInteractive"
+                />
             </body>
         </html>
     );
