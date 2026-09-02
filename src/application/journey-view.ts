@@ -5,6 +5,7 @@ import type
     SiriJourney,
     TripMatchResult
 } from "../domain/models.js";
+import { blablacarBusOperator, type TransitOperator } from "./operators.js";
 
 export type JourneyOperationalStatus = "scheduled" | "in_transit" | "arrived" | "cancelled";
 export type JourneyStopPhase = "passed" | "current" | "upcoming";
@@ -42,6 +43,9 @@ export interface JourneyView
     journeyRef: string;
     serviceNumber: string;
     serviceDate: string;
+    operatorSlug: string;
+    operatorName: string;
+    realtimeAvailable: boolean;
     originStopId: string;
     originName: string;
     originCity: string;
@@ -65,6 +69,9 @@ export interface StopBoardView
     stopId: string;
     name: string;
     city: string;
+    operatorSlug: string;
+    operatorName: string;
+    realtimeAvailable: boolean;
     latitude: number;
     longitude: number;
     journeys: JourneyView[];
@@ -74,6 +81,8 @@ export interface CityStopView
 {
     stopId: string;
     name: string;
+    operatorSlug: string;
+    operatorName: string;
     latitude: number;
     longitude: number;
     upcomingJourneyCount: number;
@@ -128,7 +137,12 @@ export interface RouteBoardView
     journeys: JourneyView[];
 }
 
-export function buildJourneyView(feed: GtfsFeed, journey: SiriJourney, match: TripMatchResult): JourneyView
+export function buildJourneyView(
+    feed: GtfsFeed,
+    journey: SiriJourney,
+    match: TripMatchResult,
+    operator: TransitOperator = blablacarBusOperator
+): JourneyView
 {
     if (journey.calls.length === 0)
     {
@@ -168,6 +182,9 @@ export function buildJourneyView(feed: GtfsFeed, journey: SiriJourney, match: Tr
         journeyRef: journey.journeyRef,
         serviceNumber: journey.serviceNumber,
         serviceDate: journey.serviceDate,
+        operatorSlug: operator.slug,
+        operatorName: operator.name,
+        realtimeAvailable: operator.realtimeAvailable,
         originStopId: origin.stopId,
         originName: origin.name,
         originCity: origin.city,
@@ -189,7 +206,7 @@ export function buildJourneyView(feed: GtfsFeed, journey: SiriJourney, match: Tr
 
 export function cityName(stopName: string): string
 {
-    return stopName.split(" - ")[0]?.trim() || stopName;
+    return stopName.split(" - ")[0]?.split(" (")[0]?.trim() || stopName;
 }
 
 export function citySlug(value: string): string

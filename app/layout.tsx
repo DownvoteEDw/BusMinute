@@ -10,14 +10,14 @@ export const metadata: Metadata = {
     metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
     applicationName: "BusMinute",
     title: {
-        default: "BusMinute — Suivi des bus en temps réel",
+        default: "BusMinute — Horaires BlaBlaCar Bus et FlixBus",
         template: "%s | BusMinute"
     },
     description: "Horaires, retards et signalements voyageurs pour les cars longue distance.",
     category: "transport",
-    keywords: ["suivi bus", "retard bus", "BlaBlaCar Bus", "gare routière", "horaires autocar"],
+    keywords: ["suivi bus", "retard bus", "BlaBlaCar Bus", "FlixBus", "gare routière", "horaires autocar"],
     openGraph: {
-        title: "BusMinute — Suivi des bus en temps réel",
+        title: "BusMinute — Horaires BlaBlaCar Bus et FlixBus",
         description: "Votre bus, minute par minute.",
         type: "website",
         locale: "fr_FR",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: "summary_large_image",
-        title: "BusMinute — Suivi des bus en temps réel",
+        title: "BusMinute — Horaires BlaBlaCar Bus et FlixBus",
         description: "Votre bus, minute par minute.",
         images: ["/og.png"]
     },
@@ -87,7 +87,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
                 <main>{children}</main>
                 <footer className="site-footer">
                     <span>BusMinute</span>
-                    <span>Service indépendant, non affilié à BlaBlaCar.</span>
+                    <span>Service indépendant, non affilié aux opérateurs.</span>
                 </footer>
                 <StructuredData value={structuredData} />
                 <Script

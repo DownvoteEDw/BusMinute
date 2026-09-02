@@ -7,7 +7,7 @@ import { transitDataService } from "../../src/application/transit-data-service";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
     title: "Villes et gares routières desservies",
-    description: "Retrouvez les villes et gares routières BlaBlaCar Bus suivies par BusMinute, avec les départs et retards disponibles en direct.",
+    description: "Retrouvez les villes et gares routières BlaBlaCar Bus et FlixBus, avec les horaires et retards disponibles.",
     alternates: {
         canonical: "/villes"
     }

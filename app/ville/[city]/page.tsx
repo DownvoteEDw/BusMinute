@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     return {
         title: `Bus à ${board.name} : gares, départs et retards`,
-        description: `Trouvez les gares routières de ${board.name} et suivez les départs BlaBlaCar Bus avec leurs horaires et retards actualisés.`,
+        description: `Trouvez les gares routières de ${board.name} et consultez les départs BlaBlaCar Bus et FlixBus avec leurs horaires disponibles.`,
         alternates: {
             canonical: `/ville/${board.slug}`
         }
@@ -86,7 +86,7 @@ export default async function CityPage({ params }: PageProps)
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading city-heading">
-                <span className="section-kicker">Gares et départs en temps réel</span>
+                <span className="section-kicker">Gares et horaires officiels</span>
                 <h1>Bus à <em>{board.name}</em></h1>
                 <p>{board.stops.length} gare{board.stops.length > 1 ? "s routières" : " routière"} référencée{board.stops.length > 1 ? "s" : ""}.</p>
                 <SearchBox compact initialQuery="" />
@@ -104,7 +104,7 @@ export default async function CityPage({ params }: PageProps)
                         return (
                             <Link className={`station-card${isPrimary ? " is-primary" : ""}`} href={`/gares/${encodeURIComponent(stop.stopId)}`} key={stop.stopId}>
                                 <span className="station-card-top">
-                                    <span className="station-card-code">Gare · {stop.stopId}</span>
+                                    <span className="station-card-code">{stop.operatorName} · Gare</span>
                                     {isPrimary && <span className="station-card-popular">La plus active</span>}
                                 </span>
                                 <span className="station-card-main">
@@ -139,7 +139,7 @@ export default async function CityPage({ params }: PageProps)
             )}
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Bus passant par {board.name}</h2></div>
+                    <div><span className="live-pill light"><i /> Horaires officiels</span><h2>Bus passant par {board.name}</h2></div>
                     <span>{board.journeys.length} passage{board.journeys.length > 1 ? "s" : ""}</span>
                 </div>
                 {board.journeys.length === 0 ? (

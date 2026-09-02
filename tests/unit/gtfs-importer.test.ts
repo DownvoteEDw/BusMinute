@@ -6,8 +6,10 @@ import AdmZip from "adm-zip";
 import { describe, expect, it } from "vitest";
 import { BlaBlaCarGtfsImporter } from "../../src/providers/blablacar/gtfs/importer.js";
 import { isServiceActive } from "../../src/providers/blablacar/gtfs/service-calendar.js";
+import { filterFlixBusFeed } from "../../src/providers/flixbus/data-source.js";
 
 const gtfsPath = fileURLToPath(new URL("../fixtures/gtfs-50819", import.meta.url));
+const flixBusGtfsPath = fileURLToPath(new URL("../fixtures/gtfs-flixbus", import.meta.url));
 
 describe("BlaBlaCarGtfsImporter", () =>
 {
@@ -50,5 +52,16 @@ describe("BlaBlaCarGtfsImporter", () =>
 
         expect(isServiceActive(current, feed.calendarExceptions, "2026-08-22")).toBe(true);
         expect(isServiceActive(future, feed.calendarExceptions, "2026-08-22")).toBe(false);
+    });
+
+    it("déduit le numéro FlixBus de la ligne et exclut FlixTrain", async () =>
+    {
+        const imported = await new BlaBlaCarGtfsImporter().import(flixBusGtfsPath);
+        const feed = filterFlixBusFeed(imported);
+
+        expect(feed.agencies.map((agency) => agency.externalId)).toEqual(["FLIXBUS-eu"]);
+        expect(feed.routes.map((route) => route.externalId)).toEqual(["1606"]);
+        expect(feed.trips).toHaveLength(1);
+        expect(feed.trips[0]?.serviceNumber).toBe("1606");
     });
 });

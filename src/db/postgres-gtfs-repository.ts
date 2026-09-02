@@ -159,13 +159,48 @@ export class PostgresGtfsRepository
     private async upsertCalendars(client: PoolClient, operatorId: string, feed: GtfsFeed): Promise<Map<string, string>>
     {
         const ids = new Map<string, string>();
-
-        for (const calendar of feed.calendars)
+        const records = feed.calendars.map((calendar) =>
         {
-            const result = await client.query<{ id: string }>(
-                `INSERT INTO service_calendars
+            return {
+                external_id: calendar.externalId,
+                monday: calendar.monday,
+                tuesday: calendar.tuesday,
+                wednesday: calendar.wednesday,
+                thursday: calendar.thursday,
+                friday: calendar.friday,
+                saturday: calendar.saturday,
+                sunday: calendar.sunday,
+                start_date: calendar.startDate,
+                end_date: calendar.endDate
+            };
+        });
+
+        for (const values of chunks(records, 2_000))
+        {
+            const result = await client.query<{ id: string; external_id: string }>(
+                `WITH input AS
+                (
+                    SELECT *
+                    FROM jsonb_to_recordset($2::jsonb) AS value
+                    (
+                        external_id text,
+                        monday boolean,
+                        tuesday boolean,
+                        wednesday boolean,
+                        thursday boolean,
+                        friday boolean,
+                        saturday boolean,
+                        sunday boolean,
+                        start_date date,
+                        end_date date
+                    )
+                )
+                INSERT INTO service_calendars
                     (operator_id, external_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 SELECT $1, input.external_id, input.monday, input.tuesday, input.wednesday,
+                        input.thursday, input.friday, input.saturday, input.sunday,
+                        input.start_date, input.end_date
+                 FROM input
                  ON CONFLICT (operator_id, external_id) DO UPDATE
                  SET monday = EXCLUDED.monday,
                      tuesday = EXCLUDED.tuesday,
@@ -177,22 +212,14 @@ export class PostgresGtfsRepository
                      start_date = EXCLUDED.start_date,
                      end_date = EXCLUDED.end_date,
                      updated_at = now()
-                 RETURNING id`,
-                [
-                    operatorId,
-                    calendar.externalId,
-                    calendar.monday,
-                    calendar.tuesday,
-                    calendar.wednesday,
-                    calendar.thursday,
-                    calendar.friday,
-                    calendar.saturday,
-                    calendar.sunday,
-                    calendar.startDate,
-                    calendar.endDate
-                ]
+                 RETURNING id, external_id`,
+                [operatorId, JSON.stringify(values)]
             );
-            ids.set(calendar.externalId, requiredId(result.rows[0], `service ${calendar.externalId}`));
+
+            for (const row of result.rows)
+            {
+                ids.set(row.external_id, row.id);
+            }
         }
 
         return ids;
@@ -204,25 +231,44 @@ export class PostgresGtfsRepository
         feed: GtfsFeed
     ): Promise<void>
     {
-        for (const calendarId of calendarIds.values())
+        if (calendarIds.size > 0)
         {
             await client.query(
-                "DELETE FROM service_calendar_dates WHERE service_calendar_id = $1",
-                [calendarId]
+                "DELETE FROM service_calendar_dates WHERE service_calendar_id = ANY($1::uuid[])",
+                [[...calendarIds.values()]]
             );
         }
 
-        for (const exception of feed.calendarExceptions)
+        const records = feed.calendarExceptions.map((exception) =>
         {
-            const calendarId = requiredMapValue(
-                calendarIds,
-                exception.serviceExternalId,
-                `service ${exception.serviceExternalId}`
-            );
+            return {
+                service_calendar_id: requiredMapValue(
+                    calendarIds,
+                    exception.serviceExternalId,
+                    `service ${exception.serviceExternalId}`
+                ),
+                service_date: exception.date,
+                exception_type: exception.type
+            };
+        });
+
+        for (const values of chunks(records, 5_000))
+        {
             await client.query(
-                `INSERT INTO service_calendar_dates (service_calendar_id, service_date, exception_type)
-                 VALUES ($1, $2, $3)`,
-                [calendarId, exception.date, exception.type]
+                `WITH input AS
+                (
+                    SELECT *
+                    FROM jsonb_to_recordset($1::jsonb) AS value
+                    (
+                        service_calendar_id uuid,
+                        service_date date,
+                        exception_type smallint
+                    )
+                )
+                INSERT INTO service_calendar_dates (service_calendar_id, service_date, exception_type)
+                SELECT input.service_calendar_id, input.service_date, input.exception_type
+                FROM input`,
+                [JSON.stringify(values)]
             );
         }
     }
@@ -236,19 +282,45 @@ export class PostgresGtfsRepository
     ): Promise<Map<string, string>>
     {
         const ids = new Map<string, string>();
-
-        for (const trip of feed.trips)
+        const records = feed.trips.map((trip) =>
         {
-            const routeId = requiredMapValue(routeIds, trip.routeExternalId, `route ${trip.routeExternalId}`);
-            const calendarId = requiredMapValue(
-                calendarIds,
-                trip.serviceExternalId,
-                `service ${trip.serviceExternalId}`
-            );
-            const result = await client.query<{ id: string }>(
-                `INSERT INTO scheduled_trips
+            return {
+                route_id: requiredMapValue(routeIds, trip.routeExternalId, `route ${trip.routeExternalId}`),
+                service_calendar_id: requiredMapValue(
+                    calendarIds,
+                    trip.serviceExternalId,
+                    `service ${trip.serviceExternalId}`
+                ),
+                external_trip_id: trip.externalId,
+                service_number: trip.serviceNumber,
+                headsign: trip.headsign,
+                wheelchair_accessible: trip.wheelchairAccessible,
+                bikes_allowed: trip.bikesAllowed
+            };
+        });
+
+        for (const values of chunks(records, 2_000))
+        {
+            const result = await client.query<{ id: string; external_trip_id: string }>(
+                `WITH input AS
+                (
+                    SELECT *
+                    FROM jsonb_to_recordset($2::jsonb) AS value
+                    (
+                        route_id uuid,
+                        service_calendar_id uuid,
+                        external_trip_id text,
+                        service_number text,
+                        headsign text,
+                        wheelchair_accessible integer,
+                        bikes_allowed integer
+                    )
+                )
+                INSERT INTO scheduled_trips
                     (operator_id, route_id, service_calendar_id, external_trip_id, service_number, headsign, wheelchair_accessible, bikes_allowed)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 SELECT $1, input.route_id, input.service_calendar_id, input.external_trip_id,
+                        input.service_number, input.headsign, input.wheelchair_accessible, input.bikes_allowed
+                 FROM input
                  ON CONFLICT (operator_id, external_trip_id) DO UPDATE
                  SET route_id = EXCLUDED.route_id,
                      service_calendar_id = EXCLUDED.service_calendar_id,
@@ -257,19 +329,14 @@ export class PostgresGtfsRepository
                      wheelchair_accessible = EXCLUDED.wheelchair_accessible,
                      bikes_allowed = EXCLUDED.bikes_allowed,
                      updated_at = now()
-                 RETURNING id`,
-                [
-                    operatorId,
-                    routeId,
-                    calendarId,
-                    trip.externalId,
-                    trip.serviceNumber,
-                    trip.headsign,
-                    trip.wheelchairAccessible,
-                    trip.bikesAllowed
-                ]
+                 RETURNING id, external_trip_id`,
+                [operatorId, JSON.stringify(values)]
             );
-            ids.set(trip.externalId, requiredId(result.rows[0], `trajet ${trip.externalId}`));
+
+            for (const row of result.rows)
+            {
+                ids.set(row.external_trip_id, row.id);
+            }
         }
 
         return ids;
@@ -283,34 +350,76 @@ export class PostgresGtfsRepository
     ): Promise<number>
     {
         let count = 0;
+        let records: Array<Record<string, string | number | null>> = [];
+
+        if (tripIds.size > 0)
+        {
+            await client.query(
+                "DELETE FROM scheduled_stop_times WHERE scheduled_trip_id = ANY($1::uuid[])",
+                [[...tripIds.values()]]
+            );
+        }
 
         for (const trip of feed.trips)
         {
             const tripId = requiredMapValue(tripIds, trip.externalId, `trajet ${trip.externalId}`);
-            await client.query("DELETE FROM scheduled_stop_times WHERE scheduled_trip_id = $1", [tripId]);
 
             for (const stopTime of trip.stopTimes)
             {
-                const stopId = requiredMapValue(stopIds, stopTime.stopExternalId, `arrêt ${stopTime.stopExternalId}`);
-                await client.query(
-                    `INSERT INTO scheduled_stop_times
-                        (scheduled_trip_id, stop_id, stop_sequence, arrival_seconds, departure_seconds, pickup_type, drop_off_type)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                    [
-                        tripId,
-                        stopId,
-                        stopTime.sequence,
-                        stopTime.arrivalSeconds,
-                        stopTime.departureSeconds,
-                        stopTime.pickupType,
-                        stopTime.dropOffType
-                    ]
-                );
+                records.push({
+                    scheduled_trip_id: tripId,
+                    stop_id: requiredMapValue(stopIds, stopTime.stopExternalId, `arrêt ${stopTime.stopExternalId}`),
+                    stop_sequence: stopTime.sequence,
+                    arrival_seconds: stopTime.arrivalSeconds,
+                    departure_seconds: stopTime.departureSeconds,
+                    pickup_type: stopTime.pickupType,
+                    drop_off_type: stopTime.dropOffType
+                });
                 count += 1;
+
+                if (records.length >= 5_000)
+                {
+                    await this.insertStopTimes(client, records);
+                    records = [];
+                }
             }
         }
 
+        if (records.length > 0)
+        {
+            await this.insertStopTimes(client, records);
+        }
+
         return count;
+    }
+
+    private async insertStopTimes(
+        client: PoolClient,
+        values: Array<Record<string, string | number | null>>
+    ): Promise<void>
+    {
+        await client.query(
+            `WITH input AS
+            (
+                SELECT *
+                FROM jsonb_to_recordset($1::jsonb) AS value
+                (
+                    scheduled_trip_id uuid,
+                    stop_id uuid,
+                    stop_sequence integer,
+                    arrival_seconds integer,
+                    departure_seconds integer,
+                    pickup_type integer,
+                    drop_off_type integer
+                )
+            )
+            INSERT INTO scheduled_stop_times
+                (scheduled_trip_id, stop_id, stop_sequence, arrival_seconds, departure_seconds, pickup_type, drop_off_type)
+            SELECT input.scheduled_trip_id, input.stop_id, input.stop_sequence,
+                   input.arrival_seconds, input.departure_seconds, input.pickup_type, input.drop_off_type
+            FROM input`,
+            [JSON.stringify(values)]
+        );
     }
 }
 
@@ -334,4 +443,16 @@ function requiredMapValue(values: Map<string, string>, key: string, label: strin
     }
 
     return value;
+}
+
+function chunks<T>(values: T[], size: number): T[][]
+{
+    const result: T[][] = [];
+
+    for (let index = 0; index < values.length; index += size)
+    {
+        result.push(values.slice(index, index + size));
+    }
+
+    return result;
 }

@@ -114,7 +114,7 @@ export class BlaBlaCarGtfsImporter
         const calendarExceptions = calendarDateRows.map((row, index) => this.mapCalendarException(row, index));
         const calendars = calendarRows.map((row, index) => this.mapCalendar(row, index));
         const stopTimes = this.groupStopTimes(stopTimeRows);
-        const trips = tripRows.map((row, index) => this.mapTrip(row, index, stopTimes));
+        const trips = tripRows.map((row, index) => this.mapTrip(row, index, stopTimes, routes));
 
         this.addMissingCalendars(calendars, calendarExceptions, trips);
         this.validateReferences(agencies, stops, routes, calendars, trips);
@@ -267,9 +267,16 @@ export class BlaBlaCarGtfsImporter
         return grouped;
     }
 
-    private mapTrip(row: CsvRecord, index: number, stopTimes: Map<string, GtfsStopTime[]>): GtfsScheduledTrip
+    private mapTrip(
+        row: CsvRecord,
+        index: number,
+        stopTimes: Map<string, GtfsStopTime[]>,
+        routes: GtfsRoute[]
+    ): GtfsScheduledTrip
     {
         const externalId = required(row, "trip_id", "trips.txt", index);
+        const routeExternalId = required(row, "route_id", "trips.txt", index);
+        const route = routes.find((candidate) => candidate.externalId === routeExternalId);
         const tripStopTimes = stopTimes.get(externalId) ?? [];
 
         if (tripStopTimes.length === 0)
@@ -279,9 +286,9 @@ export class BlaBlaCarGtfsImporter
 
         return {
             externalId,
-            routeExternalId: required(row, "route_id", "trips.txt", index),
+            routeExternalId,
             serviceExternalId: required(row, "service_id", "trips.txt", index),
-            serviceNumber: required(row, "trip_short_name", "trips.txt", index),
+            serviceNumber: serviceNumber(row, route, routeExternalId),
             headsign: optional(row, "trip_headsign"),
             wheelchairAccessible: optionalInteger(row, "wheelchair_accessible", "trips.txt", index),
             bikesAllowed: optionalInteger(row, "bikes_allowed", "trips.txt", index),
@@ -401,6 +408,14 @@ function optional(row: CsvRecord, key: string): string | null
 {
     const value = row[key]?.trim();
     return value ? value : null;
+}
+
+function serviceNumber(row: CsvRecord, route: GtfsRoute | undefined, routeExternalId: string): string
+{
+    const value = optional(row, "trip_short_name")
+        ?? route?.shortName
+        ?? routeExternalId;
+    return value.replace(/^FlixBus\s+/i, "").trim();
 }
 
 function numberValue(row: CsvRecord, key: string, file: string, index: number): number

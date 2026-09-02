@@ -11,10 +11,19 @@ import
     type PersistedRealtimeCounts
 } from "../db/postgres-realtime-repository.js";
 import { BlaBlaCarDataSource } from "../providers/blablacar/data-source.js";
+import { FlixBusDataSource } from "../providers/flixbus/data-source.js";
+import { blablacarBusOperator, flixBusOperator } from "./operators.js";
+
+export interface PersistedOperatorGtfsCounts
+{
+    blablacarBus: PersistedGtfsCounts;
+    flixBus: PersistedGtfsCounts | null;
+}
 
 export class TransitSyncService
 {
     private readonly dataSource = new BlaBlaCarDataSource();
+    private readonly flixBusDataSource = new FlixBusDataSource();
     private readonly gtfsRepository: PostgresGtfsRepository;
     private readonly realtimeRepository: PostgresRealtimeRepository;
     private feed: GtfsFeed | null = null;
@@ -25,27 +34,23 @@ export class TransitSyncService
         this.realtimeRepository = new PostgresRealtimeRepository(pool);
     }
 
-    public async syncGtfs(forceDownload = true): Promise<PersistedGtfsCounts>
+    public async syncGtfs(forceDownload = true): Promise<PersistedOperatorGtfsCounts>
     {
-        const runId = await this.realtimeRepository.startSyncRun("GTFS");
+        const blablacarBus = await this.syncBlablacarGtfs(forceDownload);
+        let flixBus: PersistedGtfsCounts | null = null;
 
-        try
+        if (process.env.FLIXBUS_GTFS_ENABLED !== "false")
         {
-            const feed = await this.dataSource.loadGtfs(forceDownload);
-            const counts = await this.gtfsRepository.replaceOperatorSchedule(feed,
+            try
             {
-                slug: "blablacar-bus",
-                name: "BlaBlaCar Bus"
-            });
-            this.feed = feed;
-            await this.realtimeRepository.completeSyncRun(runId, counts.trips, null);
-            return counts;
+                flixBus = await this.syncFlixBusGtfs(forceDownload);
+            }
+            catch
+            {
+            }
         }
-        catch (error)
-        {
-            await this.realtimeRepository.failSyncRun(runId, error);
-            throw error;
-        }
+
+        return { blablacarBus, flixBus };
     }
 
     public async syncRealtime(): Promise<PersistedRealtimeCounts>
@@ -78,5 +83,42 @@ export class TransitSyncService
     public async purgeHistory(retentionDays: number): Promise<number>
     {
         return this.realtimeRepository.purgeOldData(retentionDays);
+    }
+
+    private async syncBlablacarGtfs(forceDownload: boolean): Promise<PersistedGtfsCounts>
+    {
+        const runId = await this.realtimeRepository.startSyncRun("GTFS_BLABLACAR", blablacarBusOperator.slug);
+
+        try
+        {
+            const feed = await this.dataSource.loadGtfs(forceDownload);
+            const counts = await this.gtfsRepository.replaceOperatorSchedule(feed, blablacarBusOperator);
+            this.feed = feed;
+            await this.realtimeRepository.completeSyncRun(runId, counts.trips, null);
+            return counts;
+        }
+        catch (error)
+        {
+            await this.realtimeRepository.failSyncRun(runId, error);
+            throw error;
+        }
+    }
+
+    private async syncFlixBusGtfs(forceDownload: boolean): Promise<PersistedGtfsCounts>
+    {
+        const runId = await this.realtimeRepository.startSyncRun("GTFS_FLIXBUS", flixBusOperator.slug);
+
+        try
+        {
+            const feed = await this.flixBusDataSource.loadGtfs(forceDownload);
+            const counts = await this.gtfsRepository.replaceOperatorSchedule(feed, flixBusOperator);
+            await this.realtimeRepository.completeSyncRun(runId, counts.trips, null);
+            return counts;
+        }
+        catch (error)
+        {
+            await this.realtimeRepository.failSyncRun(runId, error);
+            throw error;
+        }
     }
 }

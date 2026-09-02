@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Application complète de suivi GTFS et SIRI-Lite pour BlaBlaCar Bus",
+  "description": "Horaires GTFS multi-opérateurs et suivi SIRI-Lite pour BlaBlaCar Bus et FlixBus",
   "scripts": {
     "dev": "next dev --webpack",
     "start": "next start",

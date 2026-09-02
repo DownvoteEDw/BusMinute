@@ -155,8 +155,8 @@ export function SearchBox({ initialQuery = "", compact = false }: SearchBoxProps
                             {
                                 return (
                                     <button key={journey.journeyRef} onClick={() => choose(journey)} role="option">
-                                        <span><b>Bus {journey.serviceNumber}</b><small>{journey.originCity} → {journey.destinationCity}</small></span>
-                                        <span className={`result-delay ${delayClass(journey.delaySeconds)}`}>{formatDelay(journey.delaySeconds)}</span>
+                                        <span><b>{journey.operatorName} · Bus {journey.serviceNumber}</b><small>{journey.originCity} → {journey.destinationCity}</small></span>
+                                        <span className={`result-delay ${delayClass(journey.delaySeconds)}`}>{formatDelay(journey)}</span>
                                     </button>
                                 );
                             })}
@@ -168,11 +168,13 @@ export function SearchBox({ initialQuery = "", compact = false }: SearchBoxProps
     );
 }
 
-function formatDelay(seconds: number | null): string
+function formatDelay(journey: JourneyView): string
 {
+    const seconds = journey.delaySeconds;
+
     if (seconds === null)
     {
-        return "À venir";
+        return journey.realtimeAvailable ? "À venir" : "Horaire théorique";
     }
 
     const minutes = Math.round(seconds / 60);

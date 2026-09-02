@@ -1,5 +1,7 @@
 export * from "./domain/models.js";
 export * from "./application/journey-view.js";
+export * from "./application/operators.js";
+export * from "./application/scheduled-journeys.js";
 export * from "./application/passenger-reports.js";
 export * from "./application/transit-data-service.js";
 export * from "./application/transit-sync-service.js";
@@ -10,4 +12,5 @@ export * from "./providers/blablacar/data-source.js";
 export * from "./providers/blablacar/gtfs/importer.js";
 export * from "./providers/blablacar/gtfs/service-calendar.js";
 export * from "./providers/blablacar/siri/parser.js";
+export * from "./providers/flixbus/data-source.js";
 export * from "./services/trip-matcher.js";

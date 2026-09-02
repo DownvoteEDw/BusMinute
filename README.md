@@ -1,6 +1,6 @@
 # BusMinute
 
-Application monolithique de suivi BlaBlaCar Bus. Elle importe les horaires GTFS, lit le temps réel SIRI-Lite, associe chaque circulation à son trajet théorique et présente le résultat dans une interface web complète.
+Application monolithique d’horaires BlaBlaCar Bus et FlixBus. Elle importe leurs GTFS officiels, lit le temps réel SIRI-Lite BlaBlaCar Bus, associe chaque circulation à son trajet théorique et présente le résultat dans une interface web complète.
 
 ## Fonctionnalités
 
@@ -10,7 +10,8 @@ Application monolithique de suivi BlaBlaCar Bus. Elle importe les horaires GTFS,
 - recherche par ville et gare, même sans circulation active ;
 - pages de ville, gare, départ daté et liaison ;
 - signalements voyageurs avec persistance PostgreSQL et repli en mémoire ;
-- synchronisation GTFS quotidienne et SIRI-Lite chaque minute ;
+- synchronisation quotidienne des GTFS BlaBlaCar Bus et FlixBus, et SIRI-Lite BlaBlaCar Bus chaque minute ;
+- horaires théoriques FlixBus clairement distingués des trajets suivis en temps réel ;
 - état temps réel courant et observations historiques conservés dans PostgreSQL ;
 - historique de ponctualité par ligne et destination ;
 - import GTFS depuis un dossier ou une archive ZIP ;
@@ -80,6 +81,9 @@ Variables disponibles :
 | `POSTGRES_USER` | non | utilisateur, `busminute` par défaut |
 | `DATABASE_SSL` | non | `false` avec le PostgreSQL interne |
 | `GTFS_URL` | non | source GTFS officielle |
+| `FLIXBUS_GTFS_ENABLED` | non | active FlixBus, `true` par défaut |
+| `FLIXBUS_GTFS_URL` | non | source GTFS officielle FlixBus |
+| `FLIXBUS_GTFS_TIMEOUT_MS` | non | délai de téléchargement du GTFS FlixBus, `300000` par défaut |
 | `SIRI_URL` | non | source SIRI-Lite officielle |
 | `REALTIME_SYNC_INTERVAL_SECONDS` | non | fréquence SIRI, `60` par défaut |
 | `GTFS_SYNC_INTERVAL_HOURS` | non | fréquence GTFS, `24` par défaut |
@@ -93,7 +97,7 @@ PostgreSQL n’est pas publié sur Internet. Seul le service `app` est exposé a
 Le worker applique le cycle suivant :
 
 ```text
-GTFS quotidien
+GTFS BlaBlaCar Bus + FlixBus quotidien
       ↓
 horaires PostgreSQL
       ↓
@@ -212,9 +216,10 @@ public/              ressources publiques
 
 ## Données et licence
 
-Les fixtures sont un extrait des ressources officielles BlaBlaCar Bus observées le 22 août 2026 :
+Les fixtures sont des extraits des ressources officielles BlaBlaCar Bus et FlixBus :
 
 - [jeu de données GTFS et SIRI-Lite](https://transport.data.gouv.fr/datasets/blablacar-bus-horaires-theoriques-et-temps-reel-du-reseau-europeen) ;
 - [endpoint SIRI-Lite EstimatedTimetable](https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable).
+- [jeu de données GTFS FlixBus](https://transport.data.gouv.fr/datasets/flixbus-horaires-theoriques-du-reseau-europeen-1).
 
-L’extrait conserve les variantes calendaires du service 50819 ainsi que les appels `XPB → XOS → XTO` et leurs heures constatées. Les données source sont publiées sous ODbL. BusMinute est un projet indépendant de BlaBlaCar.
+L’extrait BlaBlaCar conserve les variantes calendaires du service 50819 ainsi que les appels `XPB → XOS → XTO` et leurs heures constatées. L’extrait FlixBus reproduit le schéma officiel, y compris l’absence de `trip_short_name`. Les données source sont publiées sous ODbL. BusMinute est un projet indépendant des opérateurs.

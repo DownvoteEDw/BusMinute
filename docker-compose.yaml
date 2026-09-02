@@ -15,6 +15,9 @@ x-busminute-environment: &busminute-environment
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
   DATABASE_SSL: ${DATABASE_SSL:-false}
   GTFS_URL: ${GTFS_URL:-https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o}
+  FLIXBUS_GTFS_ENABLED: ${FLIXBUS_GTFS_ENABLED:-true}
+  FLIXBUS_GTFS_URL: ${FLIXBUS_GTFS_URL:-https://gtfs.gis.flix.tech/gtfs_generic_eu.zip}
+  FLIXBUS_GTFS_TIMEOUT_MS: ${FLIXBUS_GTFS_TIMEOUT_MS:-300000}
   SIRI_URL: ${SIRI_URL:-https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable}
   REALTIME_SYNC_INTERVAL_SECONDS: ${REALTIME_SYNC_INTERVAL_SECONDS:-60}
   GTFS_SYNC_INTERVAL_HOURS: ${GTFS_SYNC_INTERVAL_HOURS:-24}

@@ -29,8 +29,8 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
             </div>
             <div className="journey-card-body">
                 <div className="journey-card-head">
-                    <span>Bus {journey.serviceNumber}</span>
-                    <span className={`journey-status ${journey.status}`}><i /> {statusLabel(journey.status)}</span>
+                    <span>{journey.operatorName} · Bus {journey.serviceNumber}</span>
+                    <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeAvailable ? statusLabel(journey.status) : "Horaire prévu"}</span>
                 </div>
                 <h2>{originCity} <span>→</span> {destinationCity}</h2>
                 <p>{event.detail}</p>

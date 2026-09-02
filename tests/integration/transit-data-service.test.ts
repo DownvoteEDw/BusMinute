@@ -4,8 +4,11 @@ import { TransitDataService } from "../../src/application/transit-data-service.j
 
 const gtfsPath = fileURLToPath(new URL("../fixtures/gtfs-50819", import.meta.url));
 const siriPath = fileURLToPath(new URL("../fixtures/siri-50819-2026-08-22.json", import.meta.url));
+const flixBusGtfsPath = fileURLToPath(new URL("../fixtures/gtfs-flixbus", import.meta.url));
 let previousGtfsPath: string | undefined;
 let previousSiriPath: string | undefined;
+let previousFlixBusEnabled: string | undefined;
+let previousFlixBusGtfsPath: string | undefined;
 
 describe("TransitDataService", () =>
 {
@@ -13,14 +16,19 @@ describe("TransitDataService", () =>
     {
         previousGtfsPath = process.env.GTFS_PATH;
         previousSiriPath = process.env.SIRI_PATH;
+        previousFlixBusEnabled = process.env.FLIXBUS_GTFS_ENABLED;
+        previousFlixBusGtfsPath = process.env.FLIXBUS_GTFS_PATH;
         process.env.GTFS_PATH = gtfsPath;
         process.env.SIRI_PATH = siriPath;
+        process.env.FLIXBUS_GTFS_ENABLED = "false";
     });
 
     afterEach(() =>
     {
         restoreEnvironment("GTFS_PATH", previousGtfsPath);
         restoreEnvironment("SIRI_PATH", previousSiriPath);
+        restoreEnvironment("FLIXBUS_GTFS_ENABLED", previousFlixBusEnabled);
+        restoreEnvironment("FLIXBUS_GTFS_PATH", previousFlixBusGtfsPath);
     });
 
     it("alimente recherche, suivi, gare et liaison avec les données normalisées", async () =>
@@ -97,6 +105,37 @@ describe("TransitDataService", () =>
 
         expect(board).toHaveLength(1);
         expect(board[0]?.journeyRef).toBe("50819:2026-08-22");
+    });
+
+    it("ajoute les horaires FlixBus sans les présenter comme du temps réel", async () =>
+    {
+        process.env.FLIXBUS_GTFS_ENABLED = "true";
+        process.env.FLIXBUS_GTFS_PATH = flixBusGtfsPath;
+        const service = new TransitDataService();
+        const searchResults = await service.search("1606", 20);
+        const journey = searchResults.find((candidate) => candidate.operatorSlug === "flixbus");
+
+        expect(journey).toBeDefined();
+        expect(journey?.serviceNumber).toBe("1606");
+        expect(journey?.operatorName).toBe("FlixBus");
+        expect(journey?.realtimeAvailable).toBe(false);
+        expect(journey?.journeyRef).toContain("flixbus:1606-18-0850082026-M#FR-00:");
+
+        if (!journey)
+        {
+            return;
+        }
+
+        const details = await service.getJourney(journey.journeyRef);
+        const stop = await service.getStopBoard("flixbus:00308c34-1111-4444-8888-111111111111");
+        const city = await service.getCityBoard("lyon");
+
+        expect(details?.scheduledTripId).toBe("1606-18-0850082026-M#FR-00");
+        expect(details?.matchMethod).toBe("GTFS_SCHEDULE");
+        expect(stop?.operatorName).toBe("FlixBus");
+        expect(stop?.journeys.some((candidate) => candidate.journeyRef === journey.journeyRef)).toBe(true);
+        expect(city?.stops.some((candidate) => candidate.operatorSlug === "flixbus")).toBe(true);
+        expect(searchResults.some((candidate) => candidate.serviceNumber === "FLX20")).toBe(false);
     });
 });
 

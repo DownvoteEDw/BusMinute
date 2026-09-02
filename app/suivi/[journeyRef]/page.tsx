@@ -25,8 +25,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         return { title: "Bus introuvable" };
     }
 
-    const title = `Bus ${journey.serviceNumber} ${journey.originCity} → ${journey.destinationCity}`;
-    const description = `Suivez le bus ${journey.serviceNumber} en direct : horaires réels, retard à chaque arrêt et signalements voyageurs.`;
+    const title = `${journey.operatorName} ${journey.serviceNumber} ${journey.originCity} → ${journey.destinationCity}`;
+    const description = journey.realtimeAvailable
+        ? `Suivez le bus ${journey.serviceNumber} en direct : horaires réels, retard à chaque arrêt et signalements voyageurs.`
+        : `Consultez les horaires théoriques officiels du FlixBus ${journey.serviceNumber}, de ${journey.originCity} à ${journey.destinationCity}.`;
 
     return {
         title,
@@ -97,9 +99,9 @@ export default async function JourneyPage({ params }: PageProps)
             </nav>
             <header className="route-heading">
                 <div>
-                    <span className="section-kicker">Suivi officiel + voyageurs</span>
+                    <span className="section-kicker">{journey.realtimeAvailable ? "Suivi officiel + voyageurs" : "Horaire théorique officiel"}</span>
                     <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
-                    <p>Bus <strong>{journey.serviceNumber}</strong> · {longDate(journey.serviceDate)}</p>
+                    <p>{journey.operatorName} · Bus <strong>{journey.serviceNumber}</strong> · {longDate(journey.serviceDate)}</p>
                 </div>
                 <div className="route-links">
                     <Link href={`/gares/${encodeURIComponent(journey.originStopId)}`}>{journey.originCity}</Link>

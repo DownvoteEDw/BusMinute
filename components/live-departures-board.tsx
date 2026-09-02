@@ -54,8 +54,8 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
         <section className="station-board" aria-labelledby="station-board-title">
             <header className="station-board-header">
                 <div>
-                    <span className="station-board-live"><i /> Réseau en temps réel</span>
-                    <h2 id="station-board-title">Panneau temps réel</h2>
+                    <span className="station-board-live"><i /> Temps réel + horaires officiels</span>
+                    <h2 id="station-board-title">Prochains bus</h2>
                 </div>
                 <time dateTime={updatedAt ?? undefined}>{formatUpdatedAt(updatedAt)}</time>
             </header>
@@ -70,7 +70,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                 {journeys.length === 0 ? (
                     <div className="station-board-empty">
                         <strong>En attente du prochain passage</strong>
-                        <span>Le flux temps réel est actualisé automatiquement.</span>
+                        <span>Les horaires seront actualisés automatiquement.</span>
                     </div>
                 ) : journeys.map((journey) =>
                 {
@@ -83,7 +83,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                             key={journey.journeyRef}
                         >
                             <time dateTime={event.time ?? undefined}>{formatTime(event.time)}</time>
-                            <span className="station-board-service">{journey.serviceNumber}</span>
+                            <span className="station-board-service">{journey.serviceNumber}<small>{journey.operatorName}</small></span>
                             <span className="station-board-route">
                                 <strong>{journey.originCity} <i>→</i> {journey.destinationCity}</strong>
                                 <small>{event.label}</small>
@@ -95,7 +95,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                 })}
             </div>
             <footer>
-                <span>Données officielles BlaBlaCar Bus</span>
+                <span>Données officielles BlaBlaCar Bus et FlixBus</span>
                 <span>Actualisation automatique · 30 s</span>
             </footer>
         </section>

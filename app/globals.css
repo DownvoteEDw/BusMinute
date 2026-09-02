@@ -382,10 +382,22 @@ h1 em {
 
 .station-board-service {
     color: #f2f5f3;
+    display: grid;
     font-size: 12px;
     font-weight: 800;
+    gap: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.station-board-service small {
+    color: #8da199;
+    font-family: var(--font-body);
+    font-size: 8px;
+    font-weight: 750;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .station-board-route {
@@ -1877,6 +1889,10 @@ h1 em {
     font-weight: 800;
     margin-top: 24px;
     padding-bottom: 4px;
+}
+
+.license-note a + a {
+    margin-left: 20px;
 }
 
 .not-found-page {

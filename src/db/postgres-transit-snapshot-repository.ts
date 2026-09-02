@@ -198,7 +198,9 @@ export class PostgresTransitSnapshotRepository
                 {
                     externalId: operator.slug,
                     name: operator.name,
-                    url: "https://www.blablacar.fr/bus",
+                    url: operator.slug === "flixbus"
+                        ? "https://www.flixbus.fr"
+                        : "https://www.blablacar.fr/bus",
                     timezone: operator.source_timezone,
                     language: "fr"
                 }

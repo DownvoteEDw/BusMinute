@@ -10,6 +10,8 @@ import
 } from "../db/postgres-transit-snapshot-repository.js";
 import { BlaBlaCarGtfsImporter } from "../providers/blablacar/gtfs/importer.js";
 import { BlaBlaCarSiriParser } from "../providers/blablacar/siri/parser.js";
+import { isServiceActive } from "../providers/blablacar/gtfs/service-calendar.js";
+import { FlixBusDataSource } from "../providers/flixbus/data-source.js";
 import { GtfsSiriTripMatcher } from "../services/trip-matcher.js";
 import
 {
@@ -26,6 +28,21 @@ import
     type SeoIndexView,
     type StopBoardView
 } from "./journey-view.js";
+import
+{
+    blablacarBusOperator,
+    flixBusOperator,
+    parseScheduledJourneyRef,
+    parseStopReference,
+    publicStopId,
+    type TransitOperator
+} from "./operators.js";
+import
+{
+    buildScheduledJourneyView,
+    buildScheduledJourneyViews,
+    scheduledServiceDates
+} from "./scheduled-journeys.js";
 
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
@@ -33,6 +50,13 @@ const siriLifetimeMilliseconds = 45_000;
 const liveBoardLifetimeMilliseconds = 30_000;
 const databaseFeedLifetimeMilliseconds = 300_000;
 const punctualityLifetimeMilliseconds = 600_000;
+const scheduledJourneyLifetimeMilliseconds = 300_000;
+
+interface OperatorFeed
+{
+    operator: TransitOperator;
+    feed: GtfsFeed;
+}
 
 interface TimedValue<T>
 {
@@ -45,11 +69,16 @@ export class TransitDataService
     private readonly gtfsImporter = new BlaBlaCarGtfsImporter();
     private readonly siriParser = new BlaBlaCarSiriParser();
     private readonly matcher = new GtfsSiriTripMatcher();
+    private readonly flixBusDataSource = new FlixBusDataSource();
     private gtfsPromise: Promise<GtfsFeed> | null = null;
+    private flixBusGtfsPromise: Promise<GtfsFeed | null> | null = null;
     private databaseFeedCache: TimedValue<GtfsFeed> | null = null;
+    private flixBusDatabaseFeedCache: TimedValue<GtfsFeed> | null = null;
     private siriCache: TimedValue<SiriEstimatedTimetable> | null = null;
+    private flixBusJourneyCache: TimedValue<JourneyView[]> | null = null;
     private liveBoardCache: TimedValue<JourneyView[]> | null = null;
     private databaseRepository: PostgresTransitSnapshotRepository | null = null;
+    private flixBusDatabaseRepository: PostgresTransitSnapshotRepository | null = null;
     private readonly punctualityCache = new Map<string, TimedValue<PunctualitySummaryView | null>>();
 
     public async search(query: string, limit = 12): Promise<JourneyView[]>
@@ -61,20 +90,23 @@ export class TransitDataService
             return [];
         }
 
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const journeys = timetable.journeys
+        const journeys = await this.getAllJourneyViews();
+        return journeys
             .map((journey) =>
             {
                 return {
                     journey,
-                    score: journeySearchScore(journey, normalized)
+                    score: journeyViewSearchScore(journey, normalized)
                 };
             })
             .filter((candidate) => Number.isFinite(candidate.score))
-            .sort((first, second) => first.score - second.score)
+            .sort((first, second) =>
+            {
+                return first.score - second.score
+                    || boardEventTime(first.journey) - boardEventTime(second.journey);
+            })
+            .slice(0, limit)
             .map((candidate) => candidate.journey);
-
-        return this.toViews(feed, journeys, limit);
     }
 
     public async searchPlaces(query: string, limit = 8): Promise<PlaceSearchResultView[]>
@@ -86,8 +118,8 @@ export class TransitDataService
             return [];
         }
 
-        const feed = await this.getFeed();
-        const directory = buildCityDirectory(feed, []);
+        const operatorFeeds = await this.getOperatorFeeds();
+        const directory = buildCityDirectory(operatorFeeds, []);
         const cities = directory
             .filter((city) => normalizeSearch(city.name).includes(normalized) || city.slug.includes(normalized))
             .map((city) =>
@@ -100,22 +132,25 @@ export class TransitDataService
                     href: `/ville/${city.slug}`
                 };
             });
-        const stops = feed.stops
-            .filter((stop) =>
+        const stops = operatorFeeds.flatMap(({ feed, operator }) =>
+        {
+            return feed.stops.filter((stop) =>
             {
                 return normalizeSearch(stop.externalId).includes(normalized)
                     || normalizeSearch(stop.name).includes(normalized);
             })
             .map((stop) =>
             {
+                const id = publicStopId(operator, stop.externalId);
                 return {
                     type: "stop" as const,
-                    id: stop.externalId,
+                    id,
                     label: stop.name,
-                    detail: `Gare · ${stop.externalId}`,
-                    href: `/gares/${encodeURIComponent(stop.externalId)}`
+                    detail: `${operator.name} · ${stop.code ?? stop.externalId}`,
+                    href: `/gares/${encodeURIComponent(id)}`
                 };
             });
+        });
 
         return [...cities, ...stops]
             .sort((first, second) =>
@@ -129,8 +164,11 @@ export class TransitDataService
 
     public async getCityDirectory(): Promise<CityDirectoryEntryView[]>
     {
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        return buildCityDirectory(feed, timetable.journeys);
+        const [operatorFeeds, journeys] = await Promise.all([
+            this.getOperatorFeeds(),
+            this.getAllJourneyViews()
+        ]);
+        return buildCityDirectory(operatorFeeds, journeys);
     }
 
     public async getFeaturedCities(limit = 6): Promise<CityDirectoryEntryView[]>
@@ -148,26 +186,37 @@ export class TransitDataService
 
     public async getCityBoard(slug: string): Promise<CityBoardView | null>
     {
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const stops = feed.stops.filter((stop) => citySlug(cityName(stop.name)) === slug);
+        const [operatorFeeds, allJourneys] = await Promise.all([
+            this.getOperatorFeeds(),
+            this.getAllJourneyViews()
+        ]);
+        const stops = operatorFeeds.flatMap(({ feed, operator }) =>
+        {
+            return feed.stops
+                .filter((stop) => citySlug(cityName(stop.name)) === slug)
+                .map((stop) => ({ stop, operator }));
+        });
 
         if (stops.length === 0)
         {
             return null;
         }
 
-        const stopIds = new Set(stops.map((stop) => stop.externalId));
+        const stopIds = new Set(stops.map(({ stop, operator }) => publicStopId(operator, stop.externalId)));
         const currentTime = Date.now();
-        const journeys = timetable.journeys.filter((journey) =>
+        const journeys = allJourneys.filter((journey) =>
         {
-            return journey.calls.some((call) => stopIds.has(call.stopPointRef));
-        }).sort((first, second) => compareJourneysAtStops(first, second, stopIds));
-        const rankedStops = stops.map((stop) =>
+            return journey.stops.some((stop) => stopIds.has(stop.stopId));
+        }).sort((first, second) => compareJourneyViewsAtStops(first, second, stopIds));
+        const rankedStops = stops.map(({ stop, operator }) =>
         {
-            const activity = stopUpcomingActivity(timetable.journeys, stop.externalId, currentTime);
+            const stopId = publicStopId(operator, stop.externalId);
+            const activity = stopUpcomingActivity(allJourneys, stopId, currentTime);
             return {
-                stopId: stop.externalId,
+                stopId,
                 name: stop.name,
+                operatorSlug: operator.slug,
+                operatorName: operator.name,
                 latitude: stop.latitude,
                 longitude: stop.longitude,
                 upcomingJourneyCount: activity.count,
@@ -182,9 +231,9 @@ export class TransitDataService
 
         return {
             slug,
-            name: cityName(stops[0]?.name ?? slug),
+            name: cityName(stops[0]?.stop.name ?? slug),
             stops: rankedStops,
-            journeys: this.toViews(feed, journeys, 40)
+            journeys: journeys.slice(0, 40)
         };
     }
 
@@ -206,30 +255,32 @@ export class TransitDataService
 
     public async getSeoIndex(): Promise<SeoIndexView>
     {
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const cities = buildCityDirectory(feed, timetable.journeys);
+        const [operatorFeeds, journeys] = await Promise.all([
+            this.getOperatorFeeds(),
+            this.getAllJourneyViews()
+        ]);
+        const cities = buildCityDirectory(operatorFeeds, journeys);
         const routes = new Map<string, { originStopId: string; destinationStopId: string }>();
         const departures = new Map<string, { citySlug: string; serviceDate: string }>();
 
-        for (const journey of timetable.journeys)
+        for (const journey of journeys)
         {
-            const origin = journey.calls[0];
-            const destination = journey.calls[journey.calls.length - 1];
+            const origin = journey.stops[0];
+            const destination = journey.stops[journey.stops.length - 1];
 
-            if (origin && destination && origin.stopPointRef !== destination.stopPointRef)
+            if (origin && destination && origin.stopId !== destination.stopId)
             {
-                const key = `${origin.stopPointRef}:${destination.stopPointRef}`;
+                const key = `${origin.stopId}:${destination.stopId}`;
                 routes.set(key,
                 {
-                    originStopId: origin.stopPointRef,
-                    destinationStopId: destination.stopPointRef
+                    originStopId: origin.stopId,
+                    destinationStopId: destination.stopId
                 });
             }
 
-            for (const call of journey.calls)
+            for (const stop of journey.stops)
             {
-                const stop = feed.stops.find((candidate) => candidate.externalId === call.stopPointRef);
-                const slug = citySlug(cityName(call.stopPointName ?? stop?.name ?? call.stopPointRef));
+                const slug = citySlug(stop.city);
                 const key = `${slug}:${journey.serviceDate}`;
                 departures.set(key, { citySlug: slug, serviceDate: journey.serviceDate });
             }
@@ -237,15 +288,42 @@ export class TransitDataService
 
         return {
             cities: cities.map((city) => ({ slug: city.slug })),
-            stops: feed.stops.map((stop) => ({ stopId: stop.externalId })),
+            stops: operatorFeeds.flatMap(({ feed, operator }) =>
+            {
+                return feed.stops.map((stop) => ({ stopId: publicStopId(operator, stop.externalId) }));
+            }),
             routes: [...routes.values()],
             departures: [...departures.values()],
-            journeys: timetable.journeys.map((journey) => ({ journeyRef: journey.journeyRef }))
+            journeys: journeys.map((journey) => ({ journeyRef: journey.journeyRef }))
         };
     }
 
     public async getJourney(journeyRef: string): Promise<JourneyView | null>
     {
+        const scheduledReference = parseScheduledJourneyRef(journeyRef, flixBusOperator);
+
+        if (scheduledReference)
+        {
+            const feed = await this.getFlixBusFeed();
+            const trip = feed?.trips.find((candidate) => candidate.externalId === scheduledReference.tripId);
+            const calendar = feed?.calendars.find((candidate) => candidate.externalId === trip?.serviceExternalId);
+
+            if (!feed
+                || !trip
+                || !calendar
+                || !isServiceActive(calendar, feed.calendarExceptions, scheduledReference.serviceDate))
+            {
+                return null;
+            }
+
+            return buildScheduledJourneyView(
+                feed,
+                trip,
+                scheduledReference.serviceDate,
+                flixBusOperator
+            );
+        }
+
         const persistedJourney = await this.readPersistedJourney(journeyRef);
 
         if (persistedJourney)
@@ -279,59 +357,89 @@ export class TransitDataService
 
     public async getStopBoard(stopId: string): Promise<StopBoardView | null>
     {
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const stop = feed.stops.find((candidate) => candidate.externalId.toLocaleLowerCase("fr") === stopId.toLocaleLowerCase("fr"));
+        const reference = parseStopReference(stopId);
+        const operatorFeed = (await this.getOperatorFeeds()).find(({ operator }) =>
+        {
+            return operator.slug === reference.operatorSlug;
+        });
+        const stop = operatorFeed?.feed.stops.find((candidate) =>
+        {
+            return candidate.externalId.toLocaleLowerCase("fr") === reference.externalId.toLocaleLowerCase("fr");
+        });
 
-        if (!stop)
+        if (!operatorFeed || !stop)
         {
             return null;
         }
 
-        const journeys = timetable.journeys.filter((journey) =>
+        const publicId = publicStopId(operatorFeed.operator, stop.externalId);
+        const journeys = (await this.getAllJourneyViews()).filter((journey) =>
         {
-            return journey.calls.some((call) => call.stopPointRef === stop.externalId);
+            return journey.stops.some((candidate) => candidate.stopId === publicId);
         }).sort((first, second) =>
         {
-            return compareJourneysAtStops(first, second, new Set([stop.externalId]));
+            return compareJourneyViewsAtStops(first, second, new Set([publicId]));
         });
 
         return {
-            stopId: stop.externalId,
+            stopId: publicId,
             name: stop.name,
             city: cityName(stop.name),
+            operatorSlug: operatorFeed.operator.slug,
+            operatorName: operatorFeed.operator.name,
+            realtimeAvailable: operatorFeed.operator.realtimeAvailable,
             latitude: stop.latitude,
             longitude: stop.longitude,
-            journeys: this.toViews(feed, journeys, 40)
+            journeys: journeys.slice(0, 40)
         };
     }
 
     public async getRouteBoard(originStopId: string, destinationStopId: string): Promise<RouteBoardView | null>
     {
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const origin = feed.stops.find((stop) => stop.externalId.toLocaleLowerCase("fr") === originStopId.toLocaleLowerCase("fr"));
-        const destination = feed.stops.find((stop) => stop.externalId.toLocaleLowerCase("fr") === destinationStopId.toLocaleLowerCase("fr"));
+        const originReference = parseStopReference(originStopId);
+        const destinationReference = parseStopReference(destinationStopId);
 
-        if (!origin || !destination)
+        if (originReference.operatorSlug !== destinationReference.operatorSlug)
         {
             return null;
         }
 
-        const journeys = timetable.journeys.filter((journey) =>
+        const operatorFeed = (await this.getOperatorFeeds()).find(({ operator }) =>
         {
-            const originIndex = journey.calls.findIndex((call) => call.stopPointRef === origin.externalId);
-            const destinationIndex = journey.calls.findIndex((call) => call.stopPointRef === destination.externalId);
+            return operator.slug === originReference.operatorSlug;
+        });
+        const origin = operatorFeed?.feed.stops.find((stop) =>
+        {
+            return stop.externalId.toLocaleLowerCase("fr") === originReference.externalId.toLocaleLowerCase("fr");
+        });
+        const destination = operatorFeed?.feed.stops.find((stop) =>
+        {
+            return stop.externalId.toLocaleLowerCase("fr") === destinationReference.externalId.toLocaleLowerCase("fr");
+        });
+
+        if (!operatorFeed || !origin || !destination)
+        {
+            return null;
+        }
+
+        const publicOriginId = publicStopId(operatorFeed.operator, origin.externalId);
+        const publicDestinationId = publicStopId(operatorFeed.operator, destination.externalId);
+        const journeys = (await this.getAllJourneyViews()).filter((journey) =>
+        {
+            const originIndex = journey.stops.findIndex((stop) => stop.stopId === publicOriginId);
+            const destinationIndex = journey.stops.findIndex((stop) => stop.stopId === publicDestinationId);
             return originIndex >= 0 && destinationIndex > originIndex;
         }).sort((first, second) =>
         {
-            return compareJourneysAtStops(first, second, new Set([origin.externalId]));
+            return compareJourneyViewsAtStops(first, second, new Set([publicOriginId]));
         });
 
         return {
-            originStopId: origin.externalId,
+            originStopId: publicOriginId,
             originName: origin.name,
-            destinationStopId: destination.externalId,
+            destinationStopId: publicDestinationId,
             destinationName: destination.name,
-            journeys: this.toViews(feed, journeys, 40)
+            journeys: journeys.slice(0, 40)
         };
     }
 
@@ -347,9 +455,7 @@ export class TransitDataService
             return this.liveBoardCache.value.slice(0, limit);
         }
 
-        const [feed, timetable] = await Promise.all([this.getFeed(), this.getTimetable()]);
-        const viable = timetable.journeys.filter((journey) => journey.calls.length >= 2);
-        const views = this.toViews(feed, viable, viable.length);
+        const views = (await this.getAllJourneyViews()).filter((journey) => journey.stops.length >= 2);
         const sortedViews = views.sort((first, second) =>
         {
             return boardStatusRank(first.status) - boardStatusRank(second.status)
@@ -406,6 +512,118 @@ export class TransitDataService
         }
 
         return views;
+    }
+
+    private async getAllJourneyViews(): Promise<JourneyView[]>
+    {
+        const [feed, timetable, flixBusJourneys] = await Promise.all([
+            this.getFeed(),
+            this.getTimetable(),
+            this.getFlixBusJourneys()
+        ]);
+        return [
+            ...this.toViews(feed, timetable.journeys, timetable.journeys.length),
+            ...flixBusJourneys
+        ];
+    }
+
+    private async getOperatorFeeds(): Promise<OperatorFeed[]>
+    {
+        const [blablacarFeed, flixBusFeed] = await Promise.all([
+            this.getFeed(),
+            this.getFlixBusFeed()
+        ]);
+        const values: OperatorFeed[] = [
+            {
+                operator: blablacarBusOperator,
+                feed: blablacarFeed
+            }
+        ];
+
+        if (flixBusFeed)
+        {
+            values.push({ operator: flixBusOperator, feed: flixBusFeed });
+        }
+
+        return values;
+    }
+
+    private async getFlixBusJourneys(): Promise<JourneyView[]>
+    {
+        if (this.flixBusJourneyCache && this.flixBusJourneyCache.expiresAt > Date.now())
+        {
+            return this.flixBusJourneyCache.value;
+        }
+
+        const feed = await this.getFlixBusFeed();
+
+        if (!feed)
+        {
+            return [];
+        }
+
+        const now = new Date();
+        const views = buildScheduledJourneyViews(
+            feed,
+            flixBusOperator,
+            scheduledServiceDates(feed, now, 3),
+            now
+        ).filter((journey) =>
+        {
+            return boardEventTime(journey) >= now.getTime() - 300_000;
+        });
+        this.flixBusJourneyCache = {
+            value: views,
+            expiresAt: Date.now() + scheduledJourneyLifetimeMilliseconds
+        };
+        return views;
+    }
+
+    private async getFlixBusFeed(): Promise<GtfsFeed | null>
+    {
+        if (process.env.FLIXBUS_GTFS_ENABLED === "false")
+        {
+            return null;
+        }
+
+        if (this.flixBusDatabaseFeedCache && this.flixBusDatabaseFeedCache.expiresAt > Date.now())
+        {
+            return this.flixBusDatabaseFeedCache.value;
+        }
+
+        const repository = this.getFlixBusDatabaseRepository();
+
+        if (repository)
+        {
+            try
+            {
+                const persistedFeed = await repository.loadFeed();
+
+                if (persistedFeed)
+                {
+                    this.flixBusDatabaseFeedCache = {
+                        value: persistedFeed,
+                        expiresAt: Date.now() + databaseFeedLifetimeMilliseconds
+                    };
+                    return persistedFeed;
+                }
+            }
+            catch
+            {
+            }
+
+            if (process.env.NODE_ENV === "production" && !process.env.FLIXBUS_GTFS_PATH)
+            {
+                return null;
+            }
+        }
+
+        if (!this.flixBusGtfsPromise)
+        {
+            this.flixBusGtfsPromise = this.flixBusDataSource.loadGtfs(false).catch(() => null);
+        }
+
+        return this.flixBusGtfsPromise;
     }
 
     private async getFeed(): Promise<GtfsFeed>
@@ -547,6 +765,19 @@ export class TransitDataService
         return this.databaseRepository;
     }
 
+    private getFlixBusDatabaseRepository(): PostgresTransitSnapshotRepository | null
+    {
+        const pool = getDatabasePool();
+
+        if (!pool)
+        {
+            return null;
+        }
+
+        this.flixBusDatabaseRepository ??= new PostgresTransitSnapshotRepository(pool, flixBusOperator.slug);
+        return this.flixBusDatabaseRepository;
+    }
+
     private async readPersistedJourney(journeyRef: string): Promise<SiriJourney | null>
     {
         const repository = this.getDatabaseRepository();
@@ -664,29 +895,32 @@ async function exists(path: string): Promise<boolean>
 
 export const transitDataService = new TransitDataService();
 
-function buildCityDirectory(feed: GtfsFeed, journeys: SiriJourney[]): CityDirectoryEntryView[]
+function buildCityDirectory(operatorFeeds: OperatorFeed[], journeys: JourneyView[]): CityDirectoryEntryView[]
 {
     const entries = new Map<string, CityDirectoryEntryView>();
 
-    for (const stop of feed.stops)
+    for (const { feed } of operatorFeeds)
     {
-        const name = cityName(stop.name);
-        const slug = citySlug(name);
-        const entry = entries.get(slug);
+        for (const stop of feed.stops)
+        {
+            const name = cityName(stop.name);
+            const slug = citySlug(name);
+            const entry = entries.get(slug);
 
-        if (entry)
-        {
-            entry.stopCount += 1;
-        }
-        else
-        {
-            entries.set(slug,
+            if (entry)
             {
-                slug,
-                name,
-                stopCount: 1,
-                liveJourneyCount: 0
-            });
+                entry.stopCount += 1;
+            }
+            else
+            {
+                entries.set(slug,
+                {
+                    slug,
+                    name,
+                    stopCount: 1,
+                    liveJourneyCount: 0
+                });
+            }
         }
     }
 
@@ -694,10 +928,9 @@ function buildCityDirectory(feed: GtfsFeed, journeys: SiriJourney[]): CityDirect
     {
         const seen = new Set<string>();
 
-        for (const call of journey.calls)
+        for (const stop of journey.stops)
         {
-            const stop = feed.stops.find((candidate) => candidate.externalId === call.stopPointRef);
-            const slug = citySlug(cityName(call.stopPointName ?? stop?.name ?? call.stopPointRef));
+            const slug = citySlug(stop.city);
 
             if (seen.has(slug))
             {
@@ -726,7 +959,7 @@ function normalizeSearch(value: string): string
         .trim();
 }
 
-function journeySearchScore(journey: SiriJourney, query: string): number
+function journeyViewSearchScore(journey: JourneyView, query: string): number
 {
     const serviceNumber = normalizeSearch(journey.serviceNumber);
     const journeyRef = normalizeSearch(journey.journeyRef);
@@ -746,12 +979,12 @@ function journeySearchScore(journey: SiriJourney, query: string): number
     if (routeMatch)
     {
         const startsAtOrigin = routeMatch.originIndex === 0 ? 0 : 4;
-        const endsAtDestination = routeMatch.destinationIndex === journey.calls.length - 1 ? 0 : 4;
+        const endsAtDestination = routeMatch.destinationIndex === journey.stops.length - 1 ? 0 : 4;
         const intermediateStops = routeMatch.destinationIndex - routeMatch.originIndex - 1;
         return 10 + startsAtOrigin + endsAtDestination + intermediateStops;
     }
 
-    if (journey.calls.some((call) => callMatchesPlace(call, query)))
+    if (journey.stops.some((stop) => stopMatchesPlace(stop, query)))
     {
         return 50;
     }
@@ -760,22 +993,22 @@ function journeySearchScore(journey: SiriJourney, query: string): number
 }
 
 function findRouteMatch(
-    journey: SiriJourney,
+    journey: JourneyView,
     query: string
 ): { originIndex: number; destinationIndex: number } | null
 {
     for (const [origin, destination] of routeQueryCandidates(query))
     {
-        const originIndex = journey.calls.findIndex((call) => callMatchesPlace(call, origin));
+        const originIndex = journey.stops.findIndex((stop) => stopMatchesPlace(stop, origin));
 
         if (originIndex < 0)
         {
             continue;
         }
 
-        const relativeDestinationIndex = journey.calls
+        const relativeDestinationIndex = journey.stops
             .slice(originIndex + 1)
-            .findIndex((call) => callMatchesPlace(call, destination));
+            .findIndex((stop) => stopMatchesPlace(stop, destination));
 
         if (relativeDestinationIndex >= 0)
         {
@@ -818,12 +1051,11 @@ function routeQueryCandidates(query: string): Array<[string, string]>
     return candidates;
 }
 
-function callMatchesPlace(call: SiriJourney["calls"][number], query: string): boolean
+function stopMatchesPlace(stop: JourneyView["stops"][number], query: string): boolean
 {
-    const stopName = call.stopPointName ?? call.stopPointRef;
-    return normalizeSearch(call.stopPointRef).includes(query)
-        || normalizeSearch(stopName).includes(query)
-        || normalizeSearch(cityName(stopName)) === query;
+    return normalizeSearch(stop.stopId).includes(query)
+        || normalizeSearch(stop.name).includes(query)
+        || normalizeSearch(stop.city) === query;
 }
 
 function boardStatusRank(status: JourneyView["status"]): number
@@ -851,43 +1083,42 @@ function boardEventTime(journey: JourneyView): number
     return new Date(value).getTime();
 }
 
-function compareJourneysAtStops(first: SiriJourney, second: SiriJourney, stopIds: Set<string>): number
+function compareJourneyViewsAtStops(first: JourneyView, second: JourneyView, stopIds: Set<string>): number
 {
-    const firstCall = journeyBoardCall(first, stopIds);
-    const secondCall = journeyBoardCall(second, stopIds);
-    return boardCallRank(firstCall) - boardCallRank(secondCall)
-        || boardCallTime(firstCall) - boardCallTime(secondCall)
+    const firstStop = journeyBoardStop(first, stopIds);
+    const secondStop = journeyBoardStop(second, stopIds);
+    return boardStopRank(firstStop) - boardStopRank(secondStop)
+        || boardStopTime(firstStop) - boardStopTime(secondStop)
         || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
 }
 
-function journeyBoardCall(journey: SiriJourney, stopIds: Set<string>): SiriJourney["calls"][number] | undefined
+function journeyBoardStop(journey: JourneyView, stopIds: Set<string>): JourneyView["stops"][number] | undefined
 {
-    const calls = journey.calls.filter((call) => stopIds.has(call.stopPointRef));
-    return calls.find((call) => !call.actualDepartureTime && !call.actualArrivalTime)
-        ?? calls[calls.length - 1];
+    const stops = journey.stops.filter((stop) => stopIds.has(stop.stopId));
+    return stops.find((stop) => stop.phase !== "passed") ?? stops[stops.length - 1];
 }
 
-function boardCallRank(call: SiriJourney["calls"][number] | undefined): number
+function boardStopRank(stop: JourneyView["stops"][number] | undefined): number
 {
-    const eventTime = boardCallTime(call);
-    const hasPassed = Boolean(call?.actualDepartureTime || call?.actualArrivalTime)
+    const eventTime = boardStopTime(stop);
+    const hasPassed = stop?.phase === "passed"
         || eventTime < Date.now() - 300_000;
     return hasPassed ? 1 : 0;
 }
 
-function boardCallTime(call: SiriJourney["calls"][number] | undefined): number
+function boardStopTime(stop: JourneyView["stops"][number] | undefined): number
 {
-    const value = call?.expectedDepartureTime
-        ?? call?.aimedDepartureTime
-        ?? call?.expectedArrivalTime
-        ?? call?.aimedArrivalTime
-        ?? call?.actualDepartureTime
-        ?? call?.actualArrivalTime;
-    return value?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const value = stop?.expectedDepartureAt
+        ?? stop?.aimedDepartureAt
+        ?? stop?.expectedArrivalAt
+        ?? stop?.aimedArrivalAt
+        ?? stop?.actualDepartureAt
+        ?? stop?.actualArrivalAt;
+    return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 }
 
 function stopUpcomingActivity(
-    journeys: SiriJourney[],
+    journeys: JourneyView[],
     stopId: string,
     currentTime: number
 ): { count: number; nextJourneyAt: string | null }
@@ -897,18 +1128,17 @@ function stopUpcomingActivity(
 
     for (const journey of journeys)
     {
-        if (journey.cancellation)
+        if (journey.cancelled)
         {
             continue;
         }
 
-        const call = journey.calls.find((candidate) => candidate.stopPointRef === stopId);
-        const eventTime = boardCallTime(call);
+        const stop = journey.stops.find((candidate) => candidate.stopId === stopId);
+        const eventTime = boardStopTime(stop);
 
-        if (!call
-            || call.cancellation
-            || call.actualDepartureTime
-            || call.actualArrivalTime
+        if (!stop
+            || stop.cancelled
+            || stop.phase === "passed"
             || eventTime < currentTime - 300_000)
         {
             continue;

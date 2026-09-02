@@ -27,11 +27,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
 
     return {
-        title: `Bus à ${board.city} : départs et retards en direct`,
-        description: `Consultez les départs BlaBlaCar Bus à ${board.name}, les horaires réels et les retards en direct.`,
+        title: `Bus à ${board.city} : départs ${board.operatorName}`,
+        description: `Consultez les départs ${board.operatorName} à ${board.name} et les horaires officiels disponibles.`,
         alternates: { canonical: `/gares/${encodeURIComponent(board.stopId)}` },
         openGraph: {
-            title: `Départs en direct à ${board.name}`,
+            title: `Départs ${board.operatorName} à ${board.name}`,
             description: `Horaires et retards des bus à ${board.city}.`,
             type: "website",
             url: `/gares/${encodeURIComponent(board.stopId)}`
@@ -105,14 +105,14 @@ export default async function StopPage({ params }: PageProps)
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${slug}`}>{board.city}</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading">
-                <span className="section-kicker">Départs en temps réel</span>
+                <span className="section-kicker">{board.realtimeAvailable ? "Départs en temps réel" : "Horaires théoriques officiels"}</span>
                 <h1>Bus à <em>{board.city}</em></h1>
                 <p>{board.name}</p>
                 <SearchBox compact initialQuery="" />
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Prochains bus à cette gare</h2></div>
+                    <div><span className="live-pill light"><i /> {board.realtimeAvailable ? "Temps réel" : board.operatorName}</span><h2>Prochains bus à cette gare</h2></div>
                     <span>{board.journeys.length} passage{board.journeys.length > 1 ? "s" : ""} à venir</span>
                 </div>
                 <div className="station-delay-legend" aria-label="Légende de l’état des bus">
