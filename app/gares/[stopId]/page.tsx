@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { CityBackdrop } from "../../../components/city-backdrop";
 import { JourneyCard } from "../../../components/journey-card";
 import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
@@ -135,8 +134,7 @@ export default async function StopPage({ params, searchParams }: PageProps)
             <nav className="breadcrumbs" aria-label="Fil d’Ariane">
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${slug}`}>{board.city}</Link><span>›</span><span>{board.name}</span>
             </nav>
-            <header className="listing-heading city-scene-heading">
-                <CityBackdrop city={board.city} />
+            <header className="listing-heading">
                 <span className="section-kicker">{hasRealtime ? "Départs et retards en temps réel" : "Prochains départs"}</span>
                 <h1>Bus à <em>{board.city}</em></h1>
                 <p>{board.name}</p>

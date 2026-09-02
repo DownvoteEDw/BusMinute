@@ -1183,99 +1183,6 @@ h1 em {
     padding: 48px 0 44px;
 }
 
-.city-scene-heading {
-    isolation: isolate;
-    overflow: hidden;
-    position: relative;
-}
-
-.city-scene-heading > :not(.city-backdrop) {
-    position: relative;
-    z-index: 1;
-}
-
-.city-backdrop {
-    bottom: 0;
-    height: min(100%, 300px);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 23%, #000 100%);
-    mask-image: linear-gradient(90deg, transparent 0%, #000 23%, #000 100%);
-    opacity: .7;
-    pointer-events: none;
-    position: absolute;
-    right: -36px;
-    width: min(59vw, 720px);
-    z-index: 0;
-}
-
-.city-backdrop-art {
-    display: block;
-    height: 100%;
-    overflow: visible;
-    width: 100%;
-}
-
-.city-backdrop-sun {
-    fill: rgba(250, 104, 75, .18);
-    stroke: var(--coral);
-    stroke-width: 2;
-}
-
-.city-backdrop-cloud {
-    fill: rgba(255, 253, 248, .66);
-    stroke: rgba(12, 91, 67, .24);
-    stroke-linejoin: round;
-    stroke-width: 2;
-}
-
-.city-backdrop-cloud.small {
-    opacity: .7;
-}
-
-.city-backdrop-landmarks {
-    color: var(--green);
-}
-
-.city-backdrop-fill {
-    fill: rgba(12, 91, 67, .11);
-    stroke: currentColor;
-    stroke-linejoin: round;
-    stroke-width: 2.5;
-}
-
-.city-backdrop-line,
-.city-backdrop-hill,
-.city-backdrop-ground {
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 2.5;
-}
-
-.city-backdrop-line.landmark-main {
-    stroke: var(--coral);
-    stroke-width: 3.2;
-}
-
-.city-backdrop-line.faint {
-    opacity: .45;
-    stroke-width: 1.8;
-}
-
-.city-backdrop-line.no-fill {
-    fill: none;
-}
-
-.city-backdrop-hill {
-    opacity: .45;
-}
-
-.city-backdrop-ground {
-    color: var(--green);
-    opacity: .38;
-    stroke-width: 2;
-}
-
 .listing-heading h1 em,
 .editorial-page h1 em {
     color: var(--coral);
@@ -2199,12 +2106,6 @@ h1 em {
         gap: 24px;
     }
 
-    .city-backdrop {
-        opacity: .52;
-        right: -120px;
-        width: 72vw;
-    }
-
     .tracker-grid {
         grid-template-columns: 1fr;
     }
@@ -2249,14 +2150,6 @@ h1 em {
     .route-heading h1 {
         font-size: 44px;
         line-height: 1;
-    }
-
-    .city-backdrop {
-        -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 100%);
-        mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 100%);
-        opacity: .43;
-        right: -235px;
-        width: 660px;
     }
 
     .search-box div {
