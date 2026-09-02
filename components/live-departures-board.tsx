@@ -54,7 +54,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
         <section className="station-board" aria-labelledby="station-board-title">
             <header className="station-board-header">
                 <div>
-                    <span className="station-board-live"><i /> Réseau en direct</span>
+                    <span className="station-board-live"><i /> Réseau en temps réel</span>
                     <h2 id="station-board-title">Panneau temps réel</h2>
                 </div>
                 <time dateTime={updatedAt ?? undefined}>{formatUpdatedAt(updatedAt)}</time>
@@ -156,7 +156,7 @@ function statusLabel(journey: JourneyView): string
 
     if (journey.delaySeconds === null)
     {
-        return journey.status === "in_transit" ? "En route" : "Prévu";
+        return journey.status === "in_transit" ? "En route" : "À venir";
     }
 
     const minutes = Math.round(journey.delaySeconds / 60);
@@ -166,7 +166,7 @@ function statusLabel(journey: JourneyView): string
         return journey.status === "in_transit" ? "En route" : "À l’heure";
     }
 
-    return minutes > 0 ? `+${minutes} min` : `${Math.abs(minutes)} min avance`;
+    return minutes > 0 ? `+${minutes} min` : `${Math.abs(minutes)} min d’avance`;
 }
 
 function statusTone(journey: JourneyView): string
@@ -209,7 +209,7 @@ function formatUpdatedAt(value: string | null): string
 {
     if (!value)
     {
-        return "Connexion au direct";
+        return "En attente des données";
     }
 
     return `Mis à jour ${new Intl.DateTimeFormat("fr-FR",

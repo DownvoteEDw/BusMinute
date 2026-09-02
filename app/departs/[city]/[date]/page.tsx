@@ -100,11 +100,11 @@ export default async function DeparturesPage({ params }: PageProps)
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Direct</span><h2>Circulations disponibles</h2></div>
+                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Bus disponibles</h2></div>
                     <span>{board.journeys.length} bus</span>
                 </div>
                 {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucun départ disponible pour cette date</h2><p>Consultez la page de {board.name} pour voir les autres circulations.</p></div>
+                    <div className="empty-state"><h2>Aucun départ disponible pour cette date</h2><p>Consultez la page de {board.name} pour voir les autres horaires.</p></div>
                 ) : (
                     <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
                 )}

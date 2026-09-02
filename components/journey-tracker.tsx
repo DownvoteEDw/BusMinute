@@ -246,8 +246,8 @@ function relativeTime(value: string): string
 function statusLabel(status: JourneyView["status"]): string
 {
     return {
-        scheduled: "Départ programmé",
-        in_transit: "En circulation",
+        scheduled: "Départ à venir",
+        in_transit: "En route",
         arrived: "Trajet terminé",
         cancelled: "Trajet annulé"
     }[status];
@@ -268,7 +268,7 @@ function delayCaption(seconds: number | null): string
 {
     if (seconds === null)
     {
-        return "horaire prévu";
+        return "pas d’information en temps réel";
     }
 
     if (Math.abs(seconds) < 300)

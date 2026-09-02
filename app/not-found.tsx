@@ -6,7 +6,7 @@ export default function NotFoundPage()
         <div className="not-found-page">
             <span>404</span>
             <h1>Ce bus a quitté le radar.</h1>
-            <p>La circulation demandée n’existe pas ou n’est plus présente dans le flux actuel.</p>
+            <p>Le bus demandé n’existe pas ou n’est plus disponible.</p>
             <Link href="/">Revenir à la recherche</Link>
         </div>
     );

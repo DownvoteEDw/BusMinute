@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: RouteProps): Promise<Re
 
     if (!journey)
     {
-        return Response.json({ error: "Circulation introuvable" }, { status: 404 });
+        return Response.json({ error: "Bus introuvable" }, { status: 404 });
     }
 
     return Response.json({ journey },

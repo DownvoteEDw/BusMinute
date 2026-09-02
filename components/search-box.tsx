@@ -133,11 +133,11 @@ export function SearchBox({ initialQuery = "", compact = false }: SearchBoxProps
                         placeholder="Ex. 50819 ou Paris → Tours"
                         value={query}
                     />
-                    <button type="submit">{loading ? "Recherche…" : "Voir le direct"}</button>
+                    <button type="submit">{loading ? "Recherche…" : "Rechercher"}</button>
                 </div>
             </form>
             {open && (
-                <div className="search-results" role="listbox" aria-label="Circulations trouvées">
+                <div className="search-results" role="listbox" aria-label="Résultats de recherche">
                     {places.length === 0 && results.length === 0 ? (
                         <p>Aucun bus trouvé aujourd’hui. Essayez une ville, un numéro ou un trajet comme Paris → Tours.</p>
                     ) : (
@@ -172,7 +172,7 @@ function formatDelay(seconds: number | null): string
 {
     if (seconds === null)
     {
-        return "Prévu";
+        return "À venir";
     }
 
     const minutes = Math.round(seconds / 60);

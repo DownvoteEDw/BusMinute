@@ -6,6 +6,7 @@ import { SearchBox } from "../../../components/search-box";
 import { StructuredData } from "../../../components/structured-data";
 import { citySlug } from "../../../src/application/journey-view";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../src/application/seo";
+import { groupStationJourneysByDate, stationDateHeading } from "../../../src/application/station-schedule";
 import { transitDataService } from "../../../src/application/transit-data-service";
 
 interface PageProps
@@ -71,6 +72,7 @@ export default async function StopPage({ params }: PageProps)
     }
 
     const destinationList = [...destinations.values()].slice(0, 12);
+    const journeyGroups = groupStationJourneysByDate(board.journeys, board.stopId);
 
     const structuredData = [
         breadcrumbStructuredData(
@@ -110,19 +112,39 @@ export default async function StopPage({ params }: PageProps)
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Direct</span><h2>Prochains passages à cette gare</h2></div>
-                    <span>{board.journeys.length} bus trouvé{board.journeys.length > 1 ? "s" : ""}</span>
+                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Prochains bus à cette gare</h2></div>
+                    <span>{board.journeys.length} passage{board.journeys.length > 1 ? "s" : ""} à venir</span>
                 </div>
-                <div className="station-delay-legend" aria-label="Légende des états de circulation">
+                <div className="station-delay-legend" aria-label="Légende de l’état des bus">
                     <span className="late"><i /> Retard</span>
                     <span className="on-time"><i /> À l’heure</span>
                     <span className="early"><i /> En avance</span>
-                    <span className="scheduled"><i /> Programmé</span>
+                    <span className="scheduled"><i /> Horaire prévu</span>
                 </div>
                 {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucun bus dans le flux actuel</h2><p>Revenez à l’approche des prochains départs.</p></div>
+                    <div className="empty-state"><h2>Aucun passage à venir</h2><p>Les prochains horaires ne sont pas encore disponibles.</p></div>
                 ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} stopId={board.stopId} />)}</div>
+                    <div className="station-journey-groups">
+                        {journeyGroups.map((group) =>
+                        {
+                            const heading = stationDateHeading(group.date);
+
+                            return (
+                                <section className="station-journey-group" key={group.date}>
+                                    <div className="station-date-heading">
+                                        <h3>
+                                            {heading.relative && <span>{heading.relative}</span>}
+                                            <time dateTime={group.date}>{heading.full}</time>
+                                        </h3>
+                                        <span>{group.journeys.length} passage{group.journeys.length > 1 ? "s" : ""}</span>
+                                    </div>
+                                    <div className="journey-list">
+                                        {group.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} stopId={board.stopId} />)}
+                                    </div>
+                                </section>
+                            );
+                        })}
+                    </div>
                 )}
             </section>
             {destinationList.length > 0 && (

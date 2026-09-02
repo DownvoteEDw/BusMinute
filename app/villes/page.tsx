@@ -51,7 +51,7 @@ export default async function CitiesPage()
             <header className="listing-heading">
                 <span className="section-kicker">Explorer le réseau</span>
                 <h1>Toutes les <em>villes</em></h1>
-                <p>Choisissez une ville pour retrouver ses gares et les circulations disponibles.</p>
+                <p>Choisissez une ville pour retrouver ses gares et les prochains bus.</p>
             </header>
             <section className="city-directory" aria-label="Villes desservies">
                 {cities.map((city) =>
@@ -60,7 +60,7 @@ export default async function CitiesPage()
                         <Link className="city-directory-card" href={`/ville/${city.slug}`} key={city.slug}>
                             <strong>{city.name}</strong>
                             <span>{city.stopCount} gare{city.stopCount > 1 ? "s" : ""}</span>
-                            {city.liveJourneyCount > 0 && <small>{city.liveJourneyCount} bus dans le flux actuel</small>}
+                            {city.liveJourneyCount > 0 && <small>{city.liveJourneyCount} bus à venir</small>}
                         </Link>
                     );
                 })}

@@ -97,11 +97,11 @@ export default async function RoutePage({ params }: PageProps)
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Direct</span><h2>Bus disponibles</h2></div>
-                    <span>{board.journeys.length} circulation{board.journeys.length > 1 ? "s" : ""}</span>
+                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Bus disponibles</h2></div>
+                    <span>{board.journeys.length} trajet{board.journeys.length > 1 ? "s" : ""}</span>
                 </div>
                 {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucun départ dans le flux actuel</h2><p>Les prochains services apparaîtront automatiquement.</p></div>
+                    <div className="empty-state"><h2>Aucun départ à venir</h2><p>Les prochains horaires apparaîtront automatiquement.</p></div>
                 ) : (
                     <div className="journey-list">{board.journeys.map((journey) =>
                     {

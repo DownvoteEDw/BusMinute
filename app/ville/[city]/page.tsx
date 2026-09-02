@@ -86,7 +86,7 @@ export default async function CityPage({ params }: PageProps)
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading city-heading">
-                <span className="section-kicker">Gares et départs en direct</span>
+                <span className="section-kicker">Gares et départs en temps réel</span>
                 <h1>Bus à <em>{board.name}</em></h1>
                 <p>{board.stops.length} gare{board.stops.length > 1 ? "s routières" : " routière"} référencée{board.stops.length > 1 ? "s" : ""}.</p>
                 <SearchBox compact initialQuery="" />
@@ -139,11 +139,11 @@ export default async function CityPage({ params }: PageProps)
             )}
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Direct</span><h2>Bus passant par {board.name}</h2></div>
-                    <span>{board.journeys.length} circulation{board.journeys.length > 1 ? "s" : ""}</span>
+                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Bus passant par {board.name}</h2></div>
+                    <span>{board.journeys.length} passage{board.journeys.length > 1 ? "s" : ""}</span>
                 </div>
                 {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucun bus dans le flux actuel</h2><p>Les prochaines circulations apparaîtront automatiquement.</p></div>
+                    <div className="empty-state"><h2>Aucun passage à venir</h2><p>Les prochains horaires apparaîtront automatiquement.</p></div>
                 ) : (
                     <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
                 )}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
+import { journeyTimeAtStop } from "../src/application/station-schedule";
 
 interface JourneyCardProps
 {
@@ -55,9 +56,11 @@ function journeyEvent(
     const resolvedIndex = stopIndex >= 0 ? stopIndex : 0;
     const stop = journey.stops[resolvedIndex];
     const isPassed = stop?.phase === "passed";
-    const time = isPassed
-        ? stop?.actualDepartureAt ?? stop?.actualArrivalAt ?? plannedTime(stop)
-        : plannedTime(stop) ?? stop?.actualDepartureAt ?? stop?.actualArrivalAt ?? null;
+    const time = stopId
+        ? journeyTimeAtStop(journey, stop?.stopId ?? stopId)
+        : isPassed
+            ? stop?.actualDepartureAt ?? stop?.actualArrivalAt ?? plannedTime(stop)
+            : plannedTime(stop) ?? stop?.actualDepartureAt ?? stop?.actualArrivalAt ?? null;
 
     if (destinationStopId)
     {
@@ -85,16 +88,16 @@ function journeyEvent(
     }
 
     const label = resolvedIndex === 0
-        ? "Départ gare"
+        ? "Départ"
         : resolvedIndex === journey.stops.length - 1
-            ? "Arrivée gare"
-            : "Passage gare";
+            ? "Arrivée"
+            : "Passage";
 
     return {
         stop,
         time,
         label,
-        detail: `${formatDate(journey.serviceDate)} · ${stop?.name ?? stopId}`
+        detail: stop?.name ?? stopId
     };
 }
 
@@ -146,8 +149,8 @@ function formatDate(value: string): string
 function statusLabel(status: JourneyView["status"]): string
 {
     const labels = {
-        scheduled: "Programmé",
-        in_transit: "En circulation",
+        scheduled: "À venir",
+        in_transit: "En route",
         arrived: "Terminé",
         cancelled: "Annulé"
     };
@@ -201,11 +204,11 @@ function journeyDelayState(journey: JourneyView, seconds: number | null): DelayS
 function delayDetail(state: DelayState): string
 {
     const labels: Record<DelayState, string> = {
-        scheduled: "Horaire programmé",
-        "on-time": "À moins de 5 minutes",
+        scheduled: "Sans suivi en temps réel",
+        "on-time": "Moins de 5 min d’écart",
         late: "Retard estimé",
         early: "Avance estimée",
-        cancelled: "Circulation annulée"
+        cancelled: "Bus annulé"
     };
     return labels[state];
 }
