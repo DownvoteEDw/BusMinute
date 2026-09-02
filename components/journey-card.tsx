@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { OperatorLogo } from "./operator-logo";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import { journeyTimeAtStop } from "../src/application/station-schedule";
 
@@ -29,7 +30,10 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
             </div>
             <div className="journey-card-body">
                 <div className="journey-card-head">
-                    <span>{journey.operatorName} · Bus {journey.serviceNumber}</span>
+                    <span className="journey-card-operator">
+                        <OperatorLogo operatorSlug={journey.operatorSlug} />
+                        <b>Bus {journey.serviceNumber}</b>
+                    </span>
                     <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeAvailable ? statusLabel(journey.status) : "Horaire prévu"}</span>
                 </div>
                 <h2>{originCity} <span>→</span> {destinationCity}</h2>

@@ -12,13 +12,17 @@ export interface StationDateHeading
     full: string;
 }
 
-export function groupStationJourneysByDate(journeys: JourneyView[], stopId: string): StationJourneyGroup[]
+export function groupStationJourneysByDate(
+    journeys: JourneyView[],
+    stopId: string | ((journey: JourneyView) => string)
+): StationJourneyGroup[]
 {
     const groups = new Map<string, JourneyView[]>();
 
     for (const journey of journeys)
     {
-        const date = journeyDateAtStop(journey, stopId);
+        const resolvedStopId = typeof stopId === "function" ? stopId(journey) : stopId;
+        const date = journeyDateAtStop(journey, resolvedStopId);
         const group = groups.get(date) ?? [];
         group.push(journey);
         groups.set(date, group);

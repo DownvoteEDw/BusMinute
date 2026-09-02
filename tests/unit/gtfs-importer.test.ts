@@ -60,8 +60,8 @@ describe("BlaBlaCarGtfsImporter", () =>
         const feed = filterFlixBusFeed(imported);
 
         expect(feed.agencies.map((agency) => agency.externalId)).toEqual(["FLIXBUS-eu"]);
-        expect(feed.routes.map((route) => route.externalId)).toEqual(["1606"]);
-        expect(feed.trips).toHaveLength(1);
-        expect(feed.trips[0]?.serviceNumber).toBe("1606");
+        expect(feed.routes.map((route) => route.externalId)).toEqual(["1606", "9901"]);
+        expect(feed.trips).toHaveLength(2);
+        expect(feed.trips.map((trip) => trip.serviceNumber)).toEqual(["1606", "9901"]);
     });
 });

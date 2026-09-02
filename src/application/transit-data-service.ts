@@ -26,6 +26,7 @@ import
     type PunctualitySummaryView,
     type RouteBoardView,
     type SeoIndexView,
+    type StopBoardOperatorView,
     type StopBoardView
 } from "./journey-view.js";
 import
@@ -358,7 +359,8 @@ export class TransitDataService
     public async getStopBoard(stopId: string): Promise<StopBoardView | null>
     {
         const reference = parseStopReference(stopId);
-        const operatorFeed = (await this.getOperatorFeeds()).find(({ operator }) =>
+        const operatorFeeds = await this.getOperatorFeeds();
+        const operatorFeed = operatorFeeds.find(({ operator }) =>
         {
             return operator.slug === reference.operatorSlug;
         });
@@ -373,12 +375,23 @@ export class TransitDataService
         }
 
         const publicId = publicStopId(operatorFeed.operator, stop.externalId);
+        const operatorStops = stationOperatorStops(operatorFeeds, operatorFeed, stop);
+        const stopIds = new Set(operatorStops.map((candidate) => candidate.stopId));
         const journeys = (await this.getAllJourneyViews()).filter((journey) =>
         {
-            return journey.stops.some((candidate) => candidate.stopId === publicId);
+            return journey.stops.some((candidate) => stopIds.has(candidate.stopId));
         }).sort((first, second) =>
         {
-            return compareJourneyViewsAtStops(first, second, new Set([publicId]));
+            return compareJourneyViewsAtStops(first, second, stopIds);
+        });
+        const limitedJourneys = operatorStops.flatMap((operator) =>
+        {
+            return journeys
+                .filter((journey) => journey.operatorSlug === operator.operatorSlug)
+                .slice(0, 40);
+        }).sort((first, second) =>
+        {
+            return compareJourneyViewsAtStops(first, second, stopIds);
         });
 
         return {
@@ -390,7 +403,8 @@ export class TransitDataService
             realtimeAvailable: operatorFeed.operator.realtimeAvailable,
             latitude: stop.latitude,
             longitude: stop.longitude,
-            journeys: journeys.slice(0, 40)
+            operatorStops,
+            journeys: limitedJourneys
         };
     }
 
@@ -1157,6 +1171,84 @@ function stopUpcomingActivity(
 function nextJourneyTime(value: string | null): number
 {
     return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+function stationOperatorStops(
+    operatorFeeds: OperatorFeed[],
+    currentOperatorFeed: OperatorFeed,
+    currentStop: GtfsFeed["stops"][number]
+): StopBoardOperatorView[]
+{
+    const city = citySlug(cityName(currentStop.name));
+    const matches: StopBoardOperatorView[] = [];
+
+    for (const operatorFeed of operatorFeeds)
+    {
+        const candidate = operatorFeed.operator.slug === currentOperatorFeed.operator.slug
+            ? currentStop
+            : operatorFeed.feed.stops
+                .filter((stop) => citySlug(cityName(stop.name)) === city)
+                .map((stop) =>
+                {
+                    return {
+                        stop,
+                        distance: distanceMeters(currentStop, stop)
+                    };
+                })
+                .filter(({ distance }) => distance <= 1_500)
+                .sort((first, second) => first.distance - second.distance)[0]?.stop;
+
+        if (!candidate)
+        {
+            continue;
+        }
+
+        matches.push(
+        {
+            operatorSlug: operatorFeed.operator.slug,
+            operatorName: operatorFeed.operator.name,
+            realtimeAvailable: operatorFeed.operator.realtimeAvailable,
+            stopId: publicStopId(operatorFeed.operator, candidate.externalId),
+            stopName: candidate.name
+        });
+    }
+
+    return matches.sort((first, second) => operatorRank(first.operatorSlug) - operatorRank(second.operatorSlug));
+}
+
+function distanceMeters(
+    first: GtfsFeed["stops"][number],
+    second: GtfsFeed["stops"][number]
+): number
+{
+    const earthRadius = 6_371_000;
+    const latitudeDelta = radians(second.latitude - first.latitude);
+    const longitudeDelta = radians(second.longitude - first.longitude);
+    const firstLatitude = radians(first.latitude);
+    const secondLatitude = radians(second.latitude);
+    const value = Math.sin(latitudeDelta / 2) ** 2
+        + Math.cos(firstLatitude) * Math.cos(secondLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+    return earthRadius * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
+function radians(value: number): number
+{
+    return value * Math.PI / 180;
+}
+
+function operatorRank(operatorSlug: string): number
+{
+    if (operatorSlug === blablacarBusOperator.slug)
+    {
+        return 0;
+    }
+
+    if (operatorSlug === flixBusOperator.slug)
+    {
+        return 1;
+    }
+
+    return 2;
 }
 
 function placeSearchScore(place: PlaceSearchResultView, query: string): number

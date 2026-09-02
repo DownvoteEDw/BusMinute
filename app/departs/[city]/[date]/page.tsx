@@ -30,8 +30,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
 
     return {
-        title: `Départs de bus à ${board.name} le ${shortDate(date)}`,
-        description: `Consultez les départs de bus à ${board.name} le ${longDate(date)}, avec les horaires prévus et les retards disponibles.`,
+        title: `Départs de bus à ${board.name} le ${shortDate(date)} en temps réel`,
+        description: `Consultez les départs de bus à ${board.name} le ${longDate(date)}, les horaires BlaBlaCar Bus et FlixBus et les retards en temps réel disponibles.`,
         alternates: {
             canonical: `/departs/${board.slug}/${date}`
         },

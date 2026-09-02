@@ -2,3 +2,4 @@ stop_id,stop_code,stop_name,stop_lat,stop_lon,stop_timezone,wheelchair_boarding
 00308c34-1111-4444-8888-111111111111,LYP,Lyon (Perrache),45.7483,4.8256,Europe/Paris,1
 00308c34-2222-4444-8888-222222222222,BDX,Bordeaux (Saint-Jean),44.8258,-0.5560,Europe/Paris,1
 00308c34-3333-4444-8888-333333333333,BER,Berlin Hauptbahnhof,52.5251,13.3694,Europe/Berlin,1
+00308c34-4444-4444-8888-444444444444,PQB,Paris (Bercy Seine),48.8357,2.3802,Europe/Paris,1

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
+import { OperatorLogo } from "./operator-logo";
 
 interface LiveDeparturesBoardProps
 {
@@ -54,7 +55,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
         <section className="station-board" aria-labelledby="station-board-title">
             <header className="station-board-header">
                 <div>
-                    <span className="station-board-live"><i /> Temps réel + horaires officiels</span>
+                    <span className="station-board-live"><i /> Panneau des bus en temps réel</span>
                     <h2 id="station-board-title">Prochains bus</h2>
                 </div>
                 <time dateTime={updatedAt ?? undefined}>{formatUpdatedAt(updatedAt)}</time>
@@ -83,7 +84,10 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                             key={journey.journeyRef}
                         >
                             <time dateTime={event.time ?? undefined}>{formatTime(event.time)}</time>
-                            <span className="station-board-service">{journey.serviceNumber}<small>{journey.operatorName}</small></span>
+                            <span className="station-board-service">
+                                <strong>{journey.serviceNumber}</strong>
+                                <OperatorLogo operatorSlug={journey.operatorSlug} />
+                            </span>
                             <span className="station-board-route">
                                 <strong>{journey.originCity} <i>→</i> {journey.destinationCity}</strong>
                                 <small>{event.label}</small>
@@ -95,7 +99,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                 })}
             </div>
             <footer>
-                <span>Données officielles BlaBlaCar Bus et FlixBus</span>
+                <span>Retards BlaBlaCar Bus en temps réel · horaires officiels FlixBus</span>
                 <span>Actualisation automatique · 30 s</span>
             </footer>
         </section>

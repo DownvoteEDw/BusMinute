@@ -46,6 +46,16 @@ describe("TransitDataService", () =>
         expect(journey?.status).toBe("arrived");
         expect(journey?.delaySeconds).toBe(-544);
         expect(stop?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
+        expect(stop?.operatorStops).toEqual(
+        [
+            {
+                operatorSlug: "blablacar-bus",
+                operatorName: "BlaBlaCar Bus",
+                realtimeAvailable: true,
+                stopId: "XPB",
+                stopName: "Paris - Bercy-Seine Bus Station"
+            }
+        ]);
         expect(route?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(city?.stops[0]?.stopId).toBe("XPB");
         expect(city?.stops[0]?.upcomingJourneyCount).toBe(0);
@@ -128,12 +138,19 @@ describe("TransitDataService", () =>
 
         const details = await service.getJourney(journey.journeyRef);
         const stop = await service.getStopBoard("flixbus:00308c34-1111-4444-8888-111111111111");
+        const sharedStation = await service.getStopBoard("XPB");
         const city = await service.getCityBoard("lyon");
 
         expect(details?.scheduledTripId).toBe("1606-18-0850082026-M#FR-00");
         expect(details?.matchMethod).toBe("GTFS_SCHEDULE");
         expect(stop?.operatorName).toBe("FlixBus");
         expect(stop?.journeys.some((candidate) => candidate.journeyRef === journey.journeyRef)).toBe(true);
+        expect(sharedStation?.operatorStops.map((candidate) => candidate.operatorSlug)).toEqual(
+        [
+            "blablacar-bus",
+            "flixbus"
+        ]);
+        expect(sharedStation?.journeys.some((candidate) => candidate.operatorSlug === "blablacar-bus")).toBe(true);
         expect(city?.stops.some((candidate) => candidate.operatorSlug === "flixbus")).toBe(true);
         expect(searchResults.some((candidate) => candidate.serviceNumber === "FLX20")).toBe(false);
     });

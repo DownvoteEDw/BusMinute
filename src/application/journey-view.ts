@@ -74,7 +74,17 @@ export interface StopBoardView
     realtimeAvailable: boolean;
     latitude: number;
     longitude: number;
+    operatorStops: StopBoardOperatorView[];
     journeys: JourneyView[];
+}
+
+export interface StopBoardOperatorView
+{
+    operatorSlug: string;
+    operatorName: string;
+    realtimeAvailable: boolean;
+    stopId: string;
+    stopName: string;
 }
 
 export interface CityStopView

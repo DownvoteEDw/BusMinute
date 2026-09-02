@@ -1,3 +1,4 @@
 agency_id,route_id,route_short_name,route_long_name,route_type,route_color,route_text_color
 FLIXBUS-eu,1606,FlixBus 1606,Lyon - Bordeaux,3,73D700,FFFFFF
+FLIXBUS-eu,9901,FlixBus 9901,Paris - Lyon,3,73D700,FFFFFF
 FLIXTRAIN-eu,FLX20,FlixTrain FLX20,Berlin - Hamburg,2,73D700,FFFFFF

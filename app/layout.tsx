@@ -10,15 +10,15 @@ export const metadata: Metadata = {
     metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
     applicationName: "BusMinute",
     title: {
-        default: "BusMinute — Horaires BlaBlaCar Bus et FlixBus",
+        default: "BusMinute — Suivi des bus en temps réel",
         template: "%s | BusMinute"
     },
-    description: "Horaires, retards et signalements voyageurs pour les cars longue distance.",
+    description: "Suivez les bus BlaBlaCar Bus en temps réel, consultez les retards, les prochains passages en gare et les horaires officiels BlaBlaCar Bus et FlixBus.",
     category: "transport",
     keywords: ["suivi bus", "retard bus", "BlaBlaCar Bus", "FlixBus", "gare routière", "horaires autocar"],
     openGraph: {
-        title: "BusMinute — Horaires BlaBlaCar Bus et FlixBus",
-        description: "Votre bus, minute par minute.",
+        title: "BusMinute — Bus et retards en temps réel",
+        description: "Suivez votre bus BlaBlaCar Bus en temps réel et consultez les prochains horaires BlaBlaCar Bus et FlixBus en gare.",
         type: "website",
         locale: "fr_FR",
         siteName: "BusMinute",
@@ -33,8 +33,8 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: "summary_large_image",
-        title: "BusMinute — Horaires BlaBlaCar Bus et FlixBus",
-        description: "Votre bus, minute par minute.",
+        title: "BusMinute — Bus et retards en temps réel",
+        description: "Suivez votre bus BlaBlaCar Bus en temps réel et consultez les prochains horaires BlaBlaCar Bus et FlixBus en gare.",
         images: ["/og.png"]
     },
     robots: {

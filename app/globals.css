@@ -390,6 +390,21 @@ h1 em {
     text-overflow: ellipsis;
 }
 
+.station-board-service strong {
+    font-size: 12px;
+}
+
+.station-board-service .operator-logo {
+    background: white;
+    border-radius: 4px;
+    box-sizing: content-box;
+    height: 10px;
+    max-width: 44px;
+    object-fit: contain;
+    padding: 3px 4px;
+    width: auto;
+}
+
 .station-board-service small {
     color: #8da199;
     font-family: var(--font-body);
@@ -1270,6 +1285,30 @@ h1 em {
     text-transform: uppercase;
 }
 
+.operator-logo {
+    display: block;
+    height: 18px;
+    max-width: 104px;
+    object-fit: contain;
+    width: auto;
+}
+
+.journey-card-operator {
+    align-items: center;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.journey-card-operator .operator-logo {
+    height: 14px;
+    max-width: 82px;
+}
+
+.journey-card-operator b {
+    white-space: nowrap;
+}
+
 .journey-status {
     align-items: center;
     background: #edf3ef;
@@ -1349,6 +1388,62 @@ h1 em {
     flex-wrap: wrap;
     gap: 8px;
     margin: -2px 0 16px;
+}
+
+.operator-filter {
+    display: grid;
+    gap: 9px;
+    grid-template-columns: minmax(120px, .7fr) repeat(2, minmax(190px, 1fr));
+    margin: 0 0 18px;
+}
+
+.operator-filter > a,
+.operator-filter > span {
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    min-height: 58px;
+    padding: 11px 14px;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+
+.operator-filter > a:hover,
+.operator-filter > a:focus-visible {
+    border-color: var(--green);
+    outline: 0;
+    transform: translateY(-1px);
+}
+
+.operator-filter > a.is-active {
+    border-color: var(--green);
+    box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.operator-filter > a > span,
+.operator-filter > span > small {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    text-align: right;
+}
+
+.operator-filter > a > strong {
+    color: var(--ink);
+    font-size: 15px;
+}
+
+.operator-filter > span.is-disabled {
+    filter: grayscale(1);
+    opacity: .45;
+}
+
+.operator-filter .operator-logo {
+    height: 20px;
+    max-width: 116px;
 }
 
 .station-delay-legend span {
@@ -1987,6 +2082,10 @@ h1 em {
         grid-template-columns: 1fr;
     }
 
+    .operator-filter {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .featured-city-grid,
     .city-directory {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2152,6 +2251,15 @@ h1 em {
 
     .section-heading-row h2 {
         font-size: 24px;
+    }
+
+    .operator-filter {
+        grid-template-columns: 1fr;
+    }
+
+    .operator-filter > a,
+    .operator-filter > span {
+        min-height: 52px;
     }
 
     .journey-card {
