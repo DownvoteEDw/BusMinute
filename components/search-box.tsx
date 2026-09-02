@@ -174,7 +174,7 @@ function formatDelay(journey: JourneyView): string
 
     if (seconds === null)
     {
-        return journey.realtimeAvailable ? "À venir" : "Horaire théorique";
+        return journey.realtimeObserved ? "À venir" : "Horaire prévu";
     }
 
     const minutes = Math.round(seconds / 60);

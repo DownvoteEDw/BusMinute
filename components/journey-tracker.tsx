@@ -121,10 +121,10 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
             <section className="tracker-main">
                 <div className="tracker-summary">
                     <div>
-                        <span className={`operational-pill ${journey.status}`}><i /> {journey.realtimeAvailable ? statusLabel(journey.status) : "Horaire prévu"}</span>
-                        <p>{journey.realtimeAvailable
-                            ? `Dernière donnée officielle ${relativeTime(journey.updatedAt)} ${refreshing ? "· actualisation…" : ""}`
-                            : `Horaire théorique officiel ${journey.operatorName}`}</p>
+                        <span className={`operational-pill ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status) : "Horaire prévu"}</span>
+                        <p>{journey.realtimeObserved
+                            ? `Mis à jour ${relativeTime(journey.updatedAt)} ${refreshing ? "· actualisation…" : ""}`
+                            : `Horaire prévu ${journey.operatorName}`}</p>
                     </div>
                     <div className={`big-delay ${delayTone(journey.delaySeconds)}`}>
                         <strong>{delayNumber(journey.delaySeconds)}</strong>
@@ -137,12 +137,6 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
                         return <StopRow key={`${stop.stopId}-${stop.order}`} stop={stop} />;
                     })}
                 </ol>
-                <div className="tracker-source">
-                    <span>{journey.realtimeAvailable ? "Données officielles SIRI-Lite" : "Horaires officiels GTFS"}</span>
-                    <span>{journey.realtimeAvailable
-                        ? `Correspondance GTFS ${journey.matchConfidence === null ? "non vérifiée" : `${Math.round(journey.matchConfidence * 100)} %`}`
-                        : "Aucun suivi en temps réel public"}</span>
-                </div>
             </section>
             <aside className="community-panel">
                 <span className="section-kicker">Informations voyageurs</span>
@@ -166,9 +160,7 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
                 {feedback && <p className="report-feedback" role="status">{feedback}</p>}
                 <div className="punctuality-card">
                     <span className="section-kicker">Historique de la ligne</span>
-                    {!journey.realtimeAvailable ? (
-                        <p>FlixBus ne publie pas de flux temps réel ouvert pour calculer la ponctualité.</p>
-                    ) : journey.punctuality ? (
+                    {journey.punctuality ? (
                         <>
                             <div><strong>{journey.punctuality.onTimePercentage}&nbsp;%</strong><span>à moins de {journey.punctuality.thresholdMinutes} min</span></div>
                             <p>Retard moyen {averageDelay(journey.punctuality.averageDelaySeconds)} sur {journey.punctuality.sampleSize} arrivée{journey.punctuality.sampleSize > 1 ? "s" : ""} observée{journey.punctuality.sampleSize > 1 ? "s" : ""}.</p>

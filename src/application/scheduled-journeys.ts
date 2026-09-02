@@ -134,6 +134,7 @@ function buildScheduledJourneyViewWithStops(
         operatorSlug: operator.slug,
         operatorName: operator.name,
         realtimeAvailable: operator.realtimeAvailable,
+        realtimeObserved: false,
         originStopId: origin.stopId,
         originName: origin.name,
         originCity: origin.city,

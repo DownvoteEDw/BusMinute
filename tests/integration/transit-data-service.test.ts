@@ -117,7 +117,7 @@ describe("TransitDataService", () =>
         expect(board[0]?.journeyRef).toBe("50819:2026-08-22");
     });
 
-    it("ajoute les horaires FlixBus sans les présenter comme du temps réel", async () =>
+    it("conserve les horaires FlixBus quand le temps réel n’est pas disponible", async () =>
     {
         process.env.FLIXBUS_GTFS_ENABLED = "true";
         process.env.FLIXBUS_GTFS_PATH = flixBusGtfsPath;
@@ -128,7 +128,8 @@ describe("TransitDataService", () =>
         expect(journey).toBeDefined();
         expect(journey?.serviceNumber).toBe("1606");
         expect(journey?.operatorName).toBe("FlixBus");
-        expect(journey?.realtimeAvailable).toBe(false);
+        expect(journey?.realtimeAvailable).toBe(true);
+        expect(journey?.realtimeObserved).toBe(false);
         expect(journey?.journeyRef).toContain("flixbus:1606-18-0850082026-M#FR-00:");
 
         if (!journey)

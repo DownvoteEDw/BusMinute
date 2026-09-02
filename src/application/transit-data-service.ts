@@ -12,7 +12,9 @@ import { BlaBlaCarGtfsImporter } from "../providers/blablacar/gtfs/importer.js";
 import { BlaBlaCarSiriParser } from "../providers/blablacar/siri/parser.js";
 import { isServiceActive } from "../providers/blablacar/gtfs/service-calendar.js";
 import { FlixBusDataSource } from "../providers/flixbus/data-source.js";
+import { FlixBusRealtimeClient } from "../providers/flixbus/realtime-client.js";
 import { GtfsSiriTripMatcher } from "../services/trip-matcher.js";
+import { enrichFlixBusJourney } from "./flixbus-realtime.js";
 import
 {
     buildJourneyView,
@@ -71,6 +73,7 @@ export class TransitDataService
     private readonly siriParser = new BlaBlaCarSiriParser();
     private readonly matcher = new GtfsSiriTripMatcher();
     private readonly flixBusDataSource = new FlixBusDataSource();
+    private readonly flixBusRealtimeClient = new FlixBusRealtimeClient();
     private gtfsPromise: Promise<GtfsFeed> | null = null;
     private flixBusGtfsPromise: Promise<GtfsFeed | null> | null = null;
     private databaseFeedCache: TimedValue<GtfsFeed> | null = null;
@@ -317,12 +320,13 @@ export class TransitDataService
                 return null;
             }
 
-            return buildScheduledJourneyView(
+            const view = buildScheduledJourneyView(
                 feed,
                 trip,
                 scheduledReference.serviceDate,
                 flixBusOperator
             );
+            return view ? this.enrichFlixBusJourney(view) : null;
         }
 
         const persistedJourney = await this.readPersistedJourney(journeyRef);
@@ -377,10 +381,16 @@ export class TransitDataService
         const publicId = publicStopId(operatorFeed.operator, stop.externalId);
         const operatorStops = stationOperatorStops(operatorFeeds, operatorFeed, stop);
         const stopIds = new Set(operatorStops.map((candidate) => candidate.stopId));
-        const journeys = (await this.getAllJourneyViews()).filter((journey) =>
+        const stationJourneys = (await this.getAllJourneyViews()).filter((journey) =>
         {
             return journey.stops.some((candidate) => stopIds.has(candidate.stopId));
-        }).sort((first, second) =>
+        });
+        const journeys = (await this.enrichFlixBusJourneysAtStops(
+            stationJourneys,
+            operatorStops
+                .filter((candidate) => candidate.operatorSlug === flixBusOperator.slug)
+                .map((candidate) => candidate.stopId)
+        )).sort((first, second) =>
         {
             return compareJourneyViewsAtStops(first, second, stopIds);
         });
@@ -469,7 +479,19 @@ export class TransitDataService
             return this.liveBoardCache.value.slice(0, limit);
         }
 
-        const views = (await this.getAllJourneyViews()).filter((journey) => journey.stops.length >= 2);
+        const allViews = (await this.getAllJourneyViews()).filter((journey) => journey.stops.length >= 2);
+        const flixBusStopIds = allViews
+            .filter((journey) => journey.operatorSlug === flixBusOperator.slug)
+            .sort((first, second) => boardEventTime(first) - boardEventTime(second))
+            .slice(0, 12)
+            .map((journey) =>
+            {
+                return journey.stops.find((stop) => stop.phase !== "passed")?.stopId
+                    ?? journey.originStopId;
+            })
+            .filter((stopId, index, values) => values.indexOf(stopId) === index)
+            .slice(0, 4);
+        const views = await this.enrichFlixBusJourneysAtStops(allViews, flixBusStopIds);
         const sortedViews = views.sort((first, second) =>
         {
             return boardStatusRank(first.status) - boardStatusRank(second.status)
@@ -637,7 +659,91 @@ export class TransitDataService
             this.flixBusGtfsPromise = this.flixBusDataSource.loadGtfs(false).catch(() => null);
         }
 
-        return this.flixBusGtfsPromise;
+        const feed = await this.flixBusGtfsPromise;
+
+        if (!feed)
+        {
+            this.flixBusGtfsPromise = null;
+        }
+
+        return feed;
+    }
+
+    private async enrichFlixBusJourneysAtStops(
+        journeys: JourneyView[],
+        stopIds: string[]
+    ): Promise<JourneyView[]>
+    {
+        if (!this.flixBusRealtimeClient.isEnabled() || stopIds.length === 0)
+        {
+            return journeys;
+        }
+
+        const now = new Date();
+        const from = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        const to = new Date(now.getTime() + 30 * 60 * 60 * 1000);
+
+        try
+        {
+            const rideGroups = await Promise.all(stopIds.map((stopId) =>
+            {
+                return this.flixBusRealtimeClient.loadStationRides(
+                    parseStopReference(stopId).externalId,
+                    from,
+                    to
+                );
+            }));
+            const rides = [...new Map(rideGroups.flat().map((ride) => [ride.id, ride])).values()];
+            return journeys.map((journey) =>
+            {
+                return journey.operatorSlug === flixBusOperator.slug
+                    ? enrichFlixBusJourney(journey, rides, now)
+                    : journey;
+            });
+        }
+        catch
+        {
+            return journeys;
+        }
+    }
+
+    private async enrichFlixBusJourney(journey: JourneyView): Promise<JourneyView>
+    {
+        if (!this.flixBusRealtimeClient.isEnabled())
+        {
+            return journey;
+        }
+
+        const now = new Date();
+        const referenceStop = [...journey.stops].sort((first, second) =>
+        {
+            return Math.abs(boardStopTime(first) - now.getTime())
+                - Math.abs(boardStopTime(second) - now.getTime());
+        })[0];
+
+        if (!referenceStop)
+        {
+            return journey;
+        }
+
+        const referenceTime = boardStopTime(referenceStop);
+        const center = Number.isFinite(referenceTime) ? referenceTime : now.getTime();
+        const from = new Date(center - 6 * 60 * 60 * 1000);
+        const to = new Date(center + 6 * 60 * 60 * 1000);
+
+        try
+        {
+            const rides = await this.flixBusRealtimeClient.loadStationRides(
+                parseStopReference(referenceStop.stopId).externalId,
+                from,
+                to
+            );
+            return enrichFlixBusJourney(journey, rides, now);
+        }
+        catch
+        {
+            return journey;
+        }
     }
 
     private async getFeed(): Promise<GtfsFeed>

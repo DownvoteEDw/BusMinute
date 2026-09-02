@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const title = `${journey.operatorName} ${journey.serviceNumber} ${journey.originCity} → ${journey.destinationCity}`;
     const description = journey.realtimeAvailable
         ? `Suivez le bus ${journey.serviceNumber} en direct : horaires réels, retard à chaque arrêt et signalements voyageurs.`
-        : `Consultez les horaires théoriques officiels du FlixBus ${journey.serviceNumber}, de ${journey.originCity} à ${journey.destinationCity}.`;
+        : `Consultez les horaires prévus du bus ${journey.serviceNumber}, de ${journey.originCity} à ${journey.destinationCity}.`;
 
     return {
         title,
@@ -99,7 +99,7 @@ export default async function JourneyPage({ params }: PageProps)
             </nav>
             <header className="route-heading">
                 <div>
-                    <span className="section-kicker">{journey.realtimeAvailable ? "Suivi officiel + voyageurs" : "Horaire théorique officiel"}</span>
+                    <span className="section-kicker">{journey.realtimeAvailable ? "Suivi en temps réel + voyageurs" : "Horaire prévu"}</span>
                     <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
                     <p>{journey.operatorName} · Bus <strong>{journey.serviceNumber}</strong> · {longDate(journey.serviceDate)}</p>
                 </div>

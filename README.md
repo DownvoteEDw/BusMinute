@@ -1,6 +1,6 @@
 # BusMinute
 
-Application monolithique d’horaires BlaBlaCar Bus et FlixBus. Elle importe leurs GTFS officiels, lit le temps réel SIRI-Lite BlaBlaCar Bus, associe chaque circulation à son trajet théorique et présente le résultat dans une interface web complète.
+Application monolithique de suivi BlaBlaCar Bus et FlixBus. Elle rapproche les horaires prévus et le temps réel de chaque circulation pour présenter les départs, les arrivées et les retards dans une interface web complète.
 
 ## Fonctionnalités
 
@@ -11,7 +11,7 @@ Application monolithique d’horaires BlaBlaCar Bus et FlixBus. Elle importe leu
 - pages de ville, gare, départ daté et liaison ;
 - signalements voyageurs avec persistance PostgreSQL et repli en mémoire ;
 - synchronisation quotidienne des GTFS BlaBlaCar Bus et FlixBus, et SIRI-Lite BlaBlaCar Bus chaque minute ;
-- horaires théoriques FlixBus clairement distingués des trajets suivis en temps réel ;
+- suivi en temps réel BlaBlaCar Bus et FlixBus avec repli automatique sur l’horaire prévu ;
 - état temps réel courant et observations historiques conservés dans PostgreSQL ;
 - historique de ponctualité par ligne et destination ;
 - import GTFS depuis un dossier ou une archive ZIP ;
@@ -84,6 +84,12 @@ Variables disponibles :
 | `FLIXBUS_GTFS_ENABLED` | non | active FlixBus, `true` par défaut |
 | `FLIXBUS_GTFS_URL` | non | source GTFS officielle FlixBus |
 | `FLIXBUS_GTFS_TIMEOUT_MS` | non | délai de téléchargement du GTFS FlixBus, `300000` par défaut |
+| `FLIXBUS_REALTIME_ENABLED` | non | active le suivi FlixBus, `true` par défaut |
+| `FLIXBUS_REALTIME_API_URL` | non | adresse du service de suivi FlixBus |
+| `FLIXBUS_TRACKER_URL` | non | page utilisée pour retrouver la configuration publique du suivi |
+| `FLIXBUS_REALTIME_API_KEY` | non | clé facultative, sinon retrouvée automatiquement |
+| `FLIXBUS_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête FlixBus, `12000` par défaut |
+| `FLIXBUS_REALTIME_CACHE_SECONDS` | non | durée du cache en mémoire, `30` secondes par défaut |
 | `SIRI_URL` | non | source SIRI-Lite officielle |
 | `REALTIME_SYNC_INTERVAL_SECONDS` | non | fréquence SIRI, `60` par défaut |
 | `GTFS_SYNC_INTERVAL_HOURS` | non | fréquence GTFS, `24` par défaut |
@@ -146,7 +152,6 @@ docker compose run --rm --volume C:/data:/data migration node dist/src/cli/impor
 | `/departs/paris/2026-08-22` | départs d’une ville à une date donnée |
 | `/gares/XPB` | prochains passages à un arrêt |
 | `/trajets/XPB/XTO` | circulations entre deux arrêts |
-| `/sources` | provenance et méthode |
 | `/api/search?q=50819` | recherche JSON |
 | `/api/journeys/50819%3A2026-08-22` | circulation JSON |
 | `/api/reports` | lecture et création des signalements |
@@ -213,13 +218,3 @@ tests/               tests et extrait réel 50819
 public/              ressources publiques
 .github/workflows/   validation GitHub automatique
 ```
-
-## Données et licence
-
-Les fixtures sont des extraits des ressources officielles BlaBlaCar Bus et FlixBus :
-
-- [jeu de données GTFS et SIRI-Lite](https://transport.data.gouv.fr/datasets/blablacar-bus-horaires-theoriques-et-temps-reel-du-reseau-europeen) ;
-- [endpoint SIRI-Lite EstimatedTimetable](https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable).
-- [jeu de données GTFS FlixBus](https://transport.data.gouv.fr/datasets/flixbus-horaires-theoriques-du-reseau-europeen-1).
-
-L’extrait BlaBlaCar conserve les variantes calendaires du service 50819 ainsi que les appels `XPB → XOS → XTO` et leurs heures constatées. L’extrait FlixBus reproduit le schéma officiel, y compris l’absence de `trip_short_name`. Les données source sont publiées sous ODbL. BusMinute est un projet indépendant des opérateurs.

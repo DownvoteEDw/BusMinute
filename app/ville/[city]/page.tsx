@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     return {
         title: `Bus à ${board.name} en temps réel : gares et départs`,
-        description: `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus et FlixBus et les retards BlaBlaCar Bus en temps réel.`,
+        description: `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus et FlixBus et leurs retards en temps réel.`,
         alternates: {
             canonical: `/ville/${board.slug}`
         }
@@ -86,7 +86,7 @@ export default async function CityPage({ params }: PageProps)
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading city-heading">
-                <span className="section-kicker">Temps réel et horaires officiels</span>
+                <span className="section-kicker">Départs et retards en temps réel</span>
                 <h1>Bus à <em>{board.name}</em></h1>
                 <p>{board.stops.length} gare{board.stops.length > 1 ? "s routières" : " routière"} référencée{board.stops.length > 1 ? "s" : ""}.</p>
                 <SearchBox compact initialQuery="" />

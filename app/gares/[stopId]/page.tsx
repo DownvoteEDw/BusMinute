@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { JourneyCard } from "../../../components/journey-card";
 import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
@@ -19,10 +20,13 @@ interface PageProps
 
 export const dynamic = "force-dynamic";
 
+const getStopBoard = cache((stopId: string) => transitDataService.getStopBoard(stopId));
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 {
-    const { stopId } = await params;
-    const board = await transitDataService.getStopBoard(stopId);
+    const { stopId: rawStopId } = await params;
+    const stopId = decodeURIComponent(rawStopId);
+    const board = await getStopBoard(stopId);
 
     if (!board)
     {
@@ -31,7 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     return {
         title: `Bus à ${board.city} en temps réel : départs et retards`,
-        description: `Consultez les prochains bus à ${board.name}, les horaires BlaBlaCar Bus et FlixBus et le retard en temps réel des bus BlaBlaCar Bus.`,
+        description: `Consultez les prochains bus à ${board.name} et les retards BlaBlaCar Bus et FlixBus en temps réel.`,
         alternates: { canonical: `/gares/${encodeURIComponent(board.stopId)}` },
         openGraph: {
             title: `Bus à ${board.name} : horaires et retards en temps réel`,
@@ -48,8 +52,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function StopPage({ params, searchParams }: PageProps)
 {
-    const { stopId } = await params;
-    const board = await transitDataService.getStopBoard(stopId);
+    const { stopId: rawStopId } = await params;
+    const stopId = decodeURIComponent(rawStopId);
+    const board = await getStopBoard(stopId);
 
     if (!board)
     {
@@ -130,14 +135,14 @@ export default async function StopPage({ params, searchParams }: PageProps)
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${slug}`}>{board.city}</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading">
-                <span className="section-kicker">{hasRealtime ? "Départs et retards en temps réel" : "Horaires officiels"}</span>
+                <span className="section-kicker">{hasRealtime ? "Départs et retards en temps réel" : "Prochains départs"}</span>
                 <h1>Bus à <em>{board.city}</em></h1>
                 <p>{board.name}</p>
                 <SearchBox compact initialQuery="" />
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> {hasRealtime ? "Temps réel disponible" : "Horaires officiels"}</span><h2>Prochains bus à cette gare</h2></div>
+                    <div><span className="live-pill light"><i /> {hasRealtime ? "Temps réel disponible" : "Horaires prévus"}</span><h2>Prochains bus à cette gare</h2></div>
                     <span>{visibleJourneys.length} passage{visibleJourneys.length > 1 ? "s" : ""} à venir</span>
                 </div>
                 <nav className="operator-filter" aria-label="Filtrer les horaires par compagnie">
@@ -171,7 +176,7 @@ export default async function StopPage({ params, searchParams }: PageProps)
                                 key={operator.slug}
                             >
                                 <OperatorLogo operatorSlug={operator.slug} />
-                                <span>{station.realtimeAvailable ? "Retards en temps réel" : "Horaires officiels"}</span>
+                                <span>{station.realtimeAvailable ? "Retards en temps réel" : "Horaires prévus"}</span>
                             </Link>
                         );
                     })}

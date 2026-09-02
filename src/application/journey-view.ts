@@ -46,6 +46,7 @@ export interface JourneyView
     operatorSlug: string;
     operatorName: string;
     realtimeAvailable: boolean;
+    realtimeObserved: boolean;
     originStopId: string;
     originName: string;
     originCity: string;
@@ -195,6 +196,7 @@ export function buildJourneyView(
         operatorSlug: operator.slug,
         operatorName: operator.name,
         realtimeAvailable: operator.realtimeAvailable,
+        realtimeObserved: true,
         originStopId: origin.stopId,
         originName: origin.name,
         originCity: origin.city,

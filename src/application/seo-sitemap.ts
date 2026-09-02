@@ -109,7 +109,7 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
     switch (section)
     {
         case "static":
-            return ["", "/sources", "/villes"];
+            return ["", "/villes"];
         case "cities":
             return uniqueSorted(index.cities.map((city) => `/ville/${city.slug}`));
         case "stops":

@@ -99,7 +99,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                 })}
             </div>
             <footer>
-                <span>Retards BlaBlaCar Bus en temps réel · horaires officiels FlixBus</span>
+                <span>Retards BlaBlaCar Bus et FlixBus en temps réel</span>
                 <span>Actualisation automatique · 30 s</span>
             </footer>
         </section>

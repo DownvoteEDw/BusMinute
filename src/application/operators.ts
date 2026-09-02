@@ -14,7 +14,7 @@ export const blablacarBusOperator: TransitOperator = {
 export const flixBusOperator: TransitOperator = {
     slug: "flixbus",
     name: "FlixBus",
-    realtimeAvailable: false
+    realtimeAvailable: true
 };
 
 export interface StopReference

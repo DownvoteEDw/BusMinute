@@ -49,6 +49,7 @@ function journey(serviceNumber: string, aimedDepartureAt: string): JourneyView
         operatorSlug: "blablacar-bus",
         operatorName: "BlaBlaCar Bus",
         realtimeAvailable: true,
+        realtimeObserved: true,
         originStopId: "XYL",
         originName: "Lyon - Gerland",
         originCity: "Lyon",

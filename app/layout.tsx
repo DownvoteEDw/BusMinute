@@ -13,12 +13,12 @@ export const metadata: Metadata = {
         default: "BusMinute — Suivi des bus en temps réel",
         template: "%s | BusMinute"
     },
-    description: "Suivez les bus BlaBlaCar Bus en temps réel, consultez les retards, les prochains passages en gare et les horaires officiels BlaBlaCar Bus et FlixBus.",
+    description: "Suivez les bus BlaBlaCar Bus et FlixBus en temps réel, consultez leurs retards et les prochains passages en gare.",
     category: "transport",
     keywords: ["suivi bus", "retard bus", "BlaBlaCar Bus", "FlixBus", "gare routière", "horaires autocar"],
     openGraph: {
         title: "BusMinute — Bus et retards en temps réel",
-        description: "Suivez votre bus BlaBlaCar Bus en temps réel et consultez les prochains horaires BlaBlaCar Bus et FlixBus en gare.",
+        description: "Suivez votre bus BlaBlaCar Bus ou FlixBus en temps réel et consultez les prochains départs en gare.",
         type: "website",
         locale: "fr_FR",
         siteName: "BusMinute",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     twitter: {
         card: "summary_large_image",
         title: "BusMinute — Bus et retards en temps réel",
-        description: "Suivez votre bus BlaBlaCar Bus en temps réel et consultez les prochains horaires BlaBlaCar Bus et FlixBus en gare.",
+        description: "Suivez votre bus BlaBlaCar Bus ou FlixBus en temps réel et consultez les prochains départs en gare.",
         images: ["/og.png"]
     },
     robots: {
@@ -81,7 +81,6 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
                     <nav aria-label="Navigation principale">
                         <Link href="/">Suivre un bus</Link>
                         <Link href="/villes">Villes et gares</Link>
-                        <Link href="/sources">Nos données</Link>
                     </nav>
                 </header>
                 <main>{children}</main>

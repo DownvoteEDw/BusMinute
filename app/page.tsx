@@ -22,7 +22,7 @@ export default async function HomePage()
                     <p>Trouvez un trajet ou un numéro de bus et consultez les prochains passages comme sur le panneau de votre gare.</p>
                     <SearchBox />
                     <div className="trust-row">
-                        <span><b>Officiel</b> Horaires GTFS</span>
+                        <span><b>2 opérateurs</b> BlaBlaCar Bus + FlixBus</span>
                         <span><b>Temps réel</b> Actualisé automatiquement</span>
                     </div>
                 </div>
