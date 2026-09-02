@@ -94,6 +94,7 @@ export interface CityStopView
     name: string;
     operatorSlug: string;
     operatorName: string;
+    operatorSlugs: string[];
     latitude: number;
     longitude: number;
     upcomingJourneyCount: number;

@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { GtfsFeed, SiriEstimatedTimetable, SiriJourney } from "../domain/models.js";
+import type { GtfsFeed, GtfsStop, SiriEstimatedTimetable, SiriJourney } from "../domain/models.js";
 import { getDatabasePool } from "../db/database.js";
 import
 {
@@ -46,6 +46,7 @@ import
     buildScheduledJourneyViews,
     scheduledServiceDates
 } from "./scheduled-journeys.js";
+import { distanceMeters, samePhysicalStation } from "./station-identity.js";
 
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
@@ -212,19 +213,40 @@ export class TransitDataService
         {
             return journey.stops.some((stop) => stopIds.has(stop.stopId));
         }).sort((first, second) => compareJourneyViewsAtStops(first, second, stopIds));
-        const rankedStops = stops.map(({ stop, operator }) =>
+        const rankedStops = groupCityStops(stops).map((group) =>
         {
-            const stopId = publicStopId(operator, stop.externalId);
-            const activity = stopUpcomingActivity(allJourneys, stopId, currentTime);
+            const members = [...group].sort((first, second) =>
+            {
+                return operatorRank(first.operator.slug) - operatorRank(second.operator.slug);
+            });
+            const representative = members[0];
+            const activities = members.map(({ stop, operator }) =>
+            {
+                return stopUpcomingActivity(
+                    allJourneys,
+                    publicStopId(operator, stop.externalId),
+                    currentTime
+                );
+            });
+            const nextJourneyAt = activities.map((activity) => activity.nextJourneyAt)
+                .filter((value): value is string => value !== null)
+                .sort()[0] ?? null;
+
+            if (!representative)
+            {
+                throw new Error("Groupe de gare vide");
+            }
+
             return {
-                stopId,
-                name: stop.name,
-                operatorSlug: operator.slug,
-                operatorName: operator.name,
-                latitude: stop.latitude,
-                longitude: stop.longitude,
-                upcomingJourneyCount: activity.count,
-                nextJourneyAt: activity.nextJourneyAt
+                stopId: publicStopId(representative.operator, representative.stop.externalId),
+                name: representative.stop.name,
+                operatorSlug: representative.operator.slug,
+                operatorName: representative.operator.name,
+                operatorSlugs: [...new Set(members.map(({ operator }) => operator.slug))],
+                latitude: representative.stop.latitude,
+                longitude: representative.stop.longitude,
+                upcomingJourneyCount: activities.reduce((sum, activity) => sum + activity.count, 0),
+                nextJourneyAt
             };
         }).sort((first, second) =>
         {
@@ -385,12 +407,16 @@ export class TransitDataService
         {
             return journey.stops.some((candidate) => stopIds.has(candidate.stopId));
         });
+        const currentTime = Date.now();
         const journeys = (await this.enrichFlixBusJourneysAtStops(
             stationJourneys,
             operatorStops
                 .filter((candidate) => candidate.operatorSlug === flixBusOperator.slug)
                 .map((candidate) => candidate.stopId)
-        )).sort((first, second) =>
+        )).filter((journey) =>
+        {
+            return isUpcomingAtStops(journey, stopIds, currentTime);
+        }).sort((first, second) =>
         {
             return compareJourneyViewsAtStops(first, second, stopIds);
         });
@@ -1018,30 +1044,28 @@ export const transitDataService = new TransitDataService();
 function buildCityDirectory(operatorFeeds: OperatorFeed[], journeys: JourneyView[]): CityDirectoryEntryView[]
 {
     const entries = new Map<string, CityDirectoryEntryView>();
+    const stopsByCity = new Map<string, Array<{ stop: GtfsStop; operator: TransitOperator }>>();
 
-    for (const { feed } of operatorFeeds)
+    for (const { feed, operator } of operatorFeeds)
     {
         for (const stop of feed.stops)
         {
-            const name = cityName(stop.name);
-            const slug = citySlug(name);
-            const entry = entries.get(slug);
-
-            if (entry)
-            {
-                entry.stopCount += 1;
-            }
-            else
-            {
-                entries.set(slug,
-                {
-                    slug,
-                    name,
-                    stopCount: 1,
-                    liveJourneyCount: 0
-                });
-            }
+            const slug = citySlug(cityName(stop.name));
+            const cityStops = stopsByCity.get(slug) ?? [];
+            cityStops.push({ stop, operator });
+            stopsByCity.set(slug, cityStops);
         }
+    }
+
+    for (const [slug, stops] of stopsByCity)
+    {
+        entries.set(slug,
+        {
+            slug,
+            name: cityName(stops[0]?.stop.name ?? slug),
+            stopCount: groupCityStops(stops).length,
+            liveJourneyCount: 0
+        });
     }
 
     for (const journey of journeys)
@@ -1279,13 +1303,46 @@ function nextJourneyTime(value: string | null): number
     return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 }
 
+function groupCityStops(
+    stops: Array<{ stop: GtfsStop; operator: TransitOperator }>
+): Array<Array<{ stop: GtfsStop; operator: TransitOperator }>>
+{
+    const groups: Array<Array<{ stop: GtfsStop; operator: TransitOperator }>> = [];
+
+    for (const candidate of stops)
+    {
+        const group = groups.find((members) =>
+        {
+            return members.some(({ stop }) => samePhysicalStation(stop, candidate.stop));
+        });
+
+        if (group)
+        {
+            group.push(candidate);
+        }
+        else
+        {
+            groups.push([candidate]);
+        }
+    }
+
+    return groups;
+}
+
+function isUpcomingAtStops(journey: JourneyView, stopIds: Set<string>, currentTime: number): boolean
+{
+    const stop = journeyBoardStop(journey, stopIds);
+    return Boolean(stop)
+        && stop?.phase !== "passed"
+        && boardStopTime(stop) >= currentTime - 300_000;
+}
+
 function stationOperatorStops(
     operatorFeeds: OperatorFeed[],
     currentOperatorFeed: OperatorFeed,
     currentStop: GtfsFeed["stops"][number]
 ): StopBoardOperatorView[]
 {
-    const city = citySlug(cityName(currentStop.name));
     const matches: StopBoardOperatorView[] = [];
 
     for (const operatorFeed of operatorFeeds)
@@ -1293,7 +1350,7 @@ function stationOperatorStops(
         const candidate = operatorFeed.operator.slug === currentOperatorFeed.operator.slug
             ? currentStop
             : operatorFeed.feed.stops
-                .filter((stop) => citySlug(cityName(stop.name)) === city)
+                .filter((stop) => samePhysicalStation(currentStop, stop))
                 .map((stop) =>
                 {
                     return {
@@ -1301,7 +1358,6 @@ function stationOperatorStops(
                         distance: distanceMeters(currentStop, stop)
                     };
                 })
-                .filter(({ distance }) => distance <= 1_500)
                 .sort((first, second) => first.distance - second.distance)[0]?.stop;
 
         if (!candidate)
@@ -1320,26 +1376,6 @@ function stationOperatorStops(
     }
 
     return matches.sort((first, second) => operatorRank(first.operatorSlug) - operatorRank(second.operatorSlug));
-}
-
-function distanceMeters(
-    first: GtfsFeed["stops"][number],
-    second: GtfsFeed["stops"][number]
-): number
-{
-    const earthRadius = 6_371_000;
-    const latitudeDelta = radians(second.latitude - first.latitude);
-    const longitudeDelta = radians(second.longitude - first.longitude);
-    const firstLatitude = radians(first.latitude);
-    const secondLatitude = radians(second.latitude);
-    const value = Math.sin(latitudeDelta / 2) ** 2
-        + Math.cos(firstLatitude) * Math.cos(secondLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-    return earthRadius * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
-}
-
-function radians(value: number): number
-{
-    return value * Math.PI / 180;
 }
 
 function operatorRank(operatorSlug: string): number

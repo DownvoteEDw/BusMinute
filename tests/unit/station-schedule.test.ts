@@ -11,14 +11,16 @@ describe("horaires par gare", () =>
 {
     it("sépare les passages selon leur date locale, y compris après minuit", () =>
     {
+        const earlier = journey("5000", "2026-09-01T20:30:00.000Z");
         const beforeMidnight = journey("5001", "2026-09-01T21:55:00.000Z");
         const afterMidnight = journey("5002", "2026-09-01T22:55:00.000Z");
-        const groups = groupStationJourneysByDate([beforeMidnight, afterMidnight], "XYL");
+        const groups = groupStationJourneysByDate([beforeMidnight, afterMidnight, earlier], "XYL");
 
         expect(journeyDateAtStop(beforeMidnight, "XYL")).toBe("2026-09-01");
         expect(journeyDateAtStop(afterMidnight, "XYL")).toBe("2026-09-02");
         expect(groups.map((group) => group.date)).toEqual(["2026-09-01", "2026-09-02"]);
-        expect(groups.map((group) => group.journeys.length)).toEqual([1, 1]);
+        expect(groups.map((group) => group.journeys.length)).toEqual([2, 1]);
+        expect(groups[0]?.journeys.map((item) => item.serviceNumber)).toEqual(["5000", "5001"]);
     });
 
     it("nomme hier, aujourd’hui et demain en heure française", () =>

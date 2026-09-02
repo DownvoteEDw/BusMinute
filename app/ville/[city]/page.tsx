@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JourneyCard } from "../../../components/journey-card";
+import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
 import { StructuredData } from "../../../components/structured-data";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../src/application/seo";
@@ -104,7 +105,13 @@ export default async function CityPage({ params }: PageProps)
                         return (
                             <Link className={`station-card${isPrimary ? " is-primary" : ""}`} href={`/gares/${encodeURIComponent(stop.stopId)}`} key={stop.stopId}>
                                 <span className="station-card-top">
-                                    <span className="station-card-code">{stop.operatorName} · Gare</span>
+                                    <span className="station-card-code">
+                                        {stop.operatorSlugs.map((operatorSlug) =>
+                                        {
+                                            return <OperatorLogo key={operatorSlug} operatorSlug={operatorSlug} />;
+                                        })}
+                                        <small>Gare routière</small>
+                                    </span>
                                     {isPrimary && <span className="station-card-popular">La plus active</span>}
                                 </span>
                                 <span className="station-card-main">

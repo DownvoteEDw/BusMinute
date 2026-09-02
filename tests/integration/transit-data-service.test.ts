@@ -45,7 +45,7 @@ describe("TransitDataService", () =>
         expect(journey?.scheduledTripId).toBe("7672428505");
         expect(journey?.status).toBe("arrived");
         expect(journey?.delaySeconds).toBe(-544);
-        expect(stop?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
+        expect(stop?.journeys).toHaveLength(0);
         expect(stop?.operatorStops).toEqual(
         [
             {
@@ -141,18 +141,36 @@ describe("TransitDataService", () =>
         const stop = await service.getStopBoard("flixbus:00308c34-1111-4444-8888-111111111111");
         const sharedStation = await service.getStopBoard("XPB");
         const city = await service.getCityBoard("lyon");
+        const paris = await service.getCityBoard("paris");
 
         expect(details?.scheduledTripId).toBe("1606-18-0850082026-M#FR-00");
         expect(details?.matchMethod).toBe("GTFS_SCHEDULE");
         expect(stop?.operatorName).toBe("FlixBus");
-        expect(stop?.journeys.some((candidate) => candidate.journeyRef === journey.journeyRef)).toBe(true);
+        expect(stop?.journeys.some((candidate) => candidate.journeyRef === journey.journeyRef)).toBe(false);
+        expect(stop?.journeys.every((candidate) =>
+        {
+            return candidate.stops.find((candidateStop) =>
+            {
+                return candidateStop.stopId === "flixbus:00308c34-1111-4444-8888-111111111111";
+            })?.phase !== "passed";
+        })).toBe(true);
         expect(sharedStation?.operatorStops.map((candidate) => candidate.operatorSlug)).toEqual(
         [
             "blablacar-bus",
             "flixbus"
         ]);
-        expect(sharedStation?.journeys.some((candidate) => candidate.operatorSlug === "blablacar-bus")).toBe(true);
+        expect(sharedStation?.journeys.every((candidate) =>
+        {
+            const stationStopIds = new Set(sharedStation.operatorStops.map((operator) => operator.stopId));
+            return candidate.stops.find((candidateStop) => stationStopIds.has(candidateStop.stopId))?.phase !== "passed";
+        })).toBe(true);
         expect(city?.stops.some((candidate) => candidate.operatorSlug === "flixbus")).toBe(true);
+        expect(paris?.stops.filter((candidate) => candidate.name.includes("Bercy"))).toHaveLength(1);
+        expect(paris?.stops.find((candidate) => candidate.name.includes("Bercy"))?.operatorSlugs).toEqual(
+        [
+            "blablacar-bus",
+            "flixbus"
+        ]);
         expect(searchResults.some((candidate) => candidate.serviceNumber === "FLX20")).toBe(false);
     });
 });

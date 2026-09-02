@@ -1697,11 +1697,25 @@ h1 em {
 }
 
 .station-card-code {
+    align-items: center;
     color: var(--coral);
+    display: flex;
+    flex-wrap: wrap;
     font-size: 11px;
     font-weight: 850;
+    gap: 9px;
     letter-spacing: .09em;
     text-transform: uppercase;
+}
+
+.station-card-code .operator-logo {
+    height: 17px;
+    max-width: 94px;
+}
+
+.station-card-code small {
+    color: inherit;
+    font-size: 10px;
 }
 
 .station-card.is-primary .station-card-code {

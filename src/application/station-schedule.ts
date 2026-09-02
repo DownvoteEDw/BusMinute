@@ -32,7 +32,14 @@ export function groupStationJourneysByDate(
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([date, groupedJourneys]) =>
         {
-            return { date, journeys: groupedJourneys };
+            const sortedJourneys = [...groupedJourneys].sort((first, second) =>
+            {
+                const firstStopId = typeof stopId === "function" ? stopId(first) : stopId;
+                const secondStopId = typeof stopId === "function" ? stopId(second) : stopId;
+                return timestamp(journeyTimeAtStop(first, firstStopId))
+                    - timestamp(journeyTimeAtStop(second, secondStopId));
+            });
+            return { date, journeys: sortedJourneys };
         });
 }
 
@@ -94,6 +101,11 @@ function timeAtStop(stop: JourneyStopView | undefined): string | null
     }
 
     return planned ?? stop.actualDepartureAt ?? stop.actualArrivalAt ?? null;
+}
+
+function timestamp(value: string | null): number
+{
+    return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
 }
 
 function parisDate(value: Date): string
