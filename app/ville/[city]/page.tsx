@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CityBackdrop } from "../../../components/city-backdrop";
 import { JourneyCard } from "../../../components/journey-card";
 import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
@@ -86,7 +87,8 @@ export default async function CityPage({ params }: PageProps)
             <nav className="breadcrumbs" aria-label="Fil d’Ariane">
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><span>{board.name}</span>
             </nav>
-            <header className="listing-heading city-heading">
+            <header className="listing-heading city-heading city-scene-heading">
+                <CityBackdrop city={board.name} />
                 <span className="section-kicker">Départs et retards en temps réel</span>
                 <h1>Bus à <em>{board.name}</em></h1>
                 <p>{board.stops.length} gare{board.stops.length > 1 ? "s routières" : " routière"} référencée{board.stops.length > 1 ? "s" : ""}.</p>

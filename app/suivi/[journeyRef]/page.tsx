@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CityBackdrop } from "../../../components/city-backdrop";
 import { JourneyTracker } from "../../../components/journey-tracker";
 import { StructuredData } from "../../../components/structured-data";
 import { citySlug } from "../../../src/application/journey-view";
@@ -97,7 +98,8 @@ export default async function JourneyPage({ params }: PageProps)
             <nav className="breadcrumbs" aria-label="Fil d’Ariane">
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${originCitySlug}`}>{journey.originCity}</Link><span>›</span><span>Bus {journey.serviceNumber}</span>
             </nav>
-            <header className="route-heading">
+            <header className="route-heading city-scene-heading">
+                <CityBackdrop city={journey.destinationCity} />
                 <div>
                     <span className="section-kicker">{journey.realtimeAvailable ? "Suivi en temps réel + voyageurs" : "Horaire prévu"}</span>
                     <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>

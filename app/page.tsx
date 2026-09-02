@@ -17,7 +17,7 @@ export default async function HomePage()
         <>
             <section className="hero">
                 <div className="hero-copy">
-                    <span className="eyebrow">Le panneau des cars longue distance</span>
+                    <span className="eyebrow">Vos départs, minute par minute</span>
                     <h1>Votre bus.<br /><em>En temps réel.</em></h1>
                     <p>Trouvez un trajet ou un numéro de bus et consultez les prochains passages comme sur le panneau de votre gare.</p>
                     <SearchBox />
@@ -29,8 +29,8 @@ export default async function HomePage()
                 <LiveDeparturesBoard initialJourneys={journeys} />
             </section>
             <section className="value-strip" aria-label="Fonctionnalités">
-                <article><span>01</span><h2>Le vrai retard</h2><p>Calculé arrêt par arrêt, pas seulement au départ.</p></article>
-                <article><span>02</span><h2>La voix des passagers</h2><p>Signalez une arrivée, un départ ou un quai modifié.</p></article>
+                <article><span>01</span><h2>Retards en direct</h2><p>Suivis arrêt par arrêt dès qu’une mise à jour est disponible.</p></article>
+                <article><span>02</span><h2>Infos des voyageurs</h2><p>Une arrivée, un départ ou un changement de quai se signale en un clic.</p></article>
                 <article><span>03</span><h2>Un historique utile</h2><p>Comprenez la ponctualité habituelle de votre trajet.</p></article>
             </section>
             <section className="featured-cities">

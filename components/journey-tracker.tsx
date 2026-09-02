@@ -31,6 +31,7 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
     const [refreshing, setRefreshing] = useState(false);
     const [reporting, setReporting] = useState<PassengerReportType | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
+    const isOnTime = journey.delaySeconds !== null && Math.abs(journey.delaySeconds) < 300;
     const currentStop = useMemo(() =>
     {
         return journey.stops.find((stop) => stop.phase === "current") ?? journey.stops[journey.stops.length - 1];
@@ -126,7 +127,7 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
                             ? `Mis à jour ${relativeTime(journey.updatedAt)} ${refreshing ? "· actualisation…" : ""}`
                             : `Horaire prévu ${journey.operatorName}`}</p>
                     </div>
-                    <div className={`big-delay ${delayTone(journey.delaySeconds)}`}>
+                    <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}`}>
                         <strong>{delayNumber(journey.delaySeconds)}</strong>
                         <span>{delayCaption(journey.delaySeconds)}</span>
                     </div>
@@ -266,6 +267,11 @@ function delayNumber(seconds: number | null): string
         return "—";
     }
 
+    if (Math.abs(seconds) < 300)
+    {
+        return "À l’heure";
+    }
+
     const minutes = Math.round(seconds / 60);
     return minutes > 0 ? `+${minutes}` : String(minutes);
 }
@@ -279,7 +285,7 @@ function delayCaption(seconds: number | null): string
 
     if (Math.abs(seconds) < 300)
     {
-        return "à l'heure";
+        return "moins de 5 min d’écart";
     }
 
     return seconds > 0 ? "minutes de retard" : "minutes d'avance";

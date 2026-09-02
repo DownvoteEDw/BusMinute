@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CityBackdrop } from "../../../../components/city-backdrop";
 import { JourneyCard } from "../../../../components/journey-card";
 import { StructuredData } from "../../../../components/structured-data";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../../src/application/seo";
@@ -93,7 +94,8 @@ export default async function DeparturesPage({ params }: PageProps)
             <nav className="breadcrumbs" aria-label="Fil d’Ariane">
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${board.slug}`}>{board.name}</Link><span>›</span><span>{shortDate(date)}</span>
             </nav>
-            <header className="listing-heading">
+            <header className="listing-heading city-scene-heading">
+                <CityBackdrop city={board.name} />
                 <span className="section-kicker">Tableau des départs</span>
                 <h1>{board.name}, <em>{shortDate(date)}</em></h1>
                 <p>Départs et passages connus dans toutes les gares routières de la ville.</p>

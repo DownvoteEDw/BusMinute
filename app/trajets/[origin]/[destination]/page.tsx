@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CityBackdrop } from "../../../../components/city-backdrop";
 import { JourneyCard } from "../../../../components/journey-card";
 import { StructuredData } from "../../../../components/structured-data";
 import { cityName, citySlug } from "../../../../src/application/journey-view";
@@ -86,7 +87,8 @@ export default async function RoutePage({ params }: PageProps)
             <nav className="breadcrumbs" aria-label="Fil d’Ariane">
                 <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${originCitySlug}`}>{originCity}</Link><span>›</span><span>{destinationCity}</span>
             </nav>
-            <header className="listing-heading route-listing-heading">
+            <header className="listing-heading route-listing-heading city-scene-heading">
+                <CityBackdrop city={destinationCity} />
                 <span className="section-kicker">Horaires et retards</span>
                 <h1>{originCity} <span>→</span> <em>{destinationCity}</em></h1>
                 <p>{board.originName}<br />{board.destinationName}</p>
