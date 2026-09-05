@@ -48,6 +48,7 @@ import
 } from "./scheduled-journeys.js";
 import { distanceMeters, samePhysicalStation } from "./station-identity.js";
 import { AsyncCache } from "./async-cache.js";
+import { liveBoardEventTime as boardEventTime } from "./live-board.js";
 
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
@@ -1323,20 +1324,6 @@ export function selectLiveBoard(journeys: JourneyView[], limit: number): Journey
         return boardEventTime(first) - boardEventTime(second)
             || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
     });
-}
-
-function boardEventTime(journey: JourneyView): number
-{
-    const currentStop = journey.stops.find((stop) => stop.phase === "current")
-        ?? journey.stops.find((stop) => stop.phase === "upcoming")
-        ?? journey.stops[journey.stops.length - 1];
-    const value = currentStop?.expectedDepartureAt
-        ?? currentStop?.aimedDepartureAt
-        ?? currentStop?.expectedArrivalAt
-        ?? currentStop?.aimedArrivalAt
-        ?? currentStop?.actualArrivalAt
-        ?? journey.updatedAt;
-    return new Date(value).getTime();
 }
 
 function compareJourneyViewsAtStops(first: JourneyView, second: JourneyView, stopIds: Set<string>): number

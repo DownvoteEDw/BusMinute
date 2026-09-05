@@ -4,7 +4,8 @@ import Link from "next/link";
 import { journeyPath } from "../src/application/journey-url";
 import { useEffect, useState } from "react";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
-import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
+import { liveBoardEvent, type LiveBoardEventType } from "../src/application/live-board";
+import type { JourneyView } from "../src/application/journey-view";
 import { OperatorLogo } from "./operator-logo";
 
 interface LiveDeparturesBoardProps
@@ -59,7 +60,7 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
             <header className="station-board-header">
                 <div>
                     <span className="station-board-live"><i /> {localize(locale, "Panneau des bus en temps réel", "Live bus departures")}</span>
-                    <h2 id="station-board-title">{localize(locale, "Prochains bus", "Next buses")}</h2>
+                    <h2 id="station-board-title">{localize(locale, "En circulation et prochains départs", "Live and upcoming buses")}</h2>
                 </div>
                 <time dateTime={updatedAt ?? undefined}>{formatUpdatedAt(updatedAt, locale)}</time>
             </header>
@@ -86,7 +87,10 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
                             href={journeyPath(journey.journeyRef)}
                             key={journey.journeyRef}
                         >
-                            <time dateTime={event.time ?? undefined}>{formatTime(event.time, locale)}</time>
+                            <time dateTime={event.time ?? undefined}>
+                                <span>{formatTime(event.time, locale)}</span>
+                                <small>{formatDay(event.time, updatedAt, locale)}</small>
+                            </time>
                             <span className="station-board-service">
                                 <strong>{journey.serviceNumber}</strong>
                                 <OperatorLogo operatorSlug={journey.operatorSlug} />
@@ -111,42 +115,20 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
 
 function boardEvent(journey: JourneyView, locale: Locale): { time: string | null; label: string }
 {
-    if (journey.status === "scheduled")
-    {
-        const origin = journey.stops[0];
-        return {
-            time: stopTime(origin),
-            label: `${localize(locale, "Départ", "Departure")} · ${origin?.name ?? journey.originName}`
-        };
-    }
-
-    if (journey.status === "arrived")
-    {
-        const destination = journey.stops[journey.stops.length - 1];
-        return {
-            time: stopTime(destination),
-            label: `${localize(locale, "Arrivée", "Arrival")} · ${destination?.name ?? journey.destinationName}`
-        };
-    }
-
-    const nextStop = journey.stops.find((stop) => stop.phase === "current")
-        ?? journey.stops.find((stop) => stop.phase === "upcoming")
-        ?? journey.stops[journey.stops.length - 1];
+    const event = liveBoardEvent(journey);
     return {
-        time: stopTime(nextStop),
-        label: `${localize(locale, "Prochain arrêt", "Next stop")} · ${nextStop?.name ?? journey.destinationName}`
+        time: event.time,
+        label: `${eventTypeLabel(event.type, locale)} · ${event.stop?.name ?? journey.destinationName}`
     };
 }
 
-function stopTime(stop: JourneyStopView | undefined): string | null
+function eventTypeLabel(type: LiveBoardEventType, locale: Locale): string
 {
-    return stop?.expectedDepartureAt
-        ?? stop?.aimedDepartureAt
-        ?? stop?.expectedArrivalAt
-        ?? stop?.aimedArrivalAt
-        ?? stop?.actualArrivalAt
-        ?? stop?.actualDepartureAt
-        ?? null;
+    return {
+        departure: localize(locale, "Départ", "Departure"),
+        next_stop: localize(locale, "Prochain arrêt", "Next stop"),
+        arrival: localize(locale, "Arrivée", "Arrival")
+    }[type];
 }
 
 function statusLabel(journey: JourneyView, locale: Locale): string
@@ -233,6 +215,56 @@ function formatUpdatedAt(value: string | null, locale: Locale): string
         hour12: false,
         timeZone: "Europe/Paris"
     }).format(new Date(value))}`;
+}
+
+function formatDay(value: string | null, reference: string | null, locale: Locale): string
+{
+    if (!value)
+    {
+        return "";
+    }
+
+    const eventDay = localDayNumber(value);
+    const referenceDay = localDayNumber(reference ?? new Date().toISOString());
+    const difference = Math.round((eventDay - referenceDay) / 86_400_000);
+
+    if (difference === -1)
+    {
+        return localize(locale, "Hier", "Yesterday");
+    }
+
+    if (difference === 0)
+    {
+        return localize(locale, "Aujourd’hui", "Today");
+    }
+
+    if (difference === 1)
+    {
+        return localize(locale, "Demain", "Tomorrow");
+    }
+
+    return new Intl.DateTimeFormat(localeTag(locale),
+    {
+        day: "numeric",
+        month: "short",
+        timeZone: "Europe/Paris"
+    }).format(new Date(value));
+}
+
+function localDayNumber(value: string): number
+{
+    const parts = new Intl.DateTimeFormat("en",
+    {
+        day: "numeric",
+        month: "numeric",
+        year: "numeric",
+        timeZone: "Europe/Paris"
+    }).formatToParts(new Date(value));
+    const part = (type: Intl.DateTimeFormatPartTypes): number =>
+    {
+        return Number(parts.find((candidate) => candidate.type === type)?.value ?? 0);
+    };
+    return Date.UTC(part("year"), part("month") - 1, part("day"));
 }
 
 function latestUpdate(journeys: JourneyView[]): string | null

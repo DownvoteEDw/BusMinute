@@ -420,9 +420,20 @@ h1 em {
 
 .station-board-row > time {
     color: #ffd166;
+    display: grid;
     font-size: 17px;
     font-weight: 800;
+    gap: 2px;
     letter-spacing: -.05em;
+}
+
+.station-board-row > time small {
+    color: #91a39c;
+    font-family: var(--font-body);
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .01em;
+    text-transform: uppercase;
 }
 
 .station-board-service {
