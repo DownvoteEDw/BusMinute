@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { JourneyCard } from "../../../components/journey-card";
+import { CityJourneyList } from "../../../components/city-journey-list";
 import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
 import { StructuredData } from "../../../components/structured-data";
@@ -52,7 +52,14 @@ export default async function CityPage({ params }: PageProps)
         notFound();
     }
 
-    const dates = [...new Set(board.journeys.map((journey) => journey.serviceDate))].sort();
+    const today = parisDate(new Date());
+    const dates = nextDates(today, 3);
+    const initialPage = await transitDataService.getCityJourneyPage(board.slug, today);
+
+    if (!initialPage)
+    {
+        notFound();
+    }
     const structuredData = [
         breadcrumbStructuredData(
         [
@@ -153,34 +160,42 @@ export default async function CityPage({ params }: PageProps)
                     <div className="date-links">
                         {dates.map((date) =>
                         {
-                            return <Link href={`/departs/${board.slug}/${date}`} key={date}>{formatDate(date, locale)}</Link>;
+                            return (
+                                <Link className={date === today ? "is-current" : undefined} href={`/departs/${board.slug}/${date}`} key={date}>
+                                    {dateLinkLabel(date, today, locale)}
+                                </Link>
+                            );
                         })}
                     </div>
                 </section>
             )}
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available")}</span><h2>{localize(locale, `Bus passant par ${board.name}`, `Buses calling at ${board.name}`)}</h2></div>
-                    <span>{countLabel(locale, board.journeys.length, "passage", "passages", "service", "services")}</span>
+                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available")}</span><h2>{localize(locale, `Bus passant par ${board.name} aujourd’hui`, `Buses calling at ${board.name} today`)}</h2></div>
+                    <span>{countLabel(locale, initialPage.totalCount, "passage", "passages", "service", "services")}</span>
                 </div>
-                {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>{localize(locale, "Aucun passage à venir", "No upcoming services")}</h2><p>{localize(locale, "Les prochains horaires apparaîtront automatiquement.", "Upcoming times will appear automatically.")}</p></div>
-                ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} locale={locale} />)}</div>
-                )}
+                <CityJourneyList citySlug={board.slug} initialPage={initialPage} locale={locale} serviceDate={today} />
             </section>
             <StructuredData value={structuredData} />
         </div>
     );
 }
 
-function formatDate(value: string, locale: Locale): string
+function dateLinkLabel(value: string, today: string, locale: Locale): string
 {
-    return new Intl.DateTimeFormat(localeTag(locale),
+    const tomorrow = addDays(today, 1);
+    const relative = value === today
+        ? localize(locale, "Aujourd’hui", "Today")
+        : value === tomorrow
+            ? localize(locale, "Demain", "Tomorrow")
+            : null;
+    const date = new Intl.DateTimeFormat(localeTag(locale),
     {
-        dateStyle: "long",
+        day: "numeric",
+        month: "long",
         timeZone: "Europe/Paris"
     }).format(new Date(`${value}T12:00:00Z`));
+    return relative ? `${relative} · ${date}` : date;
 }
 
 function formatTime(value: string, locale: Locale): string
@@ -198,4 +213,32 @@ function shortStationName(name: string, city: string): string
 {
     const prefix = `${city} - `;
     return name.startsWith(prefix) ? name.slice(prefix.length) : name;
+}
+
+function nextDates(firstDate: string, count: number): string[]
+{
+    return Array.from({ length: count }, (_, index) => addDays(firstDate, index));
+}
+
+function addDays(value: string, days: number): string
+{
+    const date = new Date(`${value}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+}
+
+function parisDate(value: Date): string
+{
+    const parts = new Intl.DateTimeFormat("fr-FR",
+    {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Europe/Paris"
+    }).formatToParts(value);
+    const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    {
+        return parts.find((candidate) => candidate.type === type)?.value ?? "";
+    };
+    return `${part("year")}-${part("month")}-${part("day")}`;
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { journeyPath } from "../../../../src/application/journey-url";
 import { notFound } from "next/navigation";
-import { JourneyCard } from "../../../../components/journey-card";
+import { CityJourneyList } from "../../../../components/city-journey-list";
 import { StructuredData } from "../../../../components/structured-data";
 import { localeTag, localize, type Locale } from "../../../../src/application/i18n";
 import { requestLocale } from "../../../request-locale";
@@ -71,6 +71,13 @@ export default async function DeparturesPage({ params }: PageProps)
         notFound();
     }
 
+    const initialPage = await transitDataService.getCityJourneyPage(board.slug, date);
+
+    if (!initialPage)
+    {
+        notFound();
+    }
+
     const structuredData = [
         breadcrumbStructuredData(
         [
@@ -87,8 +94,8 @@ export default async function DeparturesPage({ params }: PageProps)
             datePublished: date,
             mainEntity: {
                 "@type": "ItemList",
-                numberOfItems: board.journeys.length,
-                itemListElement: board.journeys.map((journey, index) =>
+                numberOfItems: initialPage.totalCount,
+                itemListElement: initialPage.journeys.map((journey, index) =>
                 {
                     return {
                         "@type": "ListItem",
@@ -114,13 +121,9 @@ export default async function DeparturesPage({ params }: PageProps)
             <section className="journey-list-section">
                 <div className="section-heading-row">
                     <div><span className="live-pill light"><i /> {localize(locale, "Temps réel", "Live")}</span><h2>{localize(locale, "Bus disponibles", "Available buses")}</h2></div>
-                    <span>{board.journeys.length} bus</span>
+                    <span>{initialPage.totalCount} bus</span>
                 </div>
-                {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>{localize(locale, "Aucun départ disponible pour cette date", "No departures available on this date")}</h2><p>{localize(locale, `Consultez la page de ${board.name} pour voir les autres horaires.`, `Check the ${board.name} page for other times.`)}</p></div>
-                ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} locale={locale} />)}</div>
-                )}
+                <CityJourneyList citySlug={board.slug} initialPage={initialPage} locale={locale} serviceDate={date} />
             </section>
             <StructuredData value={structuredData} />
         </div>

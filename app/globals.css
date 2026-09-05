@@ -1355,6 +1355,47 @@ h1 em {
     grid-template-columns: 1fr;
 }
 
+.journey-load-more {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 22px;
+}
+
+.journey-load-more button {
+    background: var(--ink);
+    border: 0;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 850;
+    min-width: 220px;
+    padding: 13px 20px;
+}
+
+.journey-load-more button:hover:not(:disabled) {
+    background: var(--green);
+}
+
+.journey-load-more button:disabled {
+    cursor: wait;
+    opacity: .65;
+}
+
+.journey-load-more span,
+.journey-load-error {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.journey-load-error {
+    margin: 12px 0 0;
+    text-align: center;
+}
+
 .journey-card {
     align-items: center;
     background: var(--card);
@@ -2021,6 +2062,12 @@ h1 em {
     font-size: 11px;
     font-weight: 800;
     padding: 10px 14px;
+}
+
+.date-links a.is-current {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: white;
 }
 
 .route-suggestions-section {

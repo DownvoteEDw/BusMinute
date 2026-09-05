@@ -9,14 +9,15 @@ interface JourneyCardProps
 {
     journey: JourneyView;
     stopId?: string;
+    eventStopId?: string;
     originStopId?: string;
     destinationStopId?: string;
     locale?: Locale;
 }
 
-export function JourneyCard({ journey, stopId, originStopId, destinationStopId, locale = "fr" }: JourneyCardProps)
+export function JourneyCard({ journey, stopId, eventStopId, originStopId, destinationStopId, locale = "fr" }: JourneyCardProps)
 {
-    const event = journeyEvent(journey, stopId ?? originStopId, destinationStopId, locale);
+    const event = journeyEvent(journey, stopId ?? eventStopId ?? originStopId, destinationStopId, locale);
     const delaySeconds = event.stop?.delaySeconds ?? journey.delaySeconds;
     const delayState = journeyDelayState(journey, delaySeconds);
     const isStationContext = Boolean(stopId && !destinationStopId);

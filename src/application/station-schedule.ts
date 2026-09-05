@@ -1,4 +1,4 @@
-import type { JourneyStopView, JourneyView } from "./journey-view.js";
+import { citySlug, type JourneyStopView, type JourneyView } from "./journey-view.js";
 import { capitalize, localeTag, localize, type Locale } from "./i18n.js";
 
 export interface StationJourneyGroup
@@ -55,6 +55,24 @@ export function journeyTimeAtStop(journey: JourneyView, stopId: string): string 
     const normalizedStopId = stopId.toLocaleLowerCase("fr");
     const stop = journey.stops.find((candidate) => candidate.stopId.toLocaleLowerCase("fr") === normalizedStopId);
     return timeAtStop(stop);
+}
+
+export function journeyStopInCity(journey: JourneyView, slug: string): JourneyStopView | undefined
+{
+    const stops = journey.stops.filter((stop) => citySlug(stop.city) === slug);
+    return stops.find((stop) => stop.phase !== "passed") ?? stops[stops.length - 1];
+}
+
+export function journeyDateInCity(journey: JourneyView, slug: string): string
+{
+    const stop = journeyStopInCity(journey, slug);
+    return stop ? journeyDateAtStop(journey, stop.stopId) : journey.serviceDate;
+}
+
+export function journeyTimeInCity(journey: JourneyView, slug: string): string | null
+{
+    const stop = journeyStopInCity(journey, slug);
+    return stop ? journeyTimeAtStop(journey, stop.stopId) : null;
 }
 
 export function stationDateHeading(value: string, now = new Date(), locale: Locale = "fr"): StationDateHeading

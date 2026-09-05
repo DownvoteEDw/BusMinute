@@ -122,6 +122,13 @@ export interface DepartureBoardView extends CityBoardView
     serviceDate: string;
 }
 
+export interface CityJourneyPageView
+{
+    journeys: JourneyView[];
+    nextCursor: string | null;
+    totalCount: number;
+}
+
 export interface PlaceSearchResultView
 {
     type: "city" | "stop";

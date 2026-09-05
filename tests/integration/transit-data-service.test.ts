@@ -68,6 +68,7 @@ describe("TransitDataService", () =>
         const route = await service.getRouteBoard("XPB", "XTO");
         const city = await service.getCityBoard("paris");
         const departure = await service.getDepartureBoard("paris", "2026-08-22");
+        const page = await service.getCityJourneyPage("paris", "2026-08-22", null, 20);
 
         expect(searchResults).toHaveLength(1);
         expect(journey?.scheduledTripId).toBe("7672428505");
@@ -90,6 +91,8 @@ describe("TransitDataService", () =>
         expect(city?.stops[0]?.nextJourneyAt).toBeNull();
         expect(city?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(departure?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
+        expect(page?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
+        expect(page?.totalCount).toBe(1);
     });
 
     it("rend les villes et gares découvrables sans connaître un numéro de bus", async () =>
@@ -204,6 +207,29 @@ describe("TransitDataService", () =>
             "flixbus"
         ]);
         expect(searchResults.some((candidate) => candidate.serviceNumber === "FLX20")).toBe(false);
+    });
+
+    it("affiche les horaires prévus des deux opérateurs pour le lendemain", async () =>
+    {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-09-05T18:00:00.000Z"));
+        process.env.FLIXBUS_GTFS_ENABLED = "true";
+        process.env.FLIXBUS_GTFS_PATH = flixBusGtfsPath;
+        const service = new TransitDataService();
+        const page = await service.getCityJourneyPage("paris", "2026-09-06", null, 20);
+        const operators = new Set(page?.journeys.map((journey) => journey.operatorSlug));
+        const blablacarJourney = page?.journeys.find((journey) => journey.operatorSlug === "blablacar-bus");
+
+        expect(operators).toEqual(new Set(["blablacar-bus", "flixbus"]));
+        expect(page?.totalCount).toBeGreaterThanOrEqual(2);
+        expect(blablacarJourney?.journeyRef).toContain("blablacar-bus:");
+
+        if (blablacarJourney)
+        {
+            const details = await service.getJourney(blablacarJourney.journeyRef);
+            expect(details?.operatorSlug).toBe("blablacar-bus");
+            expect(details?.serviceDate).toBe("2026-09-06");
+        }
     });
 });
 

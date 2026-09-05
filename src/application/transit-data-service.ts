@@ -22,6 +22,7 @@ import
     citySlug,
     type CityBoardView,
     type CityDirectoryEntryView,
+    type CityJourneyPageView,
     type DepartureBoardView,
     type JourneyView,
     type PlaceSearchResultView,
@@ -49,6 +50,7 @@ import
 import { distanceMeters, samePhysicalStation } from "./station-identity.js";
 import { AsyncCache } from "./async-cache.js";
 import { liveBoardEventTime as boardEventTime } from "./live-board.js";
+import { journeyDateInCity, journeyStopInCity, journeyTimeInCity } from "./station-schedule.js";
 
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
@@ -85,6 +87,7 @@ export class TransitDataService
     private blablacarJourneyViews: { feed: GtfsFeed; timetable: SiriEstimatedTimetable; views: JourneyView[] } | null = null;
     private flixBusJourneyCache: TimedValue<JourneyView[]> | null = null;
     private readonly allJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000);
+    private readonly datedJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000, 10);
     private readonly cityDirectoryCache = new AsyncCache<CityDirectoryEntryView[]>(15_000);
     private readonly cityBoardCache = new AsyncCache<CityBoardView | null>(15_000, 100);
     private readonly stopBoardCache = new AsyncCache<StopBoardView | null>(15_000, 100);
@@ -280,7 +283,7 @@ export class TransitDataService
             slug,
             name: cityName(stops[0]?.stop.name ?? slug),
             stops: rankedStops,
-            journeys: journeys.slice(0, 40)
+            journeys
         };
     }
 
@@ -293,11 +296,30 @@ export class TransitDataService
             return null;
         }
 
+        const journeys = await this.getJourneysForServiceDate(serviceDate);
         return {
             ...board,
             serviceDate,
-            journeys: board.journeys.filter((journey) => journey.serviceDate === serviceDate)
+            journeys: journeys.filter((journey) => journeyDateInCity(journey, slug) === serviceDate)
+                .sort((first, second) => compareJourneyViewsInCity(first, second, slug))
         };
+    }
+
+    public async getCityJourneyPage(
+        slug: string,
+        serviceDate: string,
+        cursor: string | null = null,
+        limit = 20
+    ): Promise<CityJourneyPageView | null>
+    {
+        const board = await this.getDepartureBoard(slug, serviceDate);
+
+        if (!board)
+        {
+            return null;
+        }
+
+        return paginateCityJourneys(board.journeys, slug, cursor, limit);
     }
 
     public async getSeoIndex(): Promise<SeoIndexView>
@@ -352,11 +374,19 @@ export class TransitDataService
 
     private async loadJourney(journeyRef: string): Promise<JourneyView | null>
     {
-        const scheduledReference = parseScheduledJourneyRef(journeyRef, flixBusOperator);
-
-        if (scheduledReference)
+        const scheduledOperator = [flixBusOperator, blablacarBusOperator].find((operator) =>
         {
-            const feed = await this.getFlixBusFeed();
+            return parseScheduledJourneyRef(journeyRef, operator) !== null;
+        });
+        const scheduledReference = scheduledOperator
+            ? parseScheduledJourneyRef(journeyRef, scheduledOperator)
+            : null;
+
+        if (scheduledOperator && scheduledReference)
+        {
+            const feed = scheduledOperator.slug === flixBusOperator.slug
+                ? await this.getFlixBusFeed()
+                : await this.getFeed();
             const trip = feed?.trips.find((candidate) => candidate.externalId === scheduledReference.tripId);
             const calendar = feed?.calendars.find((candidate) => candidate.externalId === trip?.serviceExternalId);
 
@@ -372,9 +402,26 @@ export class TransitDataService
                 feed,
                 trip,
                 scheduledReference.serviceDate,
-                flixBusOperator
+                scheduledOperator
             );
-            return view ? this.enrichFlixBusJourney(view) : null;
+
+            if (!view)
+            {
+                return null;
+            }
+
+            if (scheduledOperator.slug === flixBusOperator.slug)
+            {
+                return this.enrichFlixBusJourney(view);
+            }
+
+            const realtimeView = (await this.getAllJourneyViews()).find((journey) =>
+            {
+                return journey.operatorSlug === scheduledOperator.slug
+                    && journey.serviceDate === scheduledReference.serviceDate
+                    && journey.scheduledTripId === scheduledReference.tripId;
+            });
+            return realtimeView ? this.attachPunctuality(realtimeView) : view;
         }
 
         const persistedJourney = await this.readPersistedJourney(journeyRef);
@@ -633,6 +680,33 @@ export class TransitDataService
             ...this.blablacarJourneyViews.views,
             ...flixBusJourneys
         ];
+    }
+
+    private async getJourneysForServiceDate(serviceDate: string): Promise<JourneyView[]>
+    {
+        return this.datedJourneyViewsCache.get(serviceDate, async () =>
+        {
+            const [operatorFeeds, currentJourneys] = await Promise.all([
+                this.getOperatorFeeds(),
+                this.getAllJourneyViews()
+            ]);
+            const currentForDate = currentJourneys.filter((journey) => journey.serviceDate === serviceDate);
+            const currentTripKeys = new Set(currentForDate.flatMap((journey) =>
+            {
+                return journey.scheduledTripId
+                    ? [scheduledTripKey(journey.operatorSlug, journey.scheduledTripId, journey.serviceDate)]
+                    : [];
+            }));
+            const scheduledJourneys = operatorFeeds.flatMap(({ feed, operator }) =>
+            {
+                return buildScheduledJourneyViews(feed, operator, [serviceDate]);
+            }).filter((journey) =>
+            {
+                return !journey.scheduledTripId
+                    || !currentTripKeys.has(scheduledTripKey(journey.operatorSlug, journey.scheduledTripId, journey.serviceDate));
+            });
+            return [...currentForDate, ...scheduledJourneys];
+        });
     }
 
     private async getOperatorFeeds(): Promise<OperatorFeed[]>
@@ -1358,6 +1432,115 @@ function boardStopTime(stop: JourneyView["stops"][number] | undefined): number
         ?? stop?.actualDepartureAt
         ?? stop?.actualArrivalAt;
     return value ? new Date(value).getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+interface CityJourneyCursor
+{
+    rank: number;
+    time: number;
+    journeyRef: string;
+}
+
+export function paginateCityJourneys(
+    journeys: JourneyView[],
+    slug: string,
+    cursor: string | null,
+    limit: number
+): CityJourneyPageView
+{
+    const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
+    const cursorValue = decodeCityJourneyCursor(cursor);
+    let startIndex = 0;
+
+    if (cursorValue)
+    {
+        const exactIndex = journeys.findIndex((journey) => journey.journeyRef === cursorValue.journeyRef);
+        startIndex = exactIndex >= 0
+            ? exactIndex + 1
+            : journeys.findIndex((journey) => compareCityJourneyCursor(journey, slug, cursorValue) > 0);
+
+        if (startIndex < 0)
+        {
+            startIndex = journeys.length;
+        }
+    }
+
+    const selectedJourneys = journeys.slice(startIndex, startIndex + safeLimit);
+    const hasMore = startIndex + selectedJourneys.length < journeys.length;
+    const lastJourney = selectedJourneys[selectedJourneys.length - 1];
+    return {
+        journeys: selectedJourneys,
+        nextCursor: hasMore && lastJourney ? encodeCityJourneyCursor(lastJourney, slug) : null,
+        totalCount: journeys.length
+    };
+}
+
+function compareJourneyViewsInCity(first: JourneyView, second: JourneyView, slug: string): number
+{
+    const firstKey = cityJourneyCursor(first, slug);
+    const secondKey = cityJourneyCursor(second, slug);
+    return firstKey.rank - secondKey.rank
+        || firstKey.time - secondKey.time
+        || firstKey.journeyRef.localeCompare(secondKey.journeyRef, "fr", { numeric: true });
+}
+
+function compareCityJourneyCursor(journey: JourneyView, slug: string, cursor: CityJourneyCursor): number
+{
+    const key = cityJourneyCursor(journey, slug);
+    return key.rank - cursor.rank
+        || key.time - cursor.time
+        || key.journeyRef.localeCompare(cursor.journeyRef, "fr", { numeric: true });
+}
+
+function cityJourneyCursor(journey: JourneyView, slug: string): CityJourneyCursor
+{
+    const stop = journeyStopInCity(journey, slug);
+    const time = journeyTimeInCity(journey, slug);
+    return {
+        rank: boardStopRank(stop),
+        time: time ? new Date(time).getTime() : Number.MAX_SAFE_INTEGER,
+        journeyRef: journey.journeyRef
+    };
+}
+
+function encodeCityJourneyCursor(journey: JourneyView, slug: string): string
+{
+    return Buffer.from(JSON.stringify(cityJourneyCursor(journey, slug))).toString("base64url");
+}
+
+function decodeCityJourneyCursor(value: string | null): CityJourneyCursor | null
+{
+    if (!value || value.length > 500)
+    {
+        return null;
+    }
+
+    try
+    {
+        const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<CityJourneyCursor>;
+
+        if (typeof parsed.rank !== "number"
+            || typeof parsed.time !== "number"
+            || typeof parsed.journeyRef !== "string")
+        {
+            return null;
+        }
+
+        return {
+            rank: parsed.rank,
+            time: parsed.time,
+            journeyRef: parsed.journeyRef
+        };
+    }
+    catch
+    {
+        return null;
+    }
+}
+
+function scheduledTripKey(operatorSlug: string, tripId: string, serviceDate: string): string
+{
+    return `${operatorSlug}:${tripId}:${serviceDate}`;
 }
 
 function stopUpcomingActivity(
