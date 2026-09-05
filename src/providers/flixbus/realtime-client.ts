@@ -74,10 +74,8 @@ export class FlixBusRealtimeClient
             return [];
         }
 
-        const windowFrom = new Date(Math.floor(from.getTime() / 3_600_000) * 3_600_000);
-        const windowTo = new Date(Math.ceil(to.getTime() / 3_600_000) * 3_600_000);
-        const cacheKey = `${stationId}:${windowFrom.toISOString()}:${windowTo.toISOString()}`;
-        return this.cache.get(cacheKey, () => this.loadStationTimetables(stationId, windowFrom, windowTo));
+        const cacheKey = `${stationId}:${hourKey(from)}:${hourKey(to)}`;
+        return this.cache.get(cacheKey, () => this.loadStationTimetables(stationId, from, to));
     }
 
     private async loadStationTimetables(stationId: string, from: Date, to: Date): Promise<FlixBusRealtimeRide[]>
@@ -282,6 +280,11 @@ function parseDeviation(value: unknown): FlixBusRealtimeDeviation | null
 function deduplicateRides(rides: FlixBusRealtimeRide[]): FlixBusRealtimeRide[]
 {
     return [...new Map(rides.map((ride) => [ride.id, ride])).values()];
+}
+
+function hourKey(value: Date): string
+{
+    return value.toISOString().slice(0, 13);
 }
 
 function record(value: unknown): Record<string, unknown> | null

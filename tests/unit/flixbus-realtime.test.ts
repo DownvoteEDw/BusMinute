@@ -90,6 +90,8 @@ describe("temps réel FlixBus", () =>
         expect(urls).toHaveLength(2);
         expect(urls.some((url) => url.includes("/departures?"))).toBe(true);
         expect(urls.some((url) => url.includes("/arrivals?"))).toBe(true);
+        expect(urls.every((url) => new URL(url).searchParams.get("from") === "2026-09-02T07:00:00.000Z")).toBe(true);
+        expect(urls.every((url) => new URL(url).searchParams.get("to") === "2026-09-02T11:00:00.000Z")).toBe(true);
     });
 
     it("retrouve automatiquement la configuration publiée par le tracker", async () =>
