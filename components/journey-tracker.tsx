@@ -169,19 +169,35 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
                     })}
                 </div>
                 {feedback && <p className="report-feedback" role="status">{feedback}</p>}
-                <div className="punctuality-card">
-                    <span className="section-kicker">{localize(locale, "Historique de la ligne", "Route history")}</span>
+                <div className={`punctuality-card${journey.punctuality ? ` ${punctualityTone(journey.punctuality.onTimePercentage)}` : ""}`}>
+                    <span className="section-kicker">{localize(locale, "Ponctualité à l’arrivée", "Arrival punctuality")}</span>
                     {journey.punctuality ? (
                         <>
-                            <div><strong>{journey.punctuality.onTimePercentage}&nbsp;%</strong><span>{localize(locale, `à moins de ${journey.punctuality.thresholdMinutes} min`, `within ${journey.punctuality.thresholdMinutes} min`)}</span></div>
-                            <p>{localize(
-                                locale,
-                                `Retard moyen ${averageDelay(journey.punctuality.averageDelaySeconds, locale)} sur ${journey.punctuality.sampleSize} arrivée${journey.punctuality.sampleSize > 1 ? "s" : ""} observée${journey.punctuality.sampleSize > 1 ? "s" : ""}.`,
-                                `Average delay ${averageDelay(journey.punctuality.averageDelaySeconds, locale)} across ${journey.punctuality.sampleSize} recorded arrival${journey.punctuality.sampleSize === 1 ? "" : "s"}.`
-                            )}</p>
+                            <div className="punctuality-summary">
+                                <strong>{journey.punctuality.onTimePercentage}&nbsp;%</strong>
+                                <span>{localize(
+                                    locale,
+                                    `des arrivées avec ${journey.punctuality.thresholdMinutes} min d’écart maximum`,
+                                    `of arrivals within ${journey.punctuality.thresholdMinutes} minutes of schedule`
+                                )}</span>
+                            </div>
+                            <div className="punctuality-details">
+                                <div>
+                                    <span>{localize(locale, "Retard moyen à l’arrivée", "Average arrival delay")}</span>
+                                    <strong>{averageDelay(journey.punctuality.averageDelaySeconds, locale)}</strong>
+                                </div>
+                                <div>
+                                    <span>{localize(locale, "Calcul basé sur", "Based on")}</span>
+                                    <strong>{localize(
+                                        locale,
+                                        `${journey.punctuality.sampleSize} arrivée${journey.punctuality.sampleSize > 1 ? "s" : ""} sur ${journey.punctuality.windowDays} jours`,
+                                        `${journey.punctuality.sampleSize} arrival${journey.punctuality.sampleSize === 1 ? "" : "s"} over ${journey.punctuality.windowDays} days`
+                                    )}</strong>
+                                </div>
+                            </div>
                         </>
                     ) : (
-                        <p>{localize(locale, "L’historique se construit à chaque passage enregistré.", "The history grows with every recorded service.")}</p>
+                        <p className="punctuality-empty">{localize(locale, "Pas encore assez d’arrivées enregistrées pour calculer la ponctualité.", "Not enough recorded arrivals yet to calculate punctuality.")}</p>
                     )}
                 </div>
                 <div className="recent-reports">
@@ -349,10 +365,25 @@ function averageDelay(seconds: number, locale: Locale): string
 
     if (minutes === 0)
     {
-        return localize(locale, "nul", "none");
+        return localize(locale, "moins d’1 min", "less than 1 min");
     }
 
     return minutes > 0
-        ? `+${minutes} min`
+        ? localize(locale, `${minutes} min de retard`, `${minutes} min late`)
         : localize(locale, `${Math.abs(minutes)} min d’avance`, `${Math.abs(minutes)} min early`);
+}
+
+function punctualityTone(percentage: number): string
+{
+    if (percentage >= 80)
+    {
+        return "is-reliable";
+    }
+
+    if (percentage >= 50)
+    {
+        return "is-mixed";
+    }
+
+    return "is-unreliable";
 }

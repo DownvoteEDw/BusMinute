@@ -1171,34 +1171,90 @@ h1 em {
 
 .punctuality-card {
     background: var(--paper);
+    border-left: 4px solid var(--scheduled-gray);
     border-radius: 12px;
     margin-top: 22px;
     padding: 18px;
 }
 
-.punctuality-card > div {
-    align-items: end;
-    display: flex;
-    gap: 9px;
-    margin-top: 13px;
+.punctuality-card.is-reliable {
+    border-left-color: var(--ontime-green);
 }
 
-.punctuality-card strong {
+.punctuality-card.is-mixed {
+    border-left-color: #b26900;
+}
+
+.punctuality-card.is-unreliable {
+    border-left-color: var(--delay-red);
+}
+
+.punctuality-summary {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.punctuality-summary strong {
     color: var(--green);
     font-family: var(--font-display);
     font-size: 38px;
-    font-weight: 500;
+    font-weight: 700;
     letter-spacing: -.06em;
-    line-height: .9;
+    line-height: 1;
 }
 
-.punctuality-card div span {
+.punctuality-card.is-mixed .punctuality-summary strong {
+    color: #8b5200;
+}
+
+.punctuality-card.is-unreliable .punctuality-summary strong {
+    color: var(--delay-red);
+}
+
+.punctuality-summary > span {
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.35;
+    max-width: 150px;
+}
+
+.punctuality-details {
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 16px;
+    padding-top: 14px;
+}
+
+.punctuality-details > div {
+    display: grid;
+    gap: 5px;
+}
+
+.punctuality-details > div + div {
+    border-left: 1px solid var(--line);
+    padding-left: 12px;
+}
+
+.punctuality-details span {
     color: var(--muted);
-    font-size: 10px;
-    max-width: 70px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
 
-.punctuality-card p {
+.punctuality-details strong {
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.punctuality-empty {
     color: var(--muted);
     font-size: 11px;
     line-height: 1.5;
