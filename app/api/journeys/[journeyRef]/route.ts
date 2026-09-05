@@ -1,4 +1,5 @@
-import { transitDataService } from "../../../../src/application/transit-data-service";
+import { transitDataService } from "../../../../src/application/transit-data-service.js";
+import { journeyRefFromPath } from "../../../../src/application/journey-url.js";
 
 interface RouteProps
 {
@@ -8,8 +9,8 @@ interface RouteProps
 export async function GET(_request: Request, { params }: RouteProps): Promise<Response>
 {
     const { journeyRef: rawJourneyRef } = await params;
-    const journeyRef = decodeURIComponent(rawJourneyRef);
-    const journey = await transitDataService.getJourney(journeyRef);
+    const journeyRef = journeyRefFromPath(rawJourneyRef);
+    const journey = journeyRef ? await transitDataService.getJourney(journeyRef) : null;
 
     if (!journey)
     {

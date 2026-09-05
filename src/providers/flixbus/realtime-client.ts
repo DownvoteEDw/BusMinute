@@ -1,3 +1,5 @@
+import { AsyncCache } from "../../application/async-cache.js";
+
 export interface FlixBusRealtimeDeviation
 {
     timestamp: string;
@@ -36,18 +38,15 @@ export interface FlixBusRealtimeRide
 
 type Fetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
-interface CachedRides
-{
-    expiresAt: number;
-    rides: FlixBusRealtimeRide[];
-}
-
 const defaultApiUrl = "https://global.api.flixbus.com/gis";
 const defaultTrackerUrl = "https://www.flixbus.fr/track";
 
 export class FlixBusRealtimeClient
 {
-    private readonly cache = new Map<string, CachedRides>();
+    private readonly cache = new AsyncCache<FlixBusRealtimeRide[]>(
+        readPositiveInteger("FLIXBUS_REALTIME_CACHE_SECONDS", 30) * 1000,
+        200
+    );
     private apiKeyPromise: Promise<string> | null = null;
 
     public constructor(private readonly fetcher: Fetcher = fetch)
@@ -75,27 +74,21 @@ export class FlixBusRealtimeClient
             return [];
         }
 
-        const cacheKey = `${stationId}:${hourKey(from)}:${hourKey(to)}`;
-        const cached = this.cache.get(cacheKey);
+        const windowFrom = new Date(Math.floor(from.getTime() / 3_600_000) * 3_600_000);
+        const windowTo = new Date(Math.ceil(to.getTime() / 3_600_000) * 3_600_000);
+        const cacheKey = `${stationId}:${windowFrom.toISOString()}:${windowTo.toISOString()}`;
+        return this.cache.get(cacheKey, () => this.loadStationTimetables(stationId, windowFrom, windowTo));
+    }
 
-        if (cached && cached.expiresAt > Date.now())
-        {
-            return cached.rides;
-        }
-
+    private async loadStationTimetables(stationId: string, from: Date, to: Date): Promise<FlixBusRealtimeRide[]>
+    {
         const apiKey = await this.apiKey();
         const [departures, arrivals] = await Promise.all(
         [
             this.loadTimetable(stationId, "departures", from, to, apiKey),
             this.loadTimetable(stationId, "arrivals", from, to, apiKey)
         ]);
-        const rides = deduplicateRides([...departures, ...arrivals]);
-        this.cache.set(cacheKey,
-        {
-            expiresAt: Date.now() + readPositiveInteger("FLIXBUS_REALTIME_CACHE_SECONDS", 30) * 1000,
-            rides
-        });
-        return rides;
+        return deduplicateRides([...departures, ...arrivals]);
     }
 
     private async loadTimetable(
@@ -140,7 +133,11 @@ export class FlixBusRealtimeClient
             return configured;
         }
 
-        this.apiKeyPromise ??= this.discoverApiKey();
+        this.apiKeyPromise ??= this.discoverApiKey().catch((error: unknown) =>
+        {
+            this.apiKeyPromise = null;
+            throw error;
+        });
         return this.apiKeyPromise;
     }
 
@@ -285,11 +282,6 @@ function parseDeviation(value: unknown): FlixBusRealtimeDeviation | null
 function deduplicateRides(rides: FlixBusRealtimeRide[]): FlixBusRealtimeRide[]
 {
     return [...new Map(rides.map((ride) => [ride.id, ride])).values()];
-}
-
-function hourKey(value: Date): string
-{
-    return value.toISOString().slice(0, 13);
 }
 
 function record(value: unknown): Record<string, unknown> | null

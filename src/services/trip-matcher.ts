@@ -3,6 +3,8 @@ import type
 {
     GtfsFeed,
     GtfsScheduledTrip,
+    GtfsServiceCalendar,
+    GtfsServiceException,
     GtfsStopTime,
     SiriCall,
     SiriJourney,
@@ -29,6 +31,12 @@ const defaultOptions: TripMatcherOptions = {
 export class GtfsSiriTripMatcher
 {
     private readonly options: TripMatcherOptions;
+    private readonly feedIndexes = new WeakMap<GtfsFeed,
+    {
+        services: Map<string, GtfsScheduledTrip[]>;
+        calendars: Map<string, GtfsServiceCalendar>;
+        exceptions: Map<string, GtfsServiceException[]>;
+    }>();
 
     public constructor(options: Partial<TripMatcherOptions> = {})
     {
@@ -47,7 +55,8 @@ export class GtfsSiriTripMatcher
             return this.unmatched(journey, "Le GTFS ne contient aucun fuseau opérateur");
         }
 
-        const serviceCandidates = feed.trips.filter((trip) => trip.serviceNumber === journey.serviceNumber);
+        const index = this.feedIndex(feed);
+        const serviceCandidates = index.services.get(journey.serviceNumber) ?? [];
 
         if (serviceCandidates.length === 0)
         {
@@ -56,10 +65,10 @@ export class GtfsSiriTripMatcher
 
         const activeCandidates = serviceCandidates.filter((trip) =>
         {
-            const calendar = feed.calendars.find((candidate) => candidate.externalId === trip.serviceExternalId);
+            const calendar = index.calendars.get(trip.serviceExternalId);
 
             return calendar
-                ? isServiceActive(calendar, feed.calendarExceptions, journey.serviceDate)
+                ? isServiceActive(calendar, index.exceptions.get(trip.serviceExternalId) ?? [], journey.serviceDate)
                 : false;
         });
 
@@ -121,6 +130,42 @@ export class GtfsSiriTripMatcher
             candidates,
             reason: null
         };
+    }
+
+    private feedIndex(feed: GtfsFeed)
+    {
+        const cached = this.feedIndexes.get(feed);
+
+        if (cached)
+        {
+            return cached;
+        }
+
+        const services = new Map<string, GtfsScheduledTrip[]>();
+        const exceptions = new Map<string, GtfsServiceException[]>();
+
+        for (const trip of feed.trips)
+        {
+            const candidates = services.get(trip.serviceNumber) ?? [];
+            candidates.push(trip);
+            services.set(trip.serviceNumber, candidates);
+        }
+
+        for (const exception of feed.calendarExceptions)
+        {
+            const values = exceptions.get(exception.serviceExternalId) ?? [];
+            values.push(exception);
+            exceptions.set(exception.serviceExternalId, values);
+        }
+
+        const index =
+        {
+            services,
+            calendars: new Map(feed.calendars.map((calendar) => [calendar.externalId, calendar])),
+            exceptions
+        };
+        this.feedIndexes.set(feed, index);
+        return index;
     }
 
     private scoreCandidate(trip: GtfsScheduledTrip, journey: SiriJourney, timezone: string): TripMatchCandidate
@@ -187,6 +232,7 @@ function compareTimetable(
 ): TimetableComparison
 {
     const differences: number[] = [];
+    const base = DateTime.fromISO(serviceDate, { zone: timezone });
     const stopTimesBySequence = new Map(stopTimes.map((stopTime) => [stopTime.sequence, stopTime]));
 
     calls.forEach((call) =>
@@ -201,12 +247,12 @@ function compareTimetable(
         addDifference(
             differences,
             call.aimedArrivalTime,
-            scheduledInstant(serviceDate, stopTime.arrivalSeconds, timezone)
+            scheduledInstant(base, stopTime.arrivalSeconds)
         );
         addDifference(
             differences,
             call.aimedDepartureTime,
-            scheduledInstant(serviceDate, stopTime.departureSeconds, timezone)
+            scheduledInstant(base, stopTime.departureSeconds)
         );
     });
 
@@ -224,9 +270,8 @@ function compareTimetable(
     };
 }
 
-function scheduledInstant(serviceDate: string, seconds: number, timezone: string): Date
+function scheduledInstant(base: DateTime, seconds: number): Date
 {
-    const base = DateTime.fromISO(serviceDate, { zone: timezone });
     const dayOffset = Math.floor(seconds / 86400);
     const secondsOfDay = seconds % 86400;
     const hour = Math.floor(secondsOfDay / 3600);
@@ -238,7 +283,7 @@ function scheduledInstant(serviceDate: string, seconds: number, timezone: string
 
     if (!instant.isValid)
     {
-        throw new Error(`Impossible de convertir ${serviceDate} + ${seconds}s dans ${timezone}`);
+        throw new Error(`Impossible de convertir ${base.toISODate()} + ${seconds}s dans ${base.zoneName}`);
     }
 
     return instant.toJSDate();

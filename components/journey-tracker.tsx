@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { journeyPathSegment } from "../src/application/journey-url";
 import { useEffect, useMemo, useState } from "react";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
@@ -65,7 +66,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
 
         try
         {
-            const response = await fetch(`/api/journeys/${encodeURIComponent(journey.journeyRef)}`, { cache: "no-store" });
+            const response = await fetch(`/api/journeys/${journeyPathSegment(journey.journeyRef)}`, { cache: "no-store" });
 
             if (response.ok)
             {

@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import type { GtfsFeed, GtfsScheduledTrip, GtfsStop, GtfsStopTime } from "../domain/models.js";
+import type { GtfsFeed, GtfsScheduledTrip, GtfsStop } from "../domain/models.js";
 import { cityName, type JourneyStopPhase, type JourneyStopView, type JourneyView } from "./journey-view.js";
 import
 {
@@ -41,6 +41,7 @@ export function buildScheduledJourneyViews(
     for (const serviceDate of serviceDates)
     {
         const serviceIds = activeServices.get(serviceDate) ?? new Set<string>();
+        const dayStart = serviceDayStart(feed, serviceDate);
 
         for (const trip of feed.trips)
         {
@@ -50,12 +51,12 @@ export function buildScheduledJourneyViews(
             }
 
             const view = buildScheduledJourneyViewWithStops(
-                feed,
                 trip,
                 serviceDate,
                 operator,
                 now,
-                stopsById
+                stopsById,
+                dayStart
             );
 
             if (view)
@@ -77,23 +78,22 @@ export function buildScheduledJourneyView(
 ): JourneyView | null
 {
     const stopsById = new Map(feed.stops.map((stop) => [stop.externalId, stop]));
-    return buildScheduledJourneyViewWithStops(feed, trip, serviceDate, operator, now, stopsById);
+    return buildScheduledJourneyViewWithStops(trip, serviceDate, operator, now, stopsById, serviceDayStart(feed, serviceDate));
 }
 
 function buildScheduledJourneyViewWithStops(
-    feed: GtfsFeed,
     trip: GtfsScheduledTrip,
     serviceDate: string,
     operator: TransitOperator,
     now: Date,
-    stopsById: Map<string, GtfsStop>
+    stopsById: Map<string, GtfsStop>,
+    dayStart: number
 ): JourneyView | null
 {
-    const timezone = feed.agencies[0]?.timezone ?? "UTC";
     const nowMilliseconds = now.getTime();
     const lastUpcomingIndex = trip.stopTimes.findIndex((stopTime) =>
     {
-        return stopTimeInstant(serviceDate, stopTime, timezone, false).getTime() >= nowMilliseconds;
+        return dayStart + stopTime.departureSeconds * 1000 >= nowMilliseconds;
     });
     const stops = trip.stopTimes.map((stopTime, index) =>
     {
@@ -107,10 +107,10 @@ function buildScheduledJourneyViewWithStops(
             city: cityName(name),
             order: stopTime.sequence,
             phase,
-            aimedArrivalAt: stopTimeInstant(serviceDate, stopTime, timezone, true).toISOString(),
+            aimedArrivalAt: new Date(dayStart + stopTime.arrivalSeconds * 1000).toISOString(),
             expectedArrivalAt: null,
             actualArrivalAt: null,
-            aimedDepartureAt: stopTimeInstant(serviceDate, stopTime, timezone, false).toISOString(),
+            aimedDepartureAt: new Date(dayStart + stopTime.departureSeconds * 1000).toISOString(),
             expectedDepartureAt: null,
             actualDepartureAt: null,
             arrivalStatus: null,
@@ -206,19 +206,11 @@ function activeServicesByDate(feed: GtfsFeed, serviceDates: string[]): Map<strin
     return values;
 }
 
-function stopTimeInstant(
-    serviceDate: string,
-    stopTime: GtfsStopTime,
-    timezone: string,
-    arrival: boolean
-): Date
+function serviceDayStart(feed: GtfsFeed, serviceDate: string): number
 {
-    const seconds = arrival ? stopTime.arrivalSeconds : stopTime.departureSeconds;
-    return DateTime.fromISO(serviceDate, { zone: timezone })
+    return DateTime.fromISO(serviceDate, { zone: feed.agencies[0]?.timezone ?? "UTC" })
         .startOf("day")
-        .plus({ seconds })
-        .toUTC()
-        .toJSDate();
+        .toMillis();
 }
 
 function stopPhase(index: number, firstUpcomingIndex: number): JourneyStopPhase

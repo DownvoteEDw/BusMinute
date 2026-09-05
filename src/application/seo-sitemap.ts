@@ -1,4 +1,5 @@
 import type { SeoIndexView } from "./journey-view.js";
+import { journeyPath } from "./journey-url.js";
 import { transitDataService } from "./transit-data-service.js";
 
 export const sitemapSectionNames = [
@@ -127,7 +128,7 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
         case "journeys":
             return uniqueSorted(index.journeys.map((journey) =>
             {
-                return `/suivi/${encodeURIComponent(journey.journeyRef)}`;
+                return journeyPath(journey.journeyRef);
             }));
     }
 }

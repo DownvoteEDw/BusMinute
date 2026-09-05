@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { journeyPath } from "../src/application/journey-url";
 import { OperatorLogo } from "./operator-logo";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
@@ -25,7 +26,7 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId, 
     const destinationCity = segmentDestination?.city ?? journey.destinationCity;
 
     return (
-        <Link className={`journey-card${isStationContext ? ` is-station is-${delayState}` : ""}`} href={`/suivi/${encodeURIComponent(journey.journeyRef)}`}>
+        <Link className={`journey-card${isStationContext ? ` is-station is-${delayState}` : ""}`} href={journeyPath(journey.journeyRef)}>
             <div className="journey-card-time">
                 <time dateTime={event.time ?? undefined}>{formatTime(event.time, locale)}</time>
                 <span>{event.label}</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { journeyPath } from "../src/application/journey-url";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { countLabel, localize, type Locale } from "../src/application/i18n";
 import type { JourneyView, PlaceSearchResultView } from "../src/application/journey-view";
@@ -99,7 +100,7 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
 
         if (first)
         {
-            router.push(`/suivi/${encodeURIComponent(first.journeyRef)}`);
+            router.push(journeyPath(first.journeyRef));
             return;
         }
 
@@ -112,7 +113,7 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
     function choose(journey: JourneyView): void
     {
         setOpen(false);
-        router.push(`/suivi/${encodeURIComponent(journey.journeyRef)}`);
+        router.push(journeyPath(journey.journeyRef));
     }
 
     function choosePlace(place: PlaceSearchResultView): void

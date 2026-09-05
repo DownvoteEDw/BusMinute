@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enrichFlixBusJourney } from "../../src/application/flixbus-realtime.js";
 import type { JourneyView } from "../../src/application/journey-view.js";
 import
@@ -21,8 +21,54 @@ describe("temps réel FlixBus", () =>
 
     afterEach(() =>
     {
+        vi.useRealTimers();
         restoreEnvironment("FLIXBUS_REALTIME_ENABLED", previousEnabled);
         restoreEnvironment("FLIXBUS_REALTIME_API_KEY", previousApiKey);
+    });
+
+    it("partage les requêtes simultanées puis actualise les retards après expiration", async () =>
+    {
+        vi.useFakeTimers();
+        process.env.FLIXBUS_REALTIME_API_KEY = "test-key";
+        const fetcher = vi.fn(async () => Response.json(realtimePayload()));
+        const client = new FlixBusRealtimeClient(fetcher);
+        const from = new Date("2026-09-02T07:10:00Z");
+        const to = new Date("2026-09-02T11:10:00Z");
+        await Promise.all(Array.from({ length: 20 }, () => client.loadStationRides("paris-stop", from, to)));
+        expect(fetcher).toHaveBeenCalledTimes(2);
+        vi.advanceTimersByTime(31_000);
+        await client.loadStationRides("paris-stop", from, to);
+        expect(fetcher).toHaveBeenCalledTimes(4);
+    });
+
+    it("récupère après un échec temporaire de découverte de la configuration", async () =>
+    {
+        delete process.env.FLIXBUS_REALTIME_API_KEY;
+        let available = false;
+        const client = new FlixBusRealtimeClient(async (input) =>
+        {
+            if (!available)
+            {
+                return new Response(null, { status: 503 });
+            }
+
+            if (String(input).endsWith("/track"))
+            {
+                return new Response('<script src="https://tracker.example/assets/index-test.js"></script>');
+            }
+
+            if (String(input).includes("index-test.js"))
+            {
+                return new Response('var config={WIMR_API_KEY:"test-key"};');
+            }
+
+            return Response.json(realtimePayload());
+        });
+        const from = new Date("2026-09-02T07:00:00Z");
+        const to = new Date("2026-09-02T11:00:00Z");
+        await expect(client.loadStationRides("paris-stop", from, to)).rejects.toThrow("503");
+        available = true;
+        expect(await client.loadStationRides("paris-stop", from, to)).toHaveLength(1);
     });
 
     it("lit et déduplique le tableau des arrivées et départs", async () =>

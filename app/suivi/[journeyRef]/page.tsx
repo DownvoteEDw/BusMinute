@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { journeyPath, journeyRefFromPath } from "../../../src/application/journey-url";
 import { notFound } from "next/navigation";
 import { JourneyTracker } from "../../../components/journey-tracker";
 import { StructuredData } from "../../../components/structured-data";
@@ -20,8 +21,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 {
     const locale = await requestLocale();
     const { journeyRef: rawJourneyRef } = await params;
-    const journeyRef = decodeURIComponent(rawJourneyRef);
-    const journey = await transitDataService.getJourney(journeyRef);
+    const journeyRef = journeyRefFromPath(rawJourneyRef);
+    const journey = journeyRef ? await transitDataService.getJourney(journeyRef) : null;
 
     if (!journey)
     {
@@ -45,7 +46,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         title,
         description,
         alternates: {
-            canonical: `/suivi/${encodeURIComponent(journey.journeyRef)}`
+            canonical: journeyPath(journey.journeyRef)
         },
         openGraph: {
             title,
@@ -66,8 +67,8 @@ export default async function JourneyPage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const { journeyRef: rawJourneyRef } = await params;
-    const journeyRef = decodeURIComponent(rawJourneyRef);
-    const journey = await transitDataService.getJourney(journeyRef);
+    const journeyRef = journeyRefFromPath(rawJourneyRef);
+    const journey = journeyRef ? await transitDataService.getJourney(journeyRef) : null;
 
     if (!journey)
     {
@@ -81,13 +82,13 @@ export default async function JourneyPage({ params }: PageProps)
             { name: localize(locale, "Accueil", "Home"), path: "/" },
             { name: localize(locale, "Villes et gares", "Cities and stations"), path: "/villes" },
             { name: journey.originCity, path: `/ville/${originCitySlug}` },
-            { name: `Bus ${journey.serviceNumber}`, path: `/suivi/${encodeURIComponent(journey.journeyRef)}` }
+            { name: `Bus ${journey.serviceNumber}`, path: journeyPath(journey.journeyRef) }
         ]),
         {
             "@context": "https://schema.org",
             "@type": "BusTrip",
             name: localize(locale, `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`, `Bus ${journey.serviceNumber} ${journey.originCity} to ${journey.destinationCity}`),
-            url: absoluteUrl(`/suivi/${encodeURIComponent(journey.journeyRef)}`),
+            url: absoluteUrl(journeyPath(journey.journeyRef)),
             busNumber: journey.serviceNumber,
             departureBusStop: {
                 "@type": "BusStation",

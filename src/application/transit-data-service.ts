@@ -47,6 +47,7 @@ import
     scheduledServiceDates
 } from "./scheduled-journeys.js";
 import { distanceMeters, samePhysicalStation } from "./station-identity.js";
+import { AsyncCache } from "./async-cache.js";
 
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
@@ -80,8 +81,17 @@ export class TransitDataService
     private databaseFeedCache: TimedValue<GtfsFeed> | null = null;
     private flixBusDatabaseFeedCache: TimedValue<GtfsFeed> | null = null;
     private siriCache: TimedValue<SiriEstimatedTimetable> | null = null;
+    private blablacarJourneyViews: { feed: GtfsFeed; timetable: SiriEstimatedTimetable; views: JourneyView[] } | null = null;
     private flixBusJourneyCache: TimedValue<JourneyView[]> | null = null;
-    private liveBoardCache: TimedValue<JourneyView[]> | null = null;
+    private readonly allJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000);
+    private readonly cityDirectoryCache = new AsyncCache<CityDirectoryEntryView[]>(15_000);
+    private readonly cityBoardCache = new AsyncCache<CityBoardView | null>(15_000, 100);
+    private readonly stopBoardCache = new AsyncCache<StopBoardView | null>(15_000, 100);
+    private readonly journeyCache = new AsyncCache<JourneyView | null>(15_000, 200);
+    private readonly liveBoardCache = new AsyncCache<JourneyView[]>(liveBoardLifetimeMilliseconds);
+    private readonly feedRequests = new AsyncCache<GtfsFeed>(0);
+    private readonly flixBusFeedRequests = new AsyncCache<GtfsFeed | null>(0);
+    private readonly timetableRequests = new AsyncCache<SiriEstimatedTimetable>(0);
     private databaseRepository: PostgresTransitSnapshotRepository | null = null;
     private flixBusDatabaseRepository: PostgresTransitSnapshotRepository | null = null;
     private readonly punctualityCache = new Map<string, TimedValue<PunctualitySummaryView | null>>();
@@ -169,6 +179,11 @@ export class TransitDataService
 
     public async getCityDirectory(): Promise<CityDirectoryEntryView[]>
     {
+        return this.cityDirectoryCache.get("directory", () => this.loadCityDirectory());
+    }
+
+    private async loadCityDirectory(): Promise<CityDirectoryEntryView[]>
+    {
         const [operatorFeeds, journeys] = await Promise.all([
             this.getOperatorFeeds(),
             this.getAllJourneyViews()
@@ -190,6 +205,11 @@ export class TransitDataService
     }
 
     public async getCityBoard(slug: string): Promise<CityBoardView | null>
+    {
+        return this.cityBoardCache.get(slug, () => this.loadCityBoard(slug));
+    }
+
+    private async loadCityBoard(slug: string): Promise<CityBoardView | null>
     {
         const [operatorFeeds, allJourneys] = await Promise.all([
             this.getOperatorFeeds(),
@@ -326,6 +346,11 @@ export class TransitDataService
 
     public async getJourney(journeyRef: string): Promise<JourneyView | null>
     {
+        return this.journeyCache.get(journeyRef, () => this.loadJourney(journeyRef));
+    }
+
+    private async loadJourney(journeyRef: string): Promise<JourneyView | null>
+    {
         const scheduledReference = parseScheduledJourneyRef(journeyRef, flixBusOperator);
 
         if (scheduledReference)
@@ -383,6 +408,11 @@ export class TransitDataService
     }
 
     public async getStopBoard(stopId: string): Promise<StopBoardView | null>
+    {
+        return this.stopBoardCache.get(stopId, () => this.loadStopBoard(stopId));
+    }
+
+    private async loadStopBoard(stopId: string): Promise<StopBoardView | null>
     {
         const reference = parseStopReference(stopId);
         const operatorFeeds = await this.getOperatorFeeds();
@@ -500,11 +530,12 @@ export class TransitDataService
 
     public async getLiveBoard(limit = 8): Promise<JourneyView[]>
     {
-        if (this.liveBoardCache && this.liveBoardCache.expiresAt > Date.now())
-        {
-            return this.liveBoardCache.value.slice(0, limit);
-        }
+        const views = await this.liveBoardCache.get("board", () => this.loadLiveBoard());
+        return views.slice(0, limit);
+    }
 
+    private async loadLiveBoard(): Promise<JourneyView[]>
+    {
         const allViews = (await this.getAllJourneyViews()).filter((journey) => journey.stops.length >= 2);
         const flixBusStopIds = allViews
             .filter((journey) => journey.operatorSlug === flixBusOperator.slug)
@@ -524,13 +555,7 @@ export class TransitDataService
                 || boardEventTime(first) - boardEventTime(second)
                 || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
         });
-        this.liveBoardCache =
-        {
-            value: sortedViews,
-            expiresAt: Date.now() + liveBoardLifetimeMilliseconds
-        };
-
-        return sortedViews.slice(0, limit);
+        return sortedViews;
     }
 
     public async getSyncStatuses(): Promise<TransitSyncStatus[]>
@@ -578,13 +603,28 @@ export class TransitDataService
 
     private async getAllJourneyViews(): Promise<JourneyView[]>
     {
+        return this.allJourneyViewsCache.get("journeys", () => this.loadAllJourneyViews());
+    }
+
+    private async loadAllJourneyViews(): Promise<JourneyView[]>
+    {
         const [feed, timetable, flixBusJourneys] = await Promise.all([
             this.getFeed(),
             this.getTimetable(),
             this.getFlixBusJourneys()
         ]);
+        if (this.blablacarJourneyViews?.feed !== feed || this.blablacarJourneyViews.timetable !== timetable)
+        {
+            this.blablacarJourneyViews =
+            {
+                feed,
+                timetable,
+                views: this.toViews(feed, timetable.journeys, timetable.journeys.length)
+            };
+        }
+
         return [
-            ...this.toViews(feed, timetable.journeys, timetable.journeys.length),
+            ...this.blablacarJourneyViews.views,
             ...flixBusJourneys
         ];
     }
@@ -642,6 +682,11 @@ export class TransitDataService
     }
 
     private async getFlixBusFeed(): Promise<GtfsFeed | null>
+    {
+        return this.flixBusFeedRequests.get("feed", () => this.loadFlixBusFeed());
+    }
+
+    private async loadFlixBusFeed(): Promise<GtfsFeed | null>
     {
         if (process.env.FLIXBUS_GTFS_ENABLED === "false")
         {
@@ -774,6 +819,11 @@ export class TransitDataService
 
     private async getFeed(): Promise<GtfsFeed>
     {
+        return this.feedRequests.get("feed", () => this.loadCurrentFeed());
+    }
+
+    private async loadCurrentFeed(): Promise<GtfsFeed>
+    {
         if (this.databaseFeedCache && this.databaseFeedCache.expiresAt > Date.now())
         {
             return this.databaseFeedCache.value;
@@ -852,6 +902,11 @@ export class TransitDataService
     }
 
     private async getTimetable(): Promise<SiriEstimatedTimetable>
+    {
+        return this.timetableRequests.get("timetable", () => this.loadCurrentTimetable());
+    }
+
+    private async loadCurrentTimetable(): Promise<SiriEstimatedTimetable>
     {
         if (this.siriCache && this.siriCache.expiresAt > Date.now())
         {
@@ -1039,7 +1094,12 @@ async function exists(path: string): Promise<boolean>
     }
 }
 
-export const transitDataService = new TransitDataService();
+const transitGlobal = globalThis as typeof globalThis &
+{
+    busminuteTransitDataService?: TransitDataService;
+};
+
+export const transitDataService = transitGlobal.busminuteTransitDataService ??= new TransitDataService();
 
 function buildCityDirectory(operatorFeeds: OperatorFeed[], journeys: JourneyView[]): CityDirectoryEntryView[]
 {

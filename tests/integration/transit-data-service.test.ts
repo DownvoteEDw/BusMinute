@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TransitDataService } from "../../src/application/transit-data-service.js";
+import { GtfsSiriTripMatcher } from "../../src/services/trip-matcher.js";
 
 const gtfsPath = fileURLToPath(new URL("../fixtures/gtfs-50819", import.meta.url));
 const siriPath = fileURLToPath(new URL("../fixtures/siri-50819-2026-08-22.json", import.meta.url));
@@ -28,12 +29,34 @@ describe("TransitDataService", () =>
 
     afterEach(() =>
     {
+        vi.restoreAllMocks();
         vi.useRealTimers();
         restoreEnvironment("GTFS_PATH", previousGtfsPath);
         restoreEnvironment("SIRI_PATH", previousSiriPath);
         restoreEnvironment("FLIXBUS_GTFS_ENABLED", previousFlixBusEnabled);
         restoreEnvironment("FLIXBUS_GTFS_PATH", previousFlixBusGtfsPath);
         restoreEnvironment("FLIXBUS_REALTIME_ENABLED", previousFlixBusRealtimeEnabled);
+    });
+
+    it("partage les calculs entre visiteurs et les renouvelle quand le flux change", async () =>
+    {
+        vi.useFakeTimers();
+        const match = vi.spyOn(GtfsSiriTripMatcher.prototype, "match");
+        const service = new TransitDataService();
+        await Promise.all(
+        [
+            service.getFeaturedCities(),
+            service.getLiveBoard(),
+            service.getStopBoard("XPB"),
+            service.search("paris")
+        ]);
+        expect(match).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(16_000);
+        await service.search("paris");
+        expect(match).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(30_000);
+        await service.search("paris");
+        expect(match).toHaveBeenCalledTimes(2);
     });
 
     it("alimente recherche, suivi, gare et liaison avec les données normalisées", async () =>

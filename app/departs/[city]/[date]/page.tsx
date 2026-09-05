@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { journeyPath } from "../../../../src/application/journey-url";
 import { notFound } from "next/navigation";
 import { JourneyCard } from "../../../../components/journey-card";
 import { StructuredData } from "../../../../components/structured-data";
@@ -93,7 +94,7 @@ export default async function DeparturesPage({ params }: PageProps)
                         "@type": "ListItem",
                         position: index + 1,
                         name: localize(locale, `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`, `Bus ${journey.serviceNumber} ${journey.originCity} to ${journey.destinationCity}`),
-                        url: absoluteUrl(`/suivi/${encodeURIComponent(journey.journeyRef)}`)
+                        url: absoluteUrl(journeyPath(journey.journeyRef))
                     };
                 })
             }

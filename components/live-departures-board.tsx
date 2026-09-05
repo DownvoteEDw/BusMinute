@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { journeyPath } from "../src/application/journey-url";
 import { useEffect, useState } from "react";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
@@ -82,7 +83,7 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
                     return (
                         <Link
                             className="station-board-row"
-                            href={`/suivi/${encodeURIComponent(journey.journeyRef)}`}
+                            href={journeyPath(journey.journeyRef)}
                             key={journey.journeyRef}
                         >
                             <time dateTime={event.time ?? undefined}>{formatTime(event.time, locale)}</time>

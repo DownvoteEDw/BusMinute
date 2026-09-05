@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeoIndexView } from "../../src/application/journey-view.js";
+import { journeyPath } from "../../src/application/journey-url.js";
 import
 {
     buildSitemapIndexXml,
@@ -19,6 +20,18 @@ const index: SeoIndexView = {
 
 describe("sitemaps SEO", () =>
 {
+    it("publie des liens FlixBus compatibles avec le proxy", () =>
+    {
+        const journeyRef = "flixbus:774-2-0745092026-CAE#PQB-00:2026-09-05";
+        const xml = buildSitemapSectionXml("https://bus-minute.xyz", "journeys",
+        {
+            ...index,
+            journeys: [{ journeyRef }]
+        });
+        expect(xml).toContain(`https://bus-minute.xyz${journeyPath(journeyRef)}`);
+        expect(xml).not.toContain("%23");
+    });
+
     it("produit un index léger vers tous les sous-sitemaps", () =>
     {
         const xml = buildSitemapIndexXml("https://bus-minute.xyz/");
