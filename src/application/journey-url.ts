@@ -14,7 +14,14 @@ export function journeyRefFromPath(segment: string): string | null
 {
     if (!segment.startsWith("j~"))
     {
-        return segment;
+        try
+        {
+            return decodeURIComponent(segment);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     try

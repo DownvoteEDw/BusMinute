@@ -531,12 +531,17 @@ export class TransitDataService
     public async getLiveBoard(limit = 8): Promise<JourneyView[]>
     {
         const views = await this.liveBoardCache.get("board", () => this.loadLiveBoard());
-        return views.slice(0, limit);
+        return selectLiveBoard(views, limit);
     }
 
     private async loadLiveBoard(): Promise<JourneyView[]>
     {
-        const allViews = (await this.getAllJourneyViews()).filter((journey) => journey.stops.length >= 2);
+        const currentTime = Date.now();
+        const allViews = (await this.getAllJourneyViews()).filter((journey) =>
+        {
+            return journey.stops.length >= 2
+                && boardEventTime(journey) >= currentTime - 300_000;
+        });
         const flixBusStopIds = allViews
             .filter((journey) => journey.operatorSlug === flixBusOperator.slug)
             .sort((first, second) => boardEventTime(first) - boardEventTime(second))
@@ -551,8 +556,8 @@ export class TransitDataService
         const views = await this.enrichFlixBusJourneysAtStops(allViews, flixBusStopIds);
         const sortedViews = views.sort((first, second) =>
         {
-            return boardStatusRank(first.status) - boardStatusRank(second.status)
-                || boardEventTime(first) - boardEventTime(second)
+            return boardEventTime(first) - boardEventTime(second)
+                || boardStatusRank(first.status) - boardStatusRank(second.status)
                 || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
         });
         return sortedViews;
@@ -1271,6 +1276,53 @@ function boardStatusRank(status: JourneyView["status"]): number
         arrived: 3
     };
     return ranks[status];
+}
+
+export function selectLiveBoard(journeys: JourneyView[], limit: number): JourneyView[]
+{
+    if (limit <= 0)
+    {
+        return [];
+    }
+
+    const availableOperators = [blablacarBusOperator.slug, flixBusOperator.slug].filter((operatorSlug) =>
+    {
+        return journeys.some((journey) => journey.operatorSlug === operatorSlug);
+    });
+    const minimumPerOperator = availableOperators.length > 1 && limit >= availableOperators.length
+        ? Math.min(2, Math.floor(limit / availableOperators.length))
+        : 0;
+    const selected: JourneyView[] = [];
+    const selectedReferences = new Set<string>();
+
+    for (const operatorSlug of availableOperators)
+    {
+        for (const journey of journeys.filter((candidate) => candidate.operatorSlug === operatorSlug).slice(0, minimumPerOperator))
+        {
+            selected.push(journey);
+            selectedReferences.add(journey.journeyRef);
+        }
+    }
+
+    for (const journey of journeys)
+    {
+        if (selected.length >= limit)
+        {
+            break;
+        }
+
+        if (!selectedReferences.has(journey.journeyRef))
+        {
+            selected.push(journey);
+            selectedReferences.add(journey.journeyRef);
+        }
+    }
+
+    return selected.sort((first, second) =>
+    {
+        return boardEventTime(first) - boardEventTime(second)
+            || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
+    });
 }
 
 function boardEventTime(journey: JourneyView): number

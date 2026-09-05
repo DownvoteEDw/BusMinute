@@ -30,6 +30,7 @@ describe("adresses des circulations", () =>
     it("conserve les adresses BlaBlaCar déjà indexées", () =>
     {
         expect(journeyPath("50819:2026-08-22")).toBe("/suivi/50819%3A2026-08-22");
+        expect(journeyRefFromPath("50471%3A2026-09-05")).toBe("50471:2026-09-05");
         expect(journeyRefFromPath("flixbus:trip#id:2026-09-05")).toBe("flixbus:trip#id:2026-09-05");
     });
 

@@ -138,6 +138,8 @@ describe("TransitDataService", () =>
 
     it("alimente le panneau temps réel", async () =>
     {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-08-22T12:49:00.000Z"));
         const service = new TransitDataService();
         const board = await service.getLiveBoard(6);
 
