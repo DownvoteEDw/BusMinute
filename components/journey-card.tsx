@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { OperatorLogo } from "./operator-logo";
+import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import { journeyTimeAtStop } from "../src/application/station-schedule";
 
@@ -9,11 +10,12 @@ interface JourneyCardProps
     stopId?: string;
     originStopId?: string;
     destinationStopId?: string;
+    locale?: Locale;
 }
 
-export function JourneyCard({ journey, stopId, originStopId, destinationStopId }: JourneyCardProps)
+export function JourneyCard({ journey, stopId, originStopId, destinationStopId, locale = "fr" }: JourneyCardProps)
 {
-    const event = journeyEvent(journey, stopId ?? originStopId, destinationStopId);
+    const event = journeyEvent(journey, stopId ?? originStopId, destinationStopId, locale);
     const delaySeconds = event.stop?.delaySeconds ?? journey.delaySeconds;
     const delayState = journeyDelayState(journey, delaySeconds);
     const isStationContext = Boolean(stopId && !destinationStopId);
@@ -25,7 +27,7 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
     return (
         <Link className={`journey-card${isStationContext ? ` is-station is-${delayState}` : ""}`} href={`/suivi/${encodeURIComponent(journey.journeyRef)}`}>
             <div className="journey-card-time">
-                <time dateTime={event.time ?? undefined}>{formatTime(event.time)}</time>
+                <time dateTime={event.time ?? undefined}>{formatTime(event.time, locale)}</time>
                 <span>{event.label}</span>
             </div>
             <div className="journey-card-body">
@@ -34,14 +36,14 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
                         <OperatorLogo operatorSlug={journey.operatorSlug} />
                         <b>Bus {journey.serviceNumber}</b>
                     </span>
-                    <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status) : "Horaire prévu"}</span>
+                    <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled")}</span>
                 </div>
                 <h2>{originCity} <span>→</span> {destinationCity}</h2>
                 <p>{event.detail}</p>
             </div>
             <div className={`journey-card-delay ${delayState}`}>
-                <strong>{delayLabel(delaySeconds, delayState)}</strong>
-                <span>{delayDetail(delayState)}</span>
+                <strong>{delayLabel(delaySeconds, delayState, locale)}</strong>
+                <span>{delayDetail(delayState, locale)}</span>
             </div>
             <span className="journey-card-arrow" aria-hidden="true">›</span>
         </Link>
@@ -51,7 +53,8 @@ export function JourneyCard({ journey, stopId, originStopId, destinationStopId }
 function journeyEvent(
     journey: JourneyView,
     stopId: string | undefined,
-    destinationStopId: string | undefined
+    destinationStopId: string | undefined,
+    locale: Locale
 ): { stop: JourneyStopView | undefined; time: string | null; label: string; detail: string }
 {
     const stopIndex = stopId
@@ -70,14 +73,18 @@ function journeyEvent(
     {
         const destination = findStop(journey, destinationStopId);
         const continuation = destination && destination.stopId !== journey.destinationStopId
-            ? ` · Continue vers ${journey.destinationCity}`
+            ? localize(locale, ` · Continue vers ${journey.destinationCity}`, ` · Continues to ${journey.destinationCity}`)
             : "";
 
         return {
             stop,
             time,
-            label: "Départ",
-            detail: `Arrivée ${formatTime(plannedTime(destination))} à ${destination?.city ?? destinationStopId}${continuation}`
+            label: localize(locale, "Départ", "Departure"),
+            detail: localize(
+                locale,
+                `Arrivée ${formatTime(plannedTime(destination), locale)} à ${destination?.city ?? destinationStopId}${continuation}`,
+                `Arrival ${formatTime(plannedTime(destination), locale)} in ${destination?.city ?? destinationStopId}${continuation}`
+            )
         };
     }
 
@@ -86,16 +93,16 @@ function journeyEvent(
         return {
             stop,
             time,
-            label: "Départ",
-            detail: `${formatDate(journey.serviceDate)} · ${journey.originName}`
+            label: localize(locale, "Départ", "Departure"),
+            detail: `${formatDate(journey.serviceDate, locale)} · ${journey.originName}`
         };
     }
 
     const label = resolvedIndex === 0
-        ? "Départ"
+        ? localize(locale, "Départ", "Departure")
         : resolvedIndex === journey.stops.length - 1
-            ? "Arrivée"
-            : "Passage";
+            ? localize(locale, "Arrivée", "Arrival")
+            : localize(locale, "Passage", "Calling");
 
     return {
         stop,
@@ -124,14 +131,14 @@ function plannedTime(stop: JourneyStopView | undefined): string | null
         ?? null;
 }
 
-function formatTime(value: string | null): string
+function formatTime(value: string | null, locale: Locale): string
 {
     if (!value)
     {
         return "—";
     }
 
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         hour: "2-digit",
         minute: "2-digit",
@@ -140,9 +147,9 @@ function formatTime(value: string | null): string
     }).format(new Date(value));
 }
 
-function formatDate(value: string): string
+function formatDate(value: string, locale: Locale): string
 {
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         day: "numeric",
         month: "short",
@@ -150,37 +157,39 @@ function formatDate(value: string): string
     }).format(new Date(`${value}T12:00:00Z`));
 }
 
-function statusLabel(status: JourneyView["status"]): string
+function statusLabel(status: JourneyView["status"], locale: Locale): string
 {
     const labels = {
-        scheduled: "À venir",
-        in_transit: "En route",
-        arrived: "Terminé",
-        cancelled: "Annulé"
+        scheduled: localize(locale, "À venir", "Upcoming"),
+        in_transit: localize(locale, "En route", "En route"),
+        arrived: localize(locale, "Terminé", "Completed"),
+        cancelled: localize(locale, "Annulé", "Cancelled")
     };
     return labels[status];
 }
 
-function delayLabel(seconds: number | null, state: DelayState): string
+function delayLabel(seconds: number | null, state: DelayState, locale: Locale): string
 {
     if (state === "cancelled")
     {
-        return "Annulé";
+        return localize(locale, "Annulé", "Cancelled");
     }
 
     if (seconds === null)
     {
-        return "Prévu";
+        return localize(locale, "Prévu", "Scheduled");
     }
 
     const minutes = Math.round(seconds / 60);
 
     if (Math.abs(minutes) < 5)
     {
-        return "À l'heure";
+        return localize(locale, "À l'heure", "On time");
     }
 
-    return minutes > 0 ? `+${minutes} min` : `${Math.abs(minutes)} min d'avance`;
+    return minutes > 0
+        ? `+${minutes} min`
+        : localize(locale, `${Math.abs(minutes)} min d'avance`, `${Math.abs(minutes)} min early`);
 }
 
 type DelayState = "scheduled" | "on-time" | "late" | "early" | "cancelled";
@@ -205,14 +214,14 @@ function journeyDelayState(journey: JourneyView, seconds: number | null): DelayS
     return seconds > 0 ? "late" : "early";
 }
 
-function delayDetail(state: DelayState): string
+function delayDetail(state: DelayState, locale: Locale): string
 {
     const labels: Record<DelayState, string> = {
-        scheduled: "Sans suivi en temps réel",
-        "on-time": "Moins de 5 min d’écart",
-        late: "Retard estimé",
-        early: "Avance estimée",
-        cancelled: "Bus annulé"
+        scheduled: localize(locale, "Sans suivi en temps réel", "No live tracking"),
+        "on-time": localize(locale, "Moins de 5 min d’écart", "Less than 5 min difference"),
+        late: localize(locale, "Retard estimé", "Estimated delay"),
+        early: localize(locale, "Avance estimée", "Running early"),
+        cancelled: localize(locale, "Bus annulé", "Bus cancelled")
     };
     return labels[state];
 }

@@ -40,6 +40,16 @@ describe("horaires par gare", () =>
             full: "Mercredi 2 septembre"
         });
     });
+
+    it("nomme les dates en anglais quand cette langue est sélectionnée", () =>
+    {
+        const now = new Date("2026-09-01T10:00:00.000Z");
+
+        expect(stationDateHeading("2026-09-01", now, "en")).toEqual({
+            relative: "Today",
+            full: "Tuesday 1 September"
+        });
+    });
 });
 
 function journey(serviceNumber: string, aimedDepartureAt: string): JourneyView

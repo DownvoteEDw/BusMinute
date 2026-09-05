@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import type { PassengerReport, PassengerReportType } from "../src/application/passenger-reports";
 
@@ -15,16 +16,22 @@ interface ReportsResponse
     reports: PassengerReport[];
 }
 
-const reportChoices: Array<{ type: PassengerReportType; icon: string; label: string }> = [
-    { type: "BUS_NOT_HERE", icon: "◷", label: "Bus absent" },
-    { type: "BUS_ARRIVED", icon: "●", label: "Bus arrivé" },
-    { type: "BOARDING", icon: "↳", label: "Embarquement" },
-    { type: "BUS_DEPARTED", icon: "→", label: "Bus parti" },
-    { type: "PLATFORM_CHANGED", icon: "⇄", label: "Quai modifié" },
-    { type: "DRIVER_DELAY", icon: "+", label: "Retard annoncé" }
+const reportChoices: Array<{ type: PassengerReportType; icon: string }> = [
+    { type: "BUS_NOT_HERE", icon: "◷" },
+    { type: "BUS_ARRIVED", icon: "●" },
+    { type: "BOARDING", icon: "↳" },
+    { type: "BUS_DEPARTED", icon: "→" },
+    { type: "PLATFORM_CHANGED", icon: "⇄" },
+    { type: "DRIVER_DELAY", icon: "+" }
 ];
 
-export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView })
+interface JourneyTrackerProps
+{
+    initialJourney: JourneyView;
+    locale?: Locale;
+}
+
+export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTrackerProps)
 {
     const [journey, setJourney] = useState(initialJourney);
     const [reports, setReports] = useState<PassengerReport[]>([]);
@@ -104,11 +111,13 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
 
             if (!response.ok)
             {
-                setFeedback(data.error ?? "Signalement impossible pour le moment.");
+                setFeedback(locale === "en"
+                    ? "Unable to submit your report right now."
+                    : data.error ?? "Signalement impossible pour le moment.");
                 return;
             }
 
-            setFeedback("Merci, votre information est maintenant visible.");
+            setFeedback(localize(locale, "Merci, votre information est maintenant visible.", "Thank you. Your update is now visible."));
             await refreshReports();
         }
         finally
@@ -122,27 +131,27 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
             <section className="tracker-main">
                 <div className="tracker-summary">
                     <div>
-                        <span className={`operational-pill ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status) : "Horaire prévu"}</span>
+                        <span className={`operational-pill ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled")}</span>
                         <p>{journey.realtimeObserved
-                            ? `Mis à jour ${relativeTime(journey.updatedAt)} ${refreshing ? "· actualisation…" : ""}`
-                            : `Horaire prévu ${journey.operatorName}`}</p>
+                            ? `${localize(locale, "Mis à jour", "Updated")} ${relativeTime(journey.updatedAt, locale)} ${refreshing ? localize(locale, "· actualisation…", "· refreshing…") : ""}`
+                            : `${localize(locale, "Horaire prévu", "Scheduled by")} ${journey.operatorName}`}</p>
                     </div>
                     <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}`}>
-                        <strong>{delayNumber(journey.delaySeconds)}</strong>
-                        <span>{delayCaption(journey.delaySeconds)}</span>
+                        <strong>{delayNumber(journey.delaySeconds, locale)}</strong>
+                        <span>{delayCaption(journey.delaySeconds, locale)}</span>
                     </div>
                 </div>
                 <ol className="route-timeline">
                     {journey.stops.map((stop) =>
                     {
-                        return <StopRow key={`${stop.stopId}-${stop.order}`} stop={stop} />;
+                        return <StopRow key={`${stop.stopId}-${stop.order}`} locale={locale} stop={stop} />;
                     })}
                 </ol>
             </section>
             <aside className="community-panel">
-                <span className="section-kicker">Informations voyageurs</span>
-                <h2>Que voyez-vous&nbsp;?</h2>
-                <p>Un clic suffit. Aucun compte n’est nécessaire.</p>
+                <span className="section-kicker">{localize(locale, "Informations voyageurs", "Passenger updates")}</span>
+                <h2>{localize(locale, "Que voyez-vous ?", "What can you see?")}</h2>
+                <p>{localize(locale, "Un clic suffit. Aucun compte n’est nécessaire.", "One tap is enough. No account needed.")}</p>
                 <div className="report-grid">
                     {reportChoices.map((choice) =>
                     {
@@ -153,33 +162,37 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
                                 onClick={() => void sendReport(choice.type)}
                             >
                                 <span>{choice.icon}</span>
-                                {reporting === choice.type ? "Envoi…" : choice.label}
+                                {reporting === choice.type ? localize(locale, "Envoi…", "Sending…") : reportLabel(choice.type, locale)}
                             </button>
                         );
                     })}
                 </div>
                 {feedback && <p className="report-feedback" role="status">{feedback}</p>}
                 <div className="punctuality-card">
-                    <span className="section-kicker">Historique de la ligne</span>
+                    <span className="section-kicker">{localize(locale, "Historique de la ligne", "Route history")}</span>
                     {journey.punctuality ? (
                         <>
-                            <div><strong>{journey.punctuality.onTimePercentage}&nbsp;%</strong><span>à moins de {journey.punctuality.thresholdMinutes} min</span></div>
-                            <p>Retard moyen {averageDelay(journey.punctuality.averageDelaySeconds)} sur {journey.punctuality.sampleSize} arrivée{journey.punctuality.sampleSize > 1 ? "s" : ""} observée{journey.punctuality.sampleSize > 1 ? "s" : ""}.</p>
+                            <div><strong>{journey.punctuality.onTimePercentage}&nbsp;%</strong><span>{localize(locale, `à moins de ${journey.punctuality.thresholdMinutes} min`, `within ${journey.punctuality.thresholdMinutes} min`)}</span></div>
+                            <p>{localize(
+                                locale,
+                                `Retard moyen ${averageDelay(journey.punctuality.averageDelaySeconds, locale)} sur ${journey.punctuality.sampleSize} arrivée${journey.punctuality.sampleSize > 1 ? "s" : ""} observée${journey.punctuality.sampleSize > 1 ? "s" : ""}.`,
+                                `Average delay ${averageDelay(journey.punctuality.averageDelaySeconds, locale)} across ${journey.punctuality.sampleSize} recorded arrival${journey.punctuality.sampleSize === 1 ? "" : "s"}.`
+                            )}</p>
                         </>
                     ) : (
-                        <p>L’historique se construit à chaque passage enregistré.</p>
+                        <p>{localize(locale, "L’historique se construit à chaque passage enregistré.", "The history grows with every recorded service.")}</p>
                     )}
                 </div>
                 <div className="recent-reports">
-                    <h3>Derniers signalements</h3>
+                    <h3>{localize(locale, "Derniers signalements", "Latest reports")}</h3>
                     {reports.length === 0 ? (
-                        <p className="empty-reports">Aucun signalement pour l’instant. Soyez le premier.</p>
+                        <p className="empty-reports">{localize(locale, "Aucun signalement pour l’instant. Soyez le premier.", "No reports yet. Be the first.")}</p>
                     ) : reports.slice(0, 5).map((report) =>
                     {
                         return (
                             <div key={report.id}>
-                                <span>{reportLabel(report.type)}</span>
-                                <time dateTime={report.createdAt}>{relativeTime(report.createdAt)}</time>
+                                <span>{reportLabel(report.type, locale)}</span>
+                                <time dateTime={report.createdAt}>{relativeTime(report.createdAt, locale)}</time>
                             </div>
                         );
                     })}
@@ -189,7 +202,7 @@ export function JourneyTracker({ initialJourney }: { initialJourney: JourneyView
     );
 }
 
-function StopRow({ stop }: { stop: JourneyStopView })
+function StopRow({ stop, locale }: { stop: JourneyStopView; locale: Locale })
 {
     const primary = stop.actualArrivalAt
         ?? stop.actualDepartureAt
@@ -207,22 +220,22 @@ function StopRow({ stop }: { stop: JourneyStopView })
                 <span>{stop.name}</span>
             </div>
             <div className="stop-time">
-                <strong>{formatTime(primary)}</strong>
-                {primary !== aimed && aimed && <del>{formatTime(aimed)}</del>}
+                <strong>{formatTime(primary, locale)}</strong>
+                {primary !== aimed && aimed && <del>{formatTime(aimed, locale)}</del>}
             </div>
             <span className={`stop-delay ${delayTone(stop.delaySeconds)}`}>{shortDelay(stop.delaySeconds)}</span>
         </li>
     );
 }
 
-function formatTime(value: string | null): string
+function formatTime(value: string | null, locale: Locale): string
 {
     if (!value)
     {
         return "—";
     }
 
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         hour: "2-digit",
         minute: "2-digit",
@@ -230,10 +243,10 @@ function formatTime(value: string | null): string
     }).format(new Date(value));
 }
 
-function relativeTime(value: string): string
+function relativeTime(value: string, locale: Locale): string
 {
     const seconds = Math.round((new Date(value).getTime() - Date.now()) / 1000);
-    const formatter = new Intl.RelativeTimeFormat("fr-FR", { numeric: "auto" });
+    const formatter = new Intl.RelativeTimeFormat(localeTag(locale), { numeric: "auto" });
 
     if (Math.abs(seconds) < 60)
     {
@@ -250,17 +263,17 @@ function relativeTime(value: string): string
     return formatter.format(Math.round(minutes / 60), "hour");
 }
 
-function statusLabel(status: JourneyView["status"]): string
+function statusLabel(status: JourneyView["status"], locale: Locale): string
 {
     return {
-        scheduled: "Départ à venir",
-        in_transit: "En route",
-        arrived: "Trajet terminé",
-        cancelled: "Trajet annulé"
+        scheduled: localize(locale, "Départ à venir", "Upcoming departure"),
+        in_transit: localize(locale, "En route", "En route"),
+        arrived: localize(locale, "Trajet terminé", "Journey completed"),
+        cancelled: localize(locale, "Trajet annulé", "Journey cancelled")
     }[status];
 }
 
-function delayNumber(seconds: number | null): string
+function delayNumber(seconds: number | null, locale: Locale): string
 {
     if (seconds === null)
     {
@@ -269,26 +282,28 @@ function delayNumber(seconds: number | null): string
 
     if (Math.abs(seconds) < 300)
     {
-        return "À l’heure";
+        return localize(locale, "À l’heure", "On time");
     }
 
     const minutes = Math.round(seconds / 60);
     return minutes > 0 ? `+${minutes}` : String(minutes);
 }
 
-function delayCaption(seconds: number | null): string
+function delayCaption(seconds: number | null, locale: Locale): string
 {
     if (seconds === null)
     {
-        return "pas d’information en temps réel";
+        return localize(locale, "pas d’information en temps réel", "no live information");
     }
 
     if (Math.abs(seconds) < 300)
     {
-        return "moins de 5 min d’écart";
+        return localize(locale, "moins de 5 min d’écart", "less than 5 min difference");
     }
 
-    return seconds > 0 ? "minutes de retard" : "minutes d'avance";
+    return seconds > 0
+        ? localize(locale, "minutes de retard", "minutes late")
+        : localize(locale, "minutes d'avance", "minutes early");
 }
 
 function shortDelay(seconds: number | null): string
@@ -312,19 +327,31 @@ function delayTone(seconds: number | null): string
     return seconds > 0 ? "late" : "early";
 }
 
-function reportLabel(type: PassengerReportType): string
+function reportLabel(type: PassengerReportType, locale: Locale): string
 {
-    return reportChoices.find((choice) => choice.type === type)?.label ?? type;
+    const labels: Record<PassengerReportType, [string, string]> =
+    {
+        BUS_NOT_HERE: ["Bus absent", "Bus not here"],
+        BUS_ARRIVED: ["Bus arrivé", "Bus arrived"],
+        BOARDING: ["Embarquement", "Boarding"],
+        BUS_DEPARTED: ["Bus parti", "Bus departed"],
+        PLATFORM_CHANGED: ["Quai modifié", "Platform changed"],
+        DRIVER_DELAY: ["Retard annoncé", "Delay announced"]
+    };
+    const label = labels[type];
+    return localize(locale, label[0], label[1]);
 }
 
-function averageDelay(seconds: number): string
+function averageDelay(seconds: number, locale: Locale): string
 {
     const minutes = Math.round(seconds / 60);
 
     if (minutes === 0)
     {
-        return "nul";
+        return localize(locale, "nul", "none");
     }
 
-    return minutes > 0 ? `+${minutes} min` : `${Math.abs(minutes)} min d’avance`;
+    return minutes > 0
+        ? `+${minutes} min`
+        : localize(locale, `${Math.abs(minutes)} min d’avance`, `${Math.abs(minutes)} min early`);
 }

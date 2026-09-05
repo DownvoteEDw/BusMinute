@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import { OperatorLogo } from "./operator-logo";
 
 interface LiveDeparturesBoardProps
 {
     initialJourneys: JourneyView[];
+    locale?: Locale;
 }
 
 interface BoardResponse
@@ -16,7 +18,7 @@ interface BoardResponse
     updatedAt?: string | null;
 }
 
-export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProps)
+export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDeparturesBoardProps)
 {
     const [journeys, setJourneys] = useState(initialJourneys);
     const [updatedAt, setUpdatedAt] = useState(latestUpdate(initialJourneys));
@@ -55,27 +57,27 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
         <section className="station-board" aria-labelledby="station-board-title">
             <header className="station-board-header">
                 <div>
-                    <span className="station-board-live"><i /> Panneau des bus en temps réel</span>
-                    <h2 id="station-board-title">Prochains bus</h2>
+                    <span className="station-board-live"><i /> {localize(locale, "Panneau des bus en temps réel", "Live bus departures")}</span>
+                    <h2 id="station-board-title">{localize(locale, "Prochains bus", "Next buses")}</h2>
                 </div>
-                <time dateTime={updatedAt ?? undefined}>{formatUpdatedAt(updatedAt)}</time>
+                <time dateTime={updatedAt ?? undefined}>{formatUpdatedAt(updatedAt, locale)}</time>
             </header>
             <div className="station-board-columns" aria-hidden="true">
-                <span>Passage</span>
+                <span>{localize(locale, "Passage", "Time")}</span>
                 <span>Bus</span>
-                <span>Trajet</span>
-                <span>État</span>
+                <span>{localize(locale, "Trajet", "Route")}</span>
+                <span>{localize(locale, "État", "Status")}</span>
                 <span />
             </div>
             <div className="station-board-rows" aria-live="polite">
                 {journeys.length === 0 ? (
                     <div className="station-board-empty">
-                        <strong>En attente du prochain passage</strong>
-                        <span>Les horaires seront actualisés automatiquement.</span>
+                        <strong>{localize(locale, "En attente du prochain passage", "Waiting for the next service")}</strong>
+                        <span>{localize(locale, "Les horaires seront actualisés automatiquement.", "Times will update automatically.")}</span>
                     </div>
                 ) : journeys.map((journey) =>
                 {
-                    const event = boardEvent(journey);
+                    const event = boardEvent(journey, locale);
 
                     return (
                         <Link
@@ -83,7 +85,7 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                             href={`/suivi/${encodeURIComponent(journey.journeyRef)}`}
                             key={journey.journeyRef}
                         >
-                            <time dateTime={event.time ?? undefined}>{formatTime(event.time)}</time>
+                            <time dateTime={event.time ?? undefined}>{formatTime(event.time, locale)}</time>
                             <span className="station-board-service">
                                 <strong>{journey.serviceNumber}</strong>
                                 <OperatorLogo operatorSlug={journey.operatorSlug} />
@@ -92,28 +94,28 @@ export function LiveDeparturesBoard({ initialJourneys }: LiveDeparturesBoardProp
                                 <strong>{journey.originCity} <i>→</i> {journey.destinationCity}</strong>
                                 <small>{event.label}</small>
                             </span>
-                            <span className={`station-board-status ${statusTone(journey)}`}>{statusLabel(journey)}</span>
+                            <span className={`station-board-status ${statusTone(journey)}`}>{statusLabel(journey, locale)}</span>
                             <span className="station-board-arrow" aria-hidden="true">›</span>
                         </Link>
                     );
                 })}
             </div>
             <footer>
-                <span>Retards BlaBlaCar Bus et FlixBus en temps réel</span>
-                <span>Actualisation automatique · 30 s</span>
+                <span>{localize(locale, "Retards BlaBlaCar Bus et FlixBus en temps réel", "Live BlaBlaCar Bus and FlixBus delays")}</span>
+                <span>{localize(locale, "Actualisation automatique · 30 s", "Automatic refresh · 30 sec")}</span>
             </footer>
         </section>
     );
 }
 
-function boardEvent(journey: JourneyView): { time: string | null; label: string }
+function boardEvent(journey: JourneyView, locale: Locale): { time: string | null; label: string }
 {
     if (journey.status === "scheduled")
     {
         const origin = journey.stops[0];
         return {
             time: stopTime(origin),
-            label: `Départ · ${origin?.name ?? journey.originName}`
+            label: `${localize(locale, "Départ", "Departure")} · ${origin?.name ?? journey.originName}`
         };
     }
 
@@ -122,7 +124,7 @@ function boardEvent(journey: JourneyView): { time: string | null; label: string 
         const destination = journey.stops[journey.stops.length - 1];
         return {
             time: stopTime(destination),
-            label: `Arrivée · ${destination?.name ?? journey.destinationName}`
+            label: `${localize(locale, "Arrivée", "Arrival")} · ${destination?.name ?? journey.destinationName}`
         };
     }
 
@@ -131,7 +133,7 @@ function boardEvent(journey: JourneyView): { time: string | null; label: string 
         ?? journey.stops[journey.stops.length - 1];
     return {
         time: stopTime(nextStop),
-        label: `Prochain arrêt · ${nextStop?.name ?? journey.destinationName}`
+        label: `${localize(locale, "Prochain arrêt", "Next stop")} · ${nextStop?.name ?? journey.destinationName}`
     };
 }
 
@@ -146,31 +148,37 @@ function stopTime(stop: JourneyStopView | undefined): string | null
         ?? null;
 }
 
-function statusLabel(journey: JourneyView): string
+function statusLabel(journey: JourneyView, locale: Locale): string
 {
     if (journey.cancelled || journey.status === "cancelled")
     {
-        return "Annulé";
+        return localize(locale, "Annulé", "Cancelled");
     }
 
     if (journey.status === "arrived")
     {
-        return "Arrivé";
+        return localize(locale, "Arrivé", "Arrived");
     }
 
     if (journey.delaySeconds === null)
     {
-        return journey.status === "in_transit" ? "En route" : "À venir";
+        return journey.status === "in_transit"
+            ? localize(locale, "En route", "En route")
+            : localize(locale, "À venir", "Upcoming");
     }
 
     const minutes = Math.round(journey.delaySeconds / 60);
 
     if (Math.abs(minutes) < 5)
     {
-        return journey.status === "in_transit" ? "En route" : "À l’heure";
+        return journey.status === "in_transit"
+            ? localize(locale, "En route", "En route")
+            : localize(locale, "À l’heure", "On time");
     }
 
-    return minutes > 0 ? `+${minutes} min` : `${Math.abs(minutes)} min d’avance`;
+    return minutes > 0
+        ? `+${minutes} min`
+        : localize(locale, `${Math.abs(minutes)} min d’avance`, `${Math.abs(minutes)} min early`);
 }
 
 function statusTone(journey: JourneyView): string
@@ -193,14 +201,14 @@ function statusTone(journey: JourneyView): string
     return journey.status === "in_transit" ? "is-live" : "is-scheduled";
 }
 
-function formatTime(value: string | null): string
+function formatTime(value: string | null, locale: Locale): string
 {
     if (!value)
     {
         return "—";
     }
 
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         hour: "2-digit",
         minute: "2-digit",
@@ -209,14 +217,14 @@ function formatTime(value: string | null): string
     }).format(new Date(value));
 }
 
-function formatUpdatedAt(value: string | null): string
+function formatUpdatedAt(value: string | null, locale: Locale): string
 {
     if (!value)
     {
-        return "En attente des données";
+        return localize(locale, "En attente des données", "Waiting for data");
     }
 
-    return `Mis à jour ${new Intl.DateTimeFormat("fr-FR",
+    return `${localize(locale, "Mis à jour", "Updated")} ${new Intl.DateTimeFormat(localeTag(locale),
     {
         hour: "2-digit",
         minute: "2-digit",

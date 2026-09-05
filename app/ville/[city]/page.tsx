@@ -5,6 +5,8 @@ import { JourneyCard } from "../../../components/journey-card";
 import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
 import { StructuredData } from "../../../components/structured-data";
+import { countLabel, localeTag, localize, type Locale } from "../../../src/application/i18n";
+import { requestLocale } from "../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../src/application/seo";
 import { transitDataService } from "../../../src/application/transit-data-service";
 
@@ -17,17 +19,22 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 {
+    const locale = await requestLocale();
     const { city } = await params;
     const board = await transitDataService.getCityBoard(city);
 
     if (!board)
     {
-        return { title: "Ville introuvable" };
+        return { title: localize(locale, "Ville introuvable", "City not found") };
     }
 
     return {
-        title: `Bus à ${board.name} en temps réel : gares et départs`,
-        description: `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus et FlixBus et leurs retards en temps réel.`,
+        title: localize(locale, `Bus à ${board.name} en temps réel : gares et départs`, `Live buses in ${board.name}: stations and departures`),
+        description: localize(
+            locale,
+            `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus et FlixBus et leurs retards en temps réel.`,
+            `Find coach stations in ${board.name}, upcoming BlaBlaCar Bus and FlixBus services and live delays.`
+        ),
         alternates: {
             canonical: `/ville/${board.slug}`
         }
@@ -36,6 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CityPage({ params }: PageProps)
 {
+    const locale = await requestLocale();
     const { city } = await params;
     const board = await transitDataService.getCityBoard(city);
 
@@ -48,14 +56,14 @@ export default async function CityPage({ params }: PageProps)
     const structuredData = [
         breadcrumbStructuredData(
         [
-            { name: "Accueil", path: "/" },
-            { name: "Villes et gares", path: "/villes" },
+            { name: localize(locale, "Accueil", "Home"), path: "/" },
+            { name: localize(locale, "Villes et gares", "Cities and stations"), path: "/villes" },
             { name: board.name, path: `/ville/${board.slug}` }
         ]),
         {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `Bus et gares routières à ${board.name}`,
+            name: localize(locale, `Bus et gares routières à ${board.name}`, `Buses and coach stations in ${board.name}`),
             url: absoluteUrl(`/ville/${board.slug}`),
             mainEntity: {
                 "@type": "ItemList",
@@ -83,19 +91,23 @@ export default async function CityPage({ params }: PageProps)
 
     return (
         <div className="page-shell city-page">
-            <nav className="breadcrumbs" aria-label="Fil d’Ariane">
-                <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><span>{board.name}</span>
+            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb")}>
+                <Link href="/">{localize(locale, "Accueil", "Home")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities")}</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading city-heading">
-                <span className="section-kicker">Départs et retards en temps réel</span>
-                <h1>Bus à <em>{board.name}</em></h1>
-                <p>{board.stops.length} gare{board.stops.length > 1 ? "s routières" : " routière"} référencée{board.stops.length > 1 ? "s" : ""}.</p>
-                <SearchBox compact initialQuery="" />
+                <span className="section-kicker">{localize(locale, "Départs et retards en temps réel", "Live departures and delays")}</span>
+                <h1>{localize(locale, "Bus à", "Buses in")} <em>{board.name}</em></h1>
+                <p>{localize(
+                    locale,
+                    `${board.stops.length} gare${board.stops.length > 1 ? "s routières" : " routière"} référencée${board.stops.length > 1 ? "s" : ""}.`,
+                    `${countLabel(locale, board.stops.length, "gare", "gares", "coach station", "coach stations")} listed.`
+                )}</p>
+                <SearchBox compact initialQuery="" locale={locale} />
             </header>
             <section className="station-section">
                 <div className="section-heading-row">
-                    <h2>Gares routières à {board.name}</h2>
-                    <span>Classées par nombre de bus à venir</span>
+                    <h2>{localize(locale, `Gares routières à ${board.name}`, `Coach stations in ${board.name}`)}</h2>
+                    <span>{localize(locale, "Classées par nombre de bus à venir", "Sorted by upcoming buses")}</span>
                 </div>
                 <div className="station-grid">
                     {board.stops.map((stop, index) =>
@@ -110,9 +122,9 @@ export default async function CityPage({ params }: PageProps)
                                         {
                                             return <OperatorLogo key={operatorSlug} operatorSlug={operatorSlug} />;
                                         })}
-                                        <small>Gare routière</small>
+                                        <small>{localize(locale, "Gare routière", "Coach station")}</small>
                                     </span>
-                                    {isPrimary && <span className="station-card-popular">La plus active</span>}
+                                    {isPrimary && <span className="station-card-popular">{localize(locale, "La plus active", "Most active")}</span>}
                                 </span>
                                 <span className="station-card-main">
                                     <span className="station-card-name">
@@ -121,12 +133,14 @@ export default async function CityPage({ params }: PageProps)
                                     </span>
                                     <span className="station-card-activity">
                                         <b>{stop.upcomingJourneyCount}</b>
-                                        <span>bus à venir</span>
+                                        <span>{localize(locale, "bus à venir", stop.upcomingJourneyCount === 1 ? "upcoming bus" : "upcoming buses")}</span>
                                     </span>
                                 </span>
                                 <span className="station-card-footer">
-                                    <span>{stop.nextJourneyAt ? `Prochain passage à ${formatTime(stop.nextJourneyAt)}` : "Aucun passage annoncé"}</span>
-                                    <strong>Voir la gare <b aria-hidden="true">›</b></strong>
+                                    <span>{stop.nextJourneyAt
+                                        ? localize(locale, `Prochain passage à ${formatTime(stop.nextJourneyAt, locale)}`, `Next service at ${formatTime(stop.nextJourneyAt, locale)}`)
+                                        : localize(locale, "Aucun passage annoncé", "No service announced")}</span>
+                                    <strong>{localize(locale, "Voir la gare", "View station")} <b aria-hidden="true">›</b></strong>
                                 </span>
                             </Link>
                         );
@@ -135,24 +149,24 @@ export default async function CityPage({ params }: PageProps)
             </section>
             {dates.length > 0 && (
                 <section className="date-links-section">
-                    <h2>Départs par date</h2>
+                    <h2>{localize(locale, "Départs par date", "Departures by date")}</h2>
                     <div className="date-links">
                         {dates.map((date) =>
                         {
-                            return <Link href={`/departs/${board.slug}/${date}`} key={date}>{formatDate(date)}</Link>;
+                            return <Link href={`/departs/${board.slug}/${date}`} key={date}>{formatDate(date, locale)}</Link>;
                         })}
                     </div>
                 </section>
             )}
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Temps réel disponible</span><h2>Bus passant par {board.name}</h2></div>
-                    <span>{board.journeys.length} passage{board.journeys.length > 1 ? "s" : ""}</span>
+                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available")}</span><h2>{localize(locale, `Bus passant par ${board.name}`, `Buses calling at ${board.name}`)}</h2></div>
+                    <span>{countLabel(locale, board.journeys.length, "passage", "passages", "service", "services")}</span>
                 </div>
                 {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucun passage à venir</h2><p>Les prochains horaires apparaîtront automatiquement.</p></div>
+                    <div className="empty-state"><h2>{localize(locale, "Aucun passage à venir", "No upcoming services")}</h2><p>{localize(locale, "Les prochains horaires apparaîtront automatiquement.", "Upcoming times will appear automatically.")}</p></div>
                 ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
+                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} locale={locale} />)}</div>
                 )}
             </section>
             <StructuredData value={structuredData} />
@@ -160,18 +174,18 @@ export default async function CityPage({ params }: PageProps)
     );
 }
 
-function formatDate(value: string): string
+function formatDate(value: string, locale: Locale): string
 {
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         dateStyle: "long",
         timeZone: "Europe/Paris"
     }).format(new Date(`${value}T12:00:00Z`));
 }
 
-function formatTime(value: string): string
+function formatTime(value: string, locale: Locale): string
 {
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         hour: "2-digit",
         minute: "2-digit",

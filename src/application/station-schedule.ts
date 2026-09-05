@@ -1,4 +1,5 @@
 import type { JourneyStopView, JourneyView } from "./journey-view.js";
+import { capitalize, localeTag, localize, type Locale } from "./i18n.js";
 
 export interface StationJourneyGroup
 {
@@ -56,19 +57,19 @@ export function journeyTimeAtStop(journey: JourneyView, stopId: string): string 
     return timeAtStop(stop);
 }
 
-export function stationDateHeading(value: string, now = new Date()): StationDateHeading
+export function stationDateHeading(value: string, now = new Date(), locale: Locale = "fr"): StationDateHeading
 {
     const today = parisDate(now);
     const yesterday = addDays(today, -1);
     const tomorrow = addDays(today, 1);
     const relative = value === yesterday
-        ? "Hier"
+        ? localize(locale, "Hier", "Yesterday")
         : value === today
-            ? "Aujourd’hui"
+            ? localize(locale, "Aujourd’hui", "Today")
             : value === tomorrow
-                ? "Demain"
+                ? localize(locale, "Demain", "Tomorrow")
                 : null;
-    const formatted = new Intl.DateTimeFormat("fr-FR",
+    const formatted = new Intl.DateTimeFormat(localeTag(locale),
     {
         weekday: "long",
         day: "numeric",
@@ -78,7 +79,7 @@ export function stationDateHeading(value: string, now = new Date()): StationDate
 
     return {
         relative,
-        full: formatted.charAt(0).toLocaleUpperCase("fr") + formatted.slice(1)
+        full: capitalize(formatted, locale)
     };
 }
 

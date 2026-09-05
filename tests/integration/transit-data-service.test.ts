@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TransitDataService } from "../../src/application/transit-data-service.js";
 
 const gtfsPath = fileURLToPath(new URL("../fixtures/gtfs-50819", import.meta.url));
@@ -9,6 +9,7 @@ let previousGtfsPath: string | undefined;
 let previousSiriPath: string | undefined;
 let previousFlixBusEnabled: string | undefined;
 let previousFlixBusGtfsPath: string | undefined;
+let previousFlixBusRealtimeEnabled: string | undefined;
 
 describe("TransitDataService", () =>
 {
@@ -18,17 +19,21 @@ describe("TransitDataService", () =>
         previousSiriPath = process.env.SIRI_PATH;
         previousFlixBusEnabled = process.env.FLIXBUS_GTFS_ENABLED;
         previousFlixBusGtfsPath = process.env.FLIXBUS_GTFS_PATH;
+        previousFlixBusRealtimeEnabled = process.env.FLIXBUS_REALTIME_ENABLED;
         process.env.GTFS_PATH = gtfsPath;
         process.env.SIRI_PATH = siriPath;
         process.env.FLIXBUS_GTFS_ENABLED = "false";
+        process.env.FLIXBUS_REALTIME_ENABLED = "false";
     });
 
     afterEach(() =>
     {
+        vi.useRealTimers();
         restoreEnvironment("GTFS_PATH", previousGtfsPath);
         restoreEnvironment("SIRI_PATH", previousSiriPath);
         restoreEnvironment("FLIXBUS_GTFS_ENABLED", previousFlixBusEnabled);
         restoreEnvironment("FLIXBUS_GTFS_PATH", previousFlixBusGtfsPath);
+        restoreEnvironment("FLIXBUS_REALTIME_ENABLED", previousFlixBusRealtimeEnabled);
     });
 
     it("alimente recherche, suivi, gare et liaison avec les données normalisées", async () =>
@@ -119,6 +124,8 @@ describe("TransitDataService", () =>
 
     it("conserve les horaires FlixBus quand le temps réel n’est pas disponible", async () =>
     {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-09-05T21:00:00.000Z"));
         process.env.FLIXBUS_GTFS_ENABLED = "true";
         process.env.FLIXBUS_GTFS_PATH = flixBusGtfsPath;
         const service = new TransitDataService();

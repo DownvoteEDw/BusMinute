@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JourneyCard } from "../../../../components/journey-card";
 import { StructuredData } from "../../../../components/structured-data";
+import { localeTag, localize, type Locale } from "../../../../src/application/i18n";
+import { requestLocale } from "../../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../../src/application/seo";
 import { transitDataService } from "../../../../src/application/transit-data-service";
 
@@ -15,23 +17,32 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 {
+    const locale = await requestLocale();
     const { city, date } = await params;
 
     if (!isValidDate(date))
     {
-        return { title: "Date invalide", robots: { index: false, follow: true } };
+        return { title: localize(locale, "Date invalide", "Invalid date"), robots: { index: false, follow: true } };
     }
 
     const board = await transitDataService.getDepartureBoard(city, date);
 
     if (!board)
     {
-        return { title: "Ville introuvable" };
+        return { title: localize(locale, "Ville introuvable", "City not found") };
     }
 
     return {
-        title: `Départs de bus à ${board.name} le ${shortDate(date)} en temps réel`,
-        description: `Consultez les départs de bus à ${board.name} le ${longDate(date)}, les horaires BlaBlaCar Bus et FlixBus et les retards en temps réel disponibles.`,
+        title: localize(
+            locale,
+            `Départs de bus à ${board.name} le ${shortDate(date, locale)} en temps réel`,
+            `Live bus departures in ${board.name} on ${shortDate(date, locale)}`
+        ),
+        description: localize(
+            locale,
+            `Consultez les départs de bus à ${board.name} le ${longDate(date, locale)}, les horaires BlaBlaCar Bus et FlixBus et les retards en temps réel disponibles.`,
+            `Check BlaBlaCar Bus and FlixBus departures in ${board.name} on ${longDate(date, locale)}, including live delays when available.`
+        ),
         alternates: {
             canonical: `/departs/${board.slug}/${date}`
         },
@@ -44,6 +55,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function DeparturesPage({ params }: PageProps)
 {
+    const locale = await requestLocale();
     const { city, date } = await params;
 
     if (!isValidDate(date))
@@ -61,15 +73,15 @@ export default async function DeparturesPage({ params }: PageProps)
     const structuredData = [
         breadcrumbStructuredData(
         [
-            { name: "Accueil", path: "/" },
-            { name: "Villes et gares", path: "/villes" },
+            { name: localize(locale, "Accueil", "Home"), path: "/" },
+            { name: localize(locale, "Villes et gares", "Cities and stations"), path: "/villes" },
             { name: board.name, path: `/ville/${board.slug}` },
-            { name: longDate(date), path: `/departs/${board.slug}/${date}` }
+            { name: longDate(date, locale), path: `/departs/${board.slug}/${date}` }
         ]),
         {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `Départs de bus à ${board.name} le ${longDate(date)}`,
+            name: localize(locale, `Départs de bus à ${board.name} le ${longDate(date, locale)}`, `Bus departures in ${board.name} on ${longDate(date, locale)}`),
             url: absoluteUrl(`/departs/${board.slug}/${date}`),
             datePublished: date,
             mainEntity: {
@@ -80,7 +92,7 @@ export default async function DeparturesPage({ params }: PageProps)
                     return {
                         "@type": "ListItem",
                         position: index + 1,
-                        name: `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`,
+                        name: localize(locale, `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`, `Bus ${journey.serviceNumber} ${journey.originCity} to ${journey.destinationCity}`),
                         url: absoluteUrl(`/suivi/${encodeURIComponent(journey.journeyRef)}`)
                     };
                 })
@@ -90,23 +102,23 @@ export default async function DeparturesPage({ params }: PageProps)
 
     return (
         <div className="page-shell departures-page">
-            <nav className="breadcrumbs" aria-label="Fil d’Ariane">
-                <Link href="/">Accueil</Link><span>›</span><Link href="/villes">Villes</Link><span>›</span><Link href={`/ville/${board.slug}`}>{board.name}</Link><span>›</span><span>{shortDate(date)}</span>
+            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb")}>
+                <Link href="/">{localize(locale, "Accueil", "Home")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities")}</Link><span>›</span><Link href={`/ville/${board.slug}`}>{board.name}</Link><span>›</span><span>{shortDate(date, locale)}</span>
             </nav>
             <header className="listing-heading">
-                <span className="section-kicker">Tableau des départs</span>
-                <h1>{board.name}, <em>{shortDate(date)}</em></h1>
-                <p>Départs et passages connus dans toutes les gares routières de la ville.</p>
+                <span className="section-kicker">{localize(locale, "Tableau des départs", "Departure board")}</span>
+                <h1>{board.name}, <em>{shortDate(date, locale)}</em></h1>
+                <p>{localize(locale, "Départs et passages connus dans toutes les gares routières de la ville.", "Known departures and services across all coach stations in the city.")}</p>
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> Temps réel</span><h2>Bus disponibles</h2></div>
+                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel", "Live")}</span><h2>{localize(locale, "Bus disponibles", "Available buses")}</h2></div>
                     <span>{board.journeys.length} bus</span>
                 </div>
                 {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>Aucun départ disponible pour cette date</h2><p>Consultez la page de {board.name} pour voir les autres horaires.</p></div>
+                    <div className="empty-state"><h2>{localize(locale, "Aucun départ disponible pour cette date", "No departures available on this date")}</h2><p>{localize(locale, `Consultez la page de ${board.name} pour voir les autres horaires.`, `Check the ${board.name} page for other times.`)}</p></div>
                 ) : (
-                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} />)}</div>
+                    <div className="journey-list">{board.journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} locale={locale} />)}</div>
                 )}
             </section>
             <StructuredData value={structuredData} />
@@ -119,9 +131,9 @@ function isValidDate(value: string): boolean
     return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T12:00:00Z`).getTime());
 }
 
-function shortDate(value: string): string
+function shortDate(value: string, locale: Locale): string
 {
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         day: "numeric",
         month: "long",
@@ -129,9 +141,9 @@ function shortDate(value: string): string
     }).format(new Date(`${value}T12:00:00Z`));
 }
 
-function longDate(value: string): string
+function longDate(value: string, locale: Locale): string
 {
-    return new Intl.DateTimeFormat("fr-FR",
+    return new Intl.DateTimeFormat(localeTag(locale),
     {
         dateStyle: "long",
         timeZone: "Europe/Paris"
