@@ -885,6 +885,42 @@ h1 em {
     background: var(--card);
 }
 
+.journey-archive-notice {
+    align-items: center;
+    background: #fff3cf;
+    border: 1px solid #d7b955;
+    border-radius: 16px;
+    display: flex;
+    gap: 24px;
+    justify-content: space-between;
+    margin-top: 28px;
+    padding: 20px 22px;
+}
+
+.journey-archive-notice > div {
+    display: grid;
+    gap: 4px;
+}
+
+.journey-archive-notice strong {
+    font-size: 17px;
+}
+
+.journey-archive-notice span {
+    color: #574b26;
+    font-size: 13px;
+}
+
+.journey-archive-notice a {
+    background: var(--ink);
+    border-radius: 11px;
+    color: white;
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 12px 15px;
+}
+
 .tracker-grid {
     display: grid;
     gap: 26px;
@@ -2267,6 +2303,11 @@ h1 em {
         align-items: flex-start;
         flex-direction: column;
         gap: 24px;
+    }
+
+    .journey-archive-notice {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .tracker-grid {

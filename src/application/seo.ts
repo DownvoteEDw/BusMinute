@@ -4,6 +4,21 @@ export interface BreadcrumbItem
     path: string;
 }
 
+export interface JourneySeoTiming
+{
+    serviceDate: string;
+    stops: Array<{
+        aimedArrivalAt: string | null;
+        expectedArrivalAt: string | null;
+        actualArrivalAt: string | null;
+        aimedDepartureAt: string | null;
+        expectedDepartureAt: string | null;
+        actualDepartureAt: string | null;
+    }>;
+}
+
+const journeyIndexingGracePeriodMilliseconds = 48 * 60 * 60 * 1000;
+
 export function absoluteUrl(path: string): string
 {
     return new URL(path, process.env.SITE_URL ?? "http://localhost:3000").toString();
@@ -24,4 +39,37 @@ export function breadcrumbStructuredData(items: BreadcrumbItem[]): object
             };
         })
     };
+}
+
+export function isJourneyOutsideIndexingWindow(
+    journey: JourneySeoTiming,
+    now = new Date()
+): boolean
+{
+    const timestamps = journey.stops.flatMap((stop) =>
+    {
+        return [
+            stop.aimedArrivalAt,
+            stop.expectedArrivalAt,
+            stop.actualArrivalAt,
+            stop.aimedDepartureAt,
+            stop.expectedDepartureAt,
+            stop.actualDepartureAt
+        ];
+    });
+    const journeyEnd = timestamps.reduce<number>((latest, value) =>
+    {
+        if (!value)
+        {
+            return latest;
+        }
+
+        const timestamp = new Date(value).getTime();
+        return Number.isFinite(timestamp) ? Math.max(latest, timestamp) : latest;
+    }, Number.NEGATIVE_INFINITY);
+    const fallbackEnd = new Date(`${journey.serviceDate}T23:59:59Z`).getTime();
+    const effectiveEnd = Number.isFinite(journeyEnd) ? journeyEnd : fallbackEnd;
+
+    return Number.isFinite(effectiveEnd)
+        && now.getTime() > effectiveEnd + journeyIndexingGracePeriodMilliseconds;
 }
