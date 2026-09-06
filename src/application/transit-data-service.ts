@@ -578,37 +578,46 @@ export class TransitDataService
 
     public async getLiveBoard(limit = 8): Promise<JourneyView[]>
     {
-        const views = await this.liveBoardCache.get("board", () => this.loadLiveBoard());
-        return selectLiveBoard(views, limit);
+        const normalizedLimit = Math.max(0, Math.floor(limit));
+
+        if (normalizedLimit === 0)
+        {
+            return [];
+        }
+
+        return this.liveBoardCache.get(String(normalizedLimit), () => this.loadLiveBoard(normalizedLimit));
     }
 
-    private async loadLiveBoard(): Promise<JourneyView[]>
+    private async loadLiveBoard(limit: number): Promise<JourneyView[]>
     {
         const currentTime = Date.now();
         const allViews = (await this.getAllJourneyViews()).filter((journey) =>
         {
             return journey.stops.length >= 2
                 && boardEventTime(journey) >= currentTime - 300_000;
-        });
-        const flixBusStopIds = allViews
-            .filter((journey) => journey.operatorSlug === flixBusOperator.slug)
-            .sort((first, second) => boardEventTime(first) - boardEventTime(second))
-            .slice(0, 12)
-            .map((journey) =>
-            {
-                return journey.stops.find((stop) => stop.phase !== "passed")?.stopId
-                    ?? journey.originStopId;
-            })
-            .filter((stopId, index, values) => values.indexOf(stopId) === index)
-            .slice(0, 4);
-        const views = await this.enrichFlixBusJourneysAtStops(allViews, flixBusStopIds);
-        const sortedViews = views.sort((first, second) =>
+        }).sort((first, second) =>
         {
             return boardEventTime(first) - boardEventTime(second)
                 || boardStatusRank(first.status) - boardStatusRank(second.status)
                 || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
         });
-        return sortedViews;
+        const candidates = selectLiveBoard(allViews, Math.max(limit * 2, 12));
+        const enriched = await Promise.all(candidates.map((journey) =>
+        {
+            return journey.operatorSlug === flixBusOperator.slug
+                ? this.enrichFlixBusJourney(journey)
+                : Promise.resolve(journey);
+        }));
+        const visible = enriched.filter((journey) =>
+        {
+            return boardEventTime(journey) >= Date.now() - 300_000;
+        }).sort((first, second) =>
+        {
+            return boardEventTime(first) - boardEventTime(second)
+                || boardStatusRank(first.status) - boardStatusRank(second.status)
+                || first.serviceNumber.localeCompare(second.serviceNumber, "fr", { numeric: true });
+        });
+        return selectLiveBoard(visible, limit);
     }
 
     public async getSyncStatuses(): Promise<TransitSyncStatus[]>

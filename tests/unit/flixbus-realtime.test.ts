@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { enrichFlixBusJourney } from "../../src/application/flixbus-realtime.js";
+import { enrichFlixBusJourney, matchFlixBusRealtimeRide } from "../../src/application/flixbus-realtime.js";
 import type { JourneyView } from "../../src/application/journey-view.js";
 import
 {
@@ -146,9 +146,42 @@ describe("temps réel FlixBus", () =>
         expect(enriched.stops[0]?.expectedDepartureAt).toBe("2026-09-02T09:10:00Z");
         expect(enriched.stops[0]?.departureStatus).toBe("DELAYED");
     });
+
+    it("corrige un écart incohérent à partir de l’horaire estimé", () =>
+    {
+        const rides = parseRealtimeRides(realtimePayload(rawDeviation(
+            "2026-09-02T08:00:00Z",
+            0,
+            "ON_TIME"
+        )));
+        const enriched = enrichFlixBusJourney(
+            scheduledJourney(),
+            rides,
+            new Date("2026-09-02T09:05:00Z")
+        );
+
+        expect(enriched.delaySeconds).toBe(-3600);
+        expect(enriched.stops[0]?.expectedDepartureAt).toBe("2026-09-02T08:00:00Z");
+        expect(enriched.stops[0]?.departureStatus).toBe("EARLY");
+    });
+
+    it("ne confond pas deux départs rapprochés portant le même numéro", () =>
+    {
+        const rides = parseRealtimeRides(realtimePayload(
+            rawDeviation("2026-09-02T08:45:00Z", 600, "LATE"),
+            "2026-09-02T08:35:00Z",
+            "2026-09-02T14:35:00Z"
+        ));
+
+        expect(matchFlixBusRealtimeRide(scheduledJourney(), rides)).toBeNull();
+    });
 });
 
-function realtimePayload(): unknown
+function realtimePayload(
+    deviation: unknown = rawDeviation(),
+    originScheduledAt = "2026-09-02T09:00:00Z",
+    destinationScheduledAt = "2026-09-02T15:00:00Z"
+): unknown
 {
     return {
         rides: [
@@ -157,7 +190,7 @@ function realtimePayload(): unknown
                 status: {
                     next_stop_sequence: 1,
                     has_arrived_at_next_stop: false,
-                    deviation: rawDeviation()
+                    deviation
                 },
                 line: {
                     code: "9901",
@@ -173,8 +206,8 @@ function realtimePayload(): unknown
                         },
                         arrival: null,
                         departure: {
-                            scheduled: "2026-09-02T09:00:00Z",
-                            deviation: rawDeviation()
+                            scheduled: originScheduledAt,
+                            deviation
                         }
                     },
                     {
@@ -185,7 +218,7 @@ function realtimePayload(): unknown
                             city: { name: "Lyon" }
                         },
                         arrival: {
-                            scheduled: "2026-09-02T15:00:00Z",
+                            scheduled: destinationScheduledAt,
                             deviation: null
                         },
                         departure: null
@@ -200,12 +233,16 @@ function realtimePayload(): unknown
     };
 }
 
-function rawDeviation(): unknown
+function rawDeviation(
+    timestamp = "2026-09-02T09:10:00Z",
+    seconds = 600,
+    classification = "LATE"
+): unknown
 {
     return {
-        deviation_timestamp: "2026-09-02T09:10:00Z",
-        deviation_seconds: 600,
-        deviation_class: "LATE",
+        deviation_timestamp: timestamp,
+        deviation_seconds: seconds,
+        deviation_class: classification,
         deviation_type: "FORECAST",
         updated_at: "2026-09-02T08:55:00Z"
     };

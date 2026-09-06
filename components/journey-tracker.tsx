@@ -40,6 +40,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
     const [reporting, setReporting] = useState<PassengerReportType | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
     const isOnTime = journey.delaySeconds !== null && Math.abs(journey.delaySeconds) < 300;
+    const staleRealtime = journey.realtimeObserved && isRealtimeStale(journey.updatedAt);
     const currentStop = useMemo(() =>
     {
         return journey.stops.find((stop) => stop.phase === "current") ?? journey.stops[journey.stops.length - 1];
@@ -130,16 +131,16 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
     return (
         <div className="tracker-grid">
             <section className="tracker-main">
-                <div className="tracker-summary">
+                <div className={`tracker-summary${staleRealtime ? " is-stale" : ""}`}>
                     <div>
-                        <span className={`operational-pill ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled")}</span>
+                        <span className={`operational-pill ${staleRealtime ? "stale" : journey.status}`}><i /> {staleRealtime ? localize(locale, "Information temps réel ancienne", "Stale live information") : journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled")}</span>
                         <p>{journey.realtimeObserved
-                            ? `${localize(locale, "Mis à jour", "Updated")} ${relativeTime(journey.updatedAt, locale)} ${refreshing ? localize(locale, "· actualisation…", "· refreshing…") : ""}`
+                            ? `${localize(locale, `Dernière donnée ${journey.operatorName} reçue`, `Latest ${journey.operatorName} data received`)} ${relativeTime(journey.updatedAt, locale)} ${refreshing ? localize(locale, "· vérification…", "· checking…") : ""}`
                             : `${localize(locale, "Horaire prévu", "Scheduled by")} ${journey.operatorName}`}</p>
                     </div>
-                    <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}`}>
+                    <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}${staleRealtime ? " is-stale" : ""}`}>
                         <strong>{delayNumber(journey.delaySeconds, locale)}</strong>
-                        <span>{delayCaption(journey.delaySeconds, locale)}</span>
+                        <span>{staleRealtime ? localize(locale, `dernière estimation · ${delayCaption(journey.delaySeconds, locale)}`, `last estimate · ${delayCaption(journey.delaySeconds, locale)}`) : delayCaption(journey.delaySeconds, locale)}</span>
                     </div>
                 </div>
                 <ol className="route-timeline">
@@ -280,6 +281,13 @@ function relativeTime(value: string, locale: Locale): string
     return formatter.format(Math.round(minutes / 60), "hour");
 }
 
+function isRealtimeStale(value: string): boolean
+{
+    const timestamp = new Date(value).getTime();
+
+    return Number.isFinite(timestamp) && Date.now() - timestamp > 15 * 60 * 1000;
+}
+
 function statusLabel(status: JourneyView["status"], locale: Locale): string
 {
     return {
@@ -303,7 +311,7 @@ function delayNumber(seconds: number | null, locale: Locale): string
     }
 
     const minutes = Math.round(seconds / 60);
-    return minutes > 0 ? `+${minutes}` : String(minutes);
+    return minutes > 0 ? `+${minutes}` : String(Math.abs(minutes));
 }
 
 function delayCaption(seconds: number | null, locale: Locale): string

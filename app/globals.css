@@ -868,6 +868,18 @@ h1 em {
     color: var(--ink);
 }
 
+.route-identity {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.route-identity .route-operator-logo {
+    height: 23px;
+    max-width: 128px;
+}
+
 .route-links {
     display: flex;
     gap: 8px;
@@ -985,6 +997,24 @@ h1 em {
 .operational-pill.arrived i,
 .status-dot.arrived {
     background: #a2aea9;
+}
+
+.tracker-summary.is-stale {
+    background: #302919;
+}
+
+.operational-pill.stale {
+    background: rgba(255, 209, 102, .12);
+    color: #ffe19a;
+}
+
+.operational-pill.stale i {
+    background: #ffd166;
+}
+
+.tracker-summary .big-delay.is-stale,
+.tracker-summary .big-delay.is-stale strong {
+    color: #ffd166 !important;
 }
 
 .big-delay {

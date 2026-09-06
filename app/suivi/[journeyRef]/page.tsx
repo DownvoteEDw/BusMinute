@@ -3,6 +3,7 @@ import Link from "next/link";
 import { journeyPath, journeyRefFromPath } from "../../../src/application/journey-url";
 import { notFound } from "next/navigation";
 import { JourneyTracker } from "../../../components/journey-tracker";
+import { OperatorLogo } from "../../../components/operator-logo";
 import { StructuredData } from "../../../components/structured-data";
 import { localeTag, localize, type Locale } from "../../../src/application/i18n";
 import { citySlug } from "../../../src/application/journey-view";
@@ -128,7 +129,10 @@ export default async function JourneyPage({ params }: PageProps)
                 <div>
                     <span className="section-kicker">{journey.realtimeAvailable ? localize(locale, "Suivi en temps réel + voyageurs", "Live tracking + passenger updates") : localize(locale, "Horaire prévu", "Scheduled time")}</span>
                     <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
-                    <p>{journey.operatorName} · Bus <strong>{journey.serviceNumber}</strong> · {journeyDate}</p>
+                    <div className="route-identity">
+                        <OperatorLogo className="route-operator-logo" operatorSlug={journey.operatorSlug} />
+                        <p>Bus <strong>{journey.serviceNumber}</strong> · {journeyDate}</p>
+                    </div>
                 </div>
                 <div className="route-links">
                     <Link href={`/gares/${encodeURIComponent(journey.originStopId)}`}>{journey.originCity}</Link>

@@ -14,6 +14,8 @@ interface RealtimeMatch
     averageTimeDifferenceSeconds: number;
 }
 
+const maximumMatchTimeDifferenceSeconds = 15 * 60;
+
 export function enrichFlixBusJourney(
     journey: JourneyView,
     rides: FlixBusRealtimeRide[],
@@ -64,7 +66,7 @@ export function matchFlixBusRealtimeRide(
         });
     const best = candidates[0];
 
-    if (!best || best.averageTimeDifferenceSeconds > 10_800)
+    if (!best || best.averageTimeDifferenceSeconds > maximumMatchTimeDifferenceSeconds)
     {
         return null;
     }
@@ -163,13 +165,46 @@ function eventTimes(
 }
 {
     const aimedAt = event?.scheduledAt ?? fallbackAimedAt;
-    const expectedAt = event?.deviation?.timestamp ?? aimedAt;
-    const actualAt = event?.deviation?.type === "ACTUAL" ? event.deviation.timestamp : null;
+    const deviation = normalizedDeviation(event?.deviation ?? null, aimedAt);
+    const expectedAt = deviation?.timestamp ?? aimedAt;
+    const actualAt = deviation?.type === "ACTUAL" ? deviation.timestamp : null;
     return {
         aimedAt,
         expectedAt,
         actualAt,
-        deviation: event?.deviation ?? null
+        deviation
+    };
+}
+
+function normalizedDeviation(
+    deviation: FlixBusRealtimeDeviation | null,
+    aimedAt: string | null
+): FlixBusRealtimeDeviation | null
+{
+    if (!deviation || !aimedAt)
+    {
+        return deviation;
+    }
+
+    const timestamp = new Date(deviation.timestamp).getTime();
+    const aimedTimestamp = new Date(aimedAt).getTime();
+
+    if (!Number.isFinite(timestamp) || !Number.isFinite(aimedTimestamp))
+    {
+        return deviation;
+    }
+
+    const derivedSeconds = Math.round((timestamp - aimedTimestamp) / 1000);
+
+    if (Math.abs(derivedSeconds - deviation.seconds) < 60)
+    {
+        return deviation;
+    }
+
+    return {
+        ...deviation,
+        seconds: derivedSeconds,
+        classification: derivedSeconds > 0 ? "LATE" : derivedSeconds < 0 ? "EARLY" : "ON_TIME"
     };
 }
 
