@@ -38,6 +38,7 @@ export class PostgresGtfsRepository
             await this.replaceCalendarExceptions(client, calendarIds, feed);
             const tripIds = await this.upsertTrips(client, operatorId, routeIds, calendarIds, feed);
             const stopTimeCount = await this.replaceStopTimes(client, tripIds, stopIds, feed);
+            await this.removeStaleTrips(client, operatorId, feed);
             await client.query("COMMIT");
 
             return {
@@ -340,6 +341,31 @@ export class PostgresGtfsRepository
         }
 
         return ids;
+    }
+
+    private async removeStaleTrips(
+        client: PoolClient,
+        operatorId: string,
+        feed: GtfsFeed
+    ): Promise<void>
+    {
+        const currentTripIds = feed.trips.map((trip) => trip.externalId);
+        const parameters = [operatorId, currentTripIds];
+        const staleTrips = `SELECT id
+                            FROM scheduled_trips
+                            WHERE operator_id = $1
+                              AND NOT (external_trip_id = ANY($2::text[]))`;
+        await client.query(
+            `UPDATE trip_instances
+             SET scheduled_trip_id = NULL
+             WHERE scheduled_trip_id IN (${staleTrips})`,
+            parameters
+        );
+        await client.query(
+            `DELETE FROM scheduled_trips
+             WHERE id IN (${staleTrips})`,
+            parameters
+        );
     }
 
     private async replaceStopTimes(

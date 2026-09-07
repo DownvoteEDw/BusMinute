@@ -81,12 +81,25 @@ interface AlsaConnectionStation
 
 interface AlsaSegment
 {
-    id: string;
     line: string;
     departureTime: string;
     arrivalTime: string;
     departureStation: AlsaConnectionStation;
     arrivalStation: AlsaConnectionStation;
+}
+
+interface AlsaJourneyStop
+{
+    station: AlsaConnectionStation;
+    arrivalTime: string | null;
+    departureTime: string | null;
+}
+
+interface AlsaJourney
+{
+    id: string;
+    line: string;
+    stops: AlsaJourneyStop[];
 }
 
 interface ConnectionQuery
@@ -127,22 +140,19 @@ export class AlsaDataSource
             (query) => this.loadConnections(query)
         );
         const referencesById = new Map(stationReferences.map((station) => [station.id, station]));
-        const segments = new Map<string, AlsaSegment>();
+        const segments: AlsaSegment[] = [];
 
         for (const payload of payloads)
         {
-            for (const segment of extractSegments(payload, referencesById))
-            {
-                segments.set(segment.id, segment);
-            }
+            segments.push(...extractSegments(payload, referencesById));
         }
 
-        if (segments.size === 0)
+        if (segments.length === 0)
         {
             throw new Error("Aucun horaire ALSA desservant la France n’a été trouvé");
         }
 
-        return buildFeed([...segments.values()]);
+        return buildFeed(buildJourneys(segments));
     }
 
     private async loadStationReferences(): Promise<AlsaStationReference[]>
@@ -335,7 +345,6 @@ function extractSegments(
         }
 
         values.push({
-            id: resource.id as string,
             line: textAttribute(resource, "line") || "ALSA",
             departureTime,
             arrivalTime,
@@ -379,17 +388,245 @@ function connectionStation(
     };
 }
 
-function buildFeed(segments: AlsaSegment[]): GtfsFeed
+function buildJourneys(values: AlsaSegment[]): AlsaJourney[]
+{
+    const segments = [...new Map(values
+        .filter(validSegment)
+        .map((segment) => [segmentKey(segment), segment])).values()];
+    const parents = segments.map((_, index) => index);
+    const eventOwners = new Map<string, number>();
+
+    for (const [index, segment] of segments.entries())
+    {
+        for (const event of segmentEvents(segment))
+        {
+            const owner = eventOwners.get(event.key);
+
+            if (owner === undefined)
+            {
+                eventOwners.set(event.key, index);
+            }
+            else
+            {
+                unite(parents, index, owner);
+            }
+        }
+    }
+
+    const groups = new Map<number, AlsaSegment[]>();
+
+    for (const [index, segment] of segments.entries())
+    {
+        const root = findRoot(parents, index);
+        const group = groups.get(root) ?? [];
+        group.push(segment);
+        groups.set(root, group);
+    }
+
+    return [...groups.values()].map(buildJourney).filter((journey): journey is AlsaJourney => journey !== null);
+}
+
+function validSegment(segment: AlsaSegment): boolean
+{
+    const departure = stationDateTime(segment.departureTime, segment.departureStation);
+    const arrival = stationDateTime(segment.arrivalTime, segment.arrivalStation);
+    return departure.isValid && arrival.isValid && arrival.toMillis() > departure.toMillis();
+}
+
+function segmentKey(segment: AlsaSegment): string
+{
+    return [
+        segment.line,
+        segment.departureStation.id,
+        segment.departureTime,
+        segment.arrivalStation.id,
+        segment.arrivalTime
+    ].join("|");
+}
+
+function segmentEvents(segment: AlsaSegment): Array<{
+    key: string;
+    kind: "departure" | "arrival";
+    station: AlsaConnectionStation;
+    time: string;
+}>
+{
+    return [
+        {
+            key: `${segment.line}|departure|${segment.departureStation.id}|${segment.departureTime}`,
+            kind: "departure",
+            station: segment.departureStation,
+            time: segment.departureTime
+        },
+        {
+            key: `${segment.line}|arrival|${segment.arrivalStation.id}|${segment.arrivalTime}`,
+            kind: "arrival",
+            station: segment.arrivalStation,
+            time: segment.arrivalTime
+        }
+    ];
+}
+
+function findRoot(parents: number[], index: number): number
+{
+    let root = index;
+
+    while (parents[root] !== root)
+    {
+        root = parents[root] as number;
+    }
+
+    let current = index;
+
+    while (parents[current] !== current)
+    {
+        const parent = parents[current] as number;
+        parents[current] = root;
+        current = parent;
+    }
+
+    return root;
+}
+
+function unite(parents: number[], first: number, second: number): void
+{
+    const firstRoot = findRoot(parents, first);
+    const secondRoot = findRoot(parents, second);
+
+    if (firstRoot !== secondRoot)
+    {
+        parents[secondRoot] = firstRoot;
+    }
+}
+
+function buildJourney(segments: AlsaSegment[]): AlsaJourney | null
+{
+    const firstSegment = segments[0];
+
+    if (!firstSegment)
+    {
+        return null;
+    }
+
+    const stops = new Map<string, AlsaJourneyStop>();
+    const events = new Map<string, {
+        count: number;
+        kind: "departure" | "arrival";
+        station: AlsaConnectionStation;
+        time: string;
+    }>();
+
+    for (const segment of segments)
+    {
+        const departureStop = stops.get(segment.departureStation.id) ?? {
+            station: segment.departureStation,
+            arrivalTime: null,
+            departureTime: null
+        };
+        departureStop.departureTime = laterTime(departureStop.departureTime, segment.departureTime);
+        stops.set(segment.departureStation.id, departureStop);
+
+        const arrivalStop = stops.get(segment.arrivalStation.id) ?? {
+            station: segment.arrivalStation,
+            arrivalTime: null,
+            departureTime: null
+        };
+        arrivalStop.arrivalTime = earlierTime(arrivalStop.arrivalTime, segment.arrivalTime);
+        stops.set(segment.arrivalStation.id, arrivalStop);
+
+        for (const event of segmentEvents(segment))
+        {
+            const value = events.get(event.key);
+            events.set(event.key,
+            {
+                count: (value?.count ?? 0) + 1,
+                kind: event.kind,
+                station: event.station,
+                time: event.time
+            });
+        }
+    }
+
+    const orderedStops = [...stops.values()].sort((first, second) =>
+    {
+        return stopTimeMilliseconds(first) - stopTimeMilliseconds(second);
+    });
+    const anchor = [...events.values()].sort((first, second) =>
+    {
+        return second.count - first.count
+            || eventKindRank(first.kind) - eventKindRank(second.kind)
+            || first.time.localeCompare(second.time)
+            || first.station.id.localeCompare(second.station.id);
+    })[0];
+
+    if (!anchor || orderedStops.length < 2)
+    {
+        return null;
+    }
+
+    return {
+        id: `${carrierCode}:${firstSegment.line}:${anchor.kind}:${anchor.station.id}:${anchor.time}`,
+        line: firstSegment.line,
+        stops: orderedStops
+    };
+}
+
+function earlierTime(current: string | null, candidate: string): string
+{
+    return !current || candidate < current ? candidate : current;
+}
+
+function laterTime(current: string | null, candidate: string): string
+{
+    return !current || candidate > current ? candidate : current;
+}
+
+function stopTimeMilliseconds(stop: AlsaJourneyStop): number
+{
+    const time = stop.arrivalTime ?? stop.departureTime;
+    return time ? stationDateTime(time, stop.station).toMillis() : Number.MAX_SAFE_INTEGER;
+}
+
+function eventKindRank(kind: "departure" | "arrival"): number
+{
+    return kind === "departure" ? 0 : 1;
+}
+
+function stationDateTime(value: string, station: AlsaConnectionStation): DateTime
+{
+    return DateTime.fromISO(value, { zone: station.timezone });
+}
+
+function buildFeed(journeys: AlsaJourney[]): GtfsFeed
 {
     const stops = new Map<string, GtfsStop>();
     const routes = new Map<string, GtfsRoute>();
     const calendars = new Map<string, GtfsServiceCalendar>();
     const trips: GtfsScheduledTrip[] = [];
 
-    for (const segment of segments.sort((first, second) => first.departureTime.localeCompare(second.departureTime)))
+    for (const journey of journeys.sort((first, second) =>
     {
-        const departure = DateTime.fromISO(segment.departureTime, { zone: segment.departureStation.timezone });
-        const arrival = DateTime.fromISO(segment.arrivalTime, { zone: segment.arrivalStation.timezone });
+        return journeyStartMilliseconds(first) - journeyStartMilliseconds(second);
+    }))
+    {
+        const firstStop = journey.stops[0];
+        const lastStop = journey.stops[journey.stops.length - 1];
+
+        if (!firstStop || !lastStop)
+        {
+            continue;
+        }
+
+        const firstTime = firstStop.departureTime ?? firstStop.arrivalTime;
+        const lastTime = lastStop.arrivalTime ?? lastStop.departureTime;
+
+        if (!firstTime || !lastTime)
+        {
+            continue;
+        }
+
+        const departure = stationDateTime(firstTime, firstStop.station);
+        const arrival = stationDateTime(lastTime, lastStop.station);
         const serviceDate = departure.setZone(agencyTimezone).toISODate();
 
         if (!departure.isValid || !arrival.isValid || !serviceDate || arrival.toMillis() <= departure.toMillis())
@@ -398,50 +635,66 @@ function buildFeed(segments: AlsaSegment[]): GtfsFeed
         }
 
         const serviceExternalId = `${carrierCode}:${serviceDate}`;
-        const routeExternalId = `${carrierCode}:${segment.line}:${segment.departureStation.id}:${segment.arrivalStation.id}`;
+        const routeExternalId = `${carrierCode}:${journey.line}:${firstStop.station.id}:${lastStop.station.id}`;
         const dayStart = DateTime.fromISO(serviceDate, { zone: agencyTimezone }).startOf("day");
-        const departureSeconds = Math.round(departure.diff(dayStart, "seconds").seconds);
-        const arrivalSeconds = Math.round(arrival.diff(dayStart, "seconds").seconds);
+        const stopTimes = journey.stops.map((stop, index) =>
+        {
+            const arrivalValue = stop.arrivalTime ?? stop.departureTime;
+            const departureValue = stop.departureTime ?? stop.arrivalTime;
 
-        stops.set(segment.departureStation.id, toGtfsStop(segment.departureStation));
-        stops.set(segment.arrivalStation.id, toGtfsStop(segment.arrivalStation));
+            if (!arrivalValue || !departureValue)
+            {
+                return null;
+            }
+
+            const arrivalAt = stationDateTime(arrivalValue, stop.station);
+            const departureAt = stationDateTime(departureValue, stop.station);
+
+            if (!arrivalAt.isValid || !departureAt.isValid || departureAt.toMillis() < arrivalAt.toMillis())
+            {
+                return null;
+            }
+
+            return {
+                stopExternalId: stop.station.id,
+                sequence: index + 1,
+                arrivalSeconds: Math.round(arrivalAt.diff(dayStart, "seconds").seconds),
+                departureSeconds: Math.round(departureAt.diff(dayStart, "seconds").seconds),
+                pickupType: null,
+                dropOffType: null
+            };
+        });
+
+        if (stopTimes.some((stopTime) => stopTime === null))
+        {
+            continue;
+        }
+
+        for (const stop of journey.stops)
+        {
+            stops.set(stop.station.id, toGtfsStop(stop.station));
+        }
+
         routes.set(routeExternalId,
         {
             externalId: routeExternalId,
             agencyExternalId: carrierCode,
-            shortName: segment.line,
-            longName: `${formatStopName(segment.departureStation)} → ${formatStopName(segment.arrivalStation)}`,
+            shortName: journey.line,
+            longName: `${formatStopName(firstStop.station)} → ${formatStopName(lastStop.station)}`,
             type: 3,
             color: "3EC8EC",
             textColor: "003B5C"
         });
         calendars.set(serviceExternalId, calendarForDate(serviceExternalId, serviceDate));
         trips.push({
-            externalId: segment.id,
+            externalId: journey.id,
             routeExternalId,
             serviceExternalId,
-            serviceNumber: segment.line,
-            headsign: formatStopName(segment.arrivalStation),
+            serviceNumber: journey.line,
+            headsign: formatStopName(lastStop.station),
             wheelchairAccessible: null,
             bikesAllowed: null,
-            stopTimes: [
-                {
-                    stopExternalId: segment.departureStation.id,
-                    sequence: 1,
-                    arrivalSeconds: departureSeconds,
-                    departureSeconds,
-                    pickupType: null,
-                    dropOffType: null
-                },
-                {
-                    stopExternalId: segment.arrivalStation.id,
-                    sequence: 2,
-                    arrivalSeconds,
-                    departureSeconds: arrivalSeconds,
-                    pickupType: null,
-                    dropOffType: null
-                }
-            ]
+            stopTimes: stopTimes as GtfsScheduledTrip["stopTimes"]
         });
     }
 
@@ -467,6 +720,12 @@ function buildFeed(segments: AlsaSegment[]): GtfsFeed
         trips,
         sourcePath: "alsa-distribusion-api"
     };
+}
+
+function journeyStartMilliseconds(journey: AlsaJourney): number
+{
+    const stop = journey.stops[0];
+    return stop ? stopTimeMilliseconds(stop) : Number.MAX_SAFE_INTEGER;
 }
 
 function toGtfsStop(station: AlsaConnectionStation): GtfsStop

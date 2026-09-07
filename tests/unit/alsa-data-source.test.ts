@@ -47,7 +47,7 @@ describe("source d’horaires Alsa", () =>
         ]);
         expect(feed.trips).toHaveLength(1);
         expect(feed.trips[0]).toMatchObject({
-            externalId: "AOWL-FRPARPGB-ESBCNEDA-2026-09-07T23:30-2026-09-08T07:00-0",
+            externalId: "AOWL:33867:departure:FRPARPGB:2026-09-07T23:30",
             serviceNumber: "33867",
             stopTimes: [
                 { stopExternalId: "FRPARPGB", departureSeconds: 84_600 },
@@ -57,6 +57,61 @@ describe("source d’horaires Alsa", () =>
         expect(feed.calendars).toEqual([
             expect.objectContaining({ externalId: "AOWL:2026-09-07", monday: true })
         ]);
+    });
+
+    it("regroupe les destinations vendues séparément qui appartiennent à la même course", async () =>
+    {
+        vi.stubEnv("ALSA_SERVICE_DAYS", "1");
+        vi.stubEnv("ALSA_ORIGIN_BATCH_SIZE", "100");
+        vi.stubEnv("ALSA_DESTINATION_BATCH_SIZE", "100");
+        const fetchImplementation = vi.fn(async (input: string | URL | Request) =>
+        {
+            const url = new URL(input instanceof Request ? input.url : input.toString());
+            const payload = url.pathname.includes("suggestion-service")
+                ? duplicateLocationsPayload()
+                : duplicateConnectionsPayload();
+            return new Response(JSON.stringify(payload), {
+                status: 200,
+                headers: { "Content-Type": "application/json" }
+            });
+        });
+        const dataSource = new AlsaDataSource(
+            fetchImplementation,
+            () => new Date("2026-09-07T10:00:00Z")
+        );
+
+        const feed = await dataSource.loadGtfs();
+        const service33169 = feed.trips.filter((trip) => trip.serviceNumber === "33169");
+        const service33170 = feed.trips.filter((trip) => trip.serviceNumber === "33170");
+        const service33861 = feed.trips.filter((trip) => trip.serviceNumber === "33861");
+
+        expect(service33169).toHaveLength(1);
+        expect(service33169[0]).toMatchObject({
+            externalId: "AOWL:33169:departure:FRPARPGB:2026-09-07T17:00",
+            headsign: "Madrid - Estación Sur",
+            stopTimes: [
+                { stopExternalId: "FRPARPGB", departureSeconds: 61_200 },
+                { stopExternalId: "FRBODBRD", arrivalSeconds: 88_800 },
+                { stopExternalId: "FRBAYBBU", arrivalSeconds: 97_500 },
+                { stopExternalId: "ESEASCBS", arrivalSeconds: 101_400 },
+                { stopExternalId: "ESMADZOB", arrivalSeconds: 121_500 }
+            ]
+        });
+        expect(service33861).toHaveLength(1);
+        expect(service33861[0]?.stopTimes.map((stopTime) => stopTime.stopExternalId)).toEqual([
+            "FRPARPGB",
+            "ESBCNEDA"
+        ]);
+        expect(service33170).toHaveLength(1);
+        expect(service33170[0]).toMatchObject({
+            externalId: "AOWL:33170:arrival:FRPARPGB:2026-09-08T05:00",
+            stopTimes: [
+                { stopExternalId: "ESMADZOB" },
+                { stopExternalId: "FRBAYBBU" },
+                { stopExternalId: "FRBODBRD" },
+                { stopExternalId: "FRPARPGB" }
+            ]
+        });
     });
 });
 
@@ -133,6 +188,155 @@ function connectionsPayload(): unknown
                 "2026-09-07T12:00",
                 "2026-09-07T20:00"
             )
+        ]
+    };
+}
+
+function duplicateLocationsPayload(): unknown
+{
+    return {
+        locations: [
+            location("FRPAR", "FR", "Paris", "FRPARPGB", "Paris Gare de Bercy Seine"),
+            location("FRBOD", "FR", "Bordeaux", "FRBODBRD", "Bordeaux Gare routière"),
+            location("FRBAY", "FR", "Bayonne", "FRBAYBBU", "Bayonne Place des Basques"),
+            location("ESEAS", "ES", "Saint-Sébastien", "ESEASCBS", "Saint-Sébastien Gare routière"),
+            location("ESMAD", "ES", "Madrid", "ESMADZOB", "Madrid Estación Sur"),
+            location("ESBCN", "ES", "Barcelone", "ESBCNEDA", "Barcelone Gare routière Nord")
+        ]
+    };
+}
+
+function duplicateConnectionsPayload(): unknown
+{
+    return {
+        included: [
+            city("FRPAR", "Paris"),
+            city("FRBOD", "Bordeaux"),
+            city("FRBAY", "Bayonne"),
+            city("ESEAS", "Saint-Sébastien"),
+            city("ESMAD", "Madrid"),
+            city("ESBCN", "Barcelone"),
+            station("FRPARPGB", "Paris Gare de Bercy Seine", "FRPAR", "Europe/Paris", 48.8356869, 2.3801607),
+            station("FRBODBRD", "Bordeaux Gare routière", "FRBOD", "Europe/Paris", 44.825, -0.556),
+            station("FRBAYBBU", "Bayonne Place des Basques", "FRBAY", "Europe/Paris", 43.493, -1.475),
+            station("ESEASCBS", "Saint-Sébastien Gare routière", "ESEAS", "Europe/Madrid", 43.318, -1.981),
+            station("ESMADZOB", "Madrid Estación Sur", "ESMAD", "Europe/Madrid", 40.395, -3.678),
+            station("ESBCNEDA", "Barcelone Gare routière Nord", "ESBCN", "Europe/Madrid", 41.395, 2.183),
+            segment(
+                "AOWL-FRPARPGB-FRBODBRD-2026-09-07T17:00-2026-09-08T00:40-0",
+                "AOWL",
+                "FRPARPGB",
+                "FRBODBRD",
+                "33169",
+                "2026-09-07T17:00",
+                "2026-09-08T00:40"
+            ),
+            segment(
+                "AOWL-FRPARPGB-FRBAYBBU-2026-09-07T17:00-2026-09-08T03:05-0",
+                "AOWL",
+                "FRPARPGB",
+                "FRBAYBBU",
+                "33169",
+                "2026-09-07T17:00",
+                "2026-09-08T03:05"
+            ),
+            segment(
+                "AOWL-FRPARPGB-ESEASCBS-2026-09-07T17:00-2026-09-08T04:10-0",
+                "AOWL",
+                "FRPARPGB",
+                "ESEASCBS",
+                "33169",
+                "2026-09-07T17:00",
+                "2026-09-08T04:10"
+            ),
+            segment(
+                "AOWL-FRPARPGB-ESMADMAD-2026-09-07T17:00-2026-09-08T13:40-0",
+                "AOWL",
+                "FRPARPGB",
+                "ESEASCBS",
+                "33169",
+                "2026-09-07T17:00",
+                "2026-09-08T04:10"
+            ),
+            segment(
+                "AOWL-FRPARPGB-ESMADZOB-2026-09-07T17:00-2026-09-08T09:45-0",
+                "AOWL",
+                "FRPARPGB",
+                "ESMADZOB",
+                "33169",
+                "2026-09-07T17:00",
+                "2026-09-08T09:45"
+            ),
+            segment(
+                "AOWL-FRPARPGB-ESMADMAD-2026-09-07T17:00-2026-09-08T14:50-0",
+                "AOWL",
+                "FRPARPGB",
+                "ESBCNEDA",
+                "33861",
+                "2026-09-07T17:00",
+                "2026-09-08T06:44"
+            ),
+            segment(
+                "AOWL-FRPARPGB-ESMADZOB-2026-09-07T17:00-2026-09-08T17:05-0",
+                "AOWL",
+                "FRPARPGB",
+                "ESBCNEDA",
+                "33861",
+                "2026-09-07T17:00",
+                "2026-09-08T06:44"
+            ),
+            segment(
+                "AOWL-ESMADZOB-FRPARPGB-2026-09-07T10:00-2026-09-08T05:00-0",
+                "AOWL",
+                "ESMADZOB",
+                "FRPARPGB",
+                "33170",
+                "2026-09-07T10:00",
+                "2026-09-08T05:00"
+            ),
+            segment(
+                "AOWL-FRBAYBBU-FRPARPGB-2026-09-07T20:00-2026-09-08T05:00-0",
+                "AOWL",
+                "FRBAYBBU",
+                "FRPARPGB",
+                "33170",
+                "2026-09-07T20:00",
+                "2026-09-08T05:00"
+            ),
+            segment(
+                "AOWL-FRBODBRD-FRPARPGB-2026-09-07T23:00-2026-09-08T05:00-0",
+                "AOWL",
+                "FRBODBRD",
+                "FRPARPGB",
+                "33170",
+                "2026-09-07T23:00",
+                "2026-09-08T05:00"
+            )
+        ]
+    };
+}
+
+function location(
+    cityId: string,
+    countryCode: string,
+    cityName: string,
+    stationId: string,
+    stationName: string
+): unknown
+{
+    return {
+        type: "city",
+        code: cityId,
+        countryCode,
+        names: [{ languageCode: "fr", name: cityName }],
+        childrenLocations: [
+            {
+                type: "station",
+                code: stationId,
+                countryCode,
+                names: [{ languageCode: "fr", name: stationName }],
+                carrierMetadata: [{ carrierCode: "AOWL" }]
+            }
         ]
     };
 }
