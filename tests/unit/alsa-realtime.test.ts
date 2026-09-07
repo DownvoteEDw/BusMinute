@@ -148,6 +148,49 @@ describe("temps réel Alsa", () =>
         expect(await client.loadJourney(request)).toBeNull();
         expect(fetchImplementation).not.toHaveBeenCalled();
     });
+
+    it("abandonne immédiatement lorsque le suivi ALSA active Queue-it", async () =>
+    {
+        vi.stubEnv("ALSA_REALTIME_ENABLED", "true");
+        const fetchImplementation = vi.fn(async () =>
+        {
+            return new Response(null,
+            {
+                status: 302,
+                headers: {
+                    Location: "https://alsa.queue-it.net/?c=alsa&e=streamingibai"
+                }
+            });
+        });
+        const client = new AlsaRealtimeClient(
+            fetchImplementation,
+            () => new Date("2026-09-07T09:30:00Z")
+        );
+
+        expect(await client.loadJourney(realtimeRequest())).toBeNull();
+        expect(await client.loadJourney(realtimeRequest())).toBeNull();
+        expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    });
+
+    it("respecte un budget total lorsque le suivi ALSA ne répond pas", async () =>
+    {
+        vi.stubEnv("ALSA_REALTIME_ENABLED", "true");
+        vi.stubEnv("ALSA_REALTIME_BUDGET_MS", "20");
+        const fetchImplementation = vi.fn(async (_input: string | URL | Request, init?: RequestInit) =>
+        {
+            return new Promise<Response>((_resolve, reject) =>
+            {
+                init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+            });
+        });
+        const client = new AlsaRealtimeClient(
+            fetchImplementation,
+            () => new Date("2026-09-07T09:30:00Z")
+        );
+
+        expect(await client.loadJourney(realtimeRequest())).toBeNull();
+        expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    });
 });
 
 const trackerUrl = "https://www.alsa.com/fr/a-bord/localisez-votre-bus";

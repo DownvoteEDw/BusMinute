@@ -106,6 +106,10 @@ type FetchImplementation = (
 const defaultTrackerUrl = "https://www.alsa.com/fr/a-bord/localisez-votre-bus";
 const namespace = "_TrackingBusPortlet_WAR_Alsaportlet_";
 
+class AlsaRealtimeUnavailableError extends Error
+{
+}
+
 export class AlsaRealtimeClient
 {
     private readonly journeyCache = new AsyncCache<AlsaRealtimeJourney | null>(
@@ -147,24 +151,41 @@ export class AlsaRealtimeClient
             return null;
         }
 
+        const signal = AbortSignal.timeout(readPositiveInteger("ALSA_REALTIME_BUDGET_MS", 5_000));
         return this.journeyCache.get(request.cacheKey, () => this.withRequestSlot(async () =>
         {
             try
             {
-                return await this.loadJourneyOnce(request);
+                return await this.loadJourneyOnce(request, signal);
             }
-            catch
+            catch (error)
             {
+                if (signal.aborted || error instanceof AlsaRealtimeUnavailableError)
+                {
+                    return null;
+                }
+
                 this.invalidateSession();
-                return await this.loadJourneyOnce(request);
+
+                try
+                {
+                    return await this.loadJourneyOnce(request, signal);
+                }
+                catch
+                {
+                    return null;
+                }
             }
         }));
     }
 
-    private async loadJourneyOnce(request: AlsaRealtimeRequest): Promise<AlsaRealtimeJourney | null>
+    private async loadJourneyOnce(
+        request: AlsaRealtimeRequest,
+        signal: AbortSignal
+    ): Promise<AlsaRealtimeJourney | null>
     {
-        const session = await this.loadSession();
-        const locations = await this.locationCache.get("locations", () => this.loadLocations(session));
+        const session = await this.loadSession(signal);
+        const locations = await this.locationCache.get("locations", () => this.loadLocations(session, signal));
         const origin = matchAlsaTrackingLocation(request.origin.city, request.origin.countryCode, locations);
         const destination = matchAlsaTrackingLocation(
             request.destination.city,
@@ -180,7 +201,7 @@ export class AlsaRealtimeClient
         const routeKey = `${session.generation}:${origin.id}:${destination.id}`;
         const routeSearch = await this.routeSearchCache.get(routeKey, () =>
         {
-            return this.searchRoute(session, origin, destination);
+            return this.searchRoute(session, origin, destination, signal);
         });
         const selection = selectSearchLeg(routeSearch, request);
 
@@ -189,10 +210,10 @@ export class AlsaRealtimeClient
             return null;
         }
 
-        return this.loadTracking(selection, request);
+        return this.loadTracking(selection, request, signal);
     }
 
-    private async loadSession(): Promise<AlsaSession>
+    private async loadSession(signal: AbortSignal): Promise<AlsaSession>
     {
         if (this.session && this.session.expiresAt > Date.now())
         {
@@ -204,14 +225,14 @@ export class AlsaRealtimeClient
             return this.sessionPromise;
         }
 
-        this.sessionPromise = this.bootstrapSession().finally(() =>
+        this.sessionPromise = this.bootstrapSession(signal).finally(() =>
         {
             this.sessionPromise = null;
         });
         return this.sessionPromise;
     }
 
-    private async bootstrapSession(): Promise<AlsaSession>
+    private async bootstrapSession(signal: AbortSignal): Promise<AlsaSession>
     {
         this.cookies.clear();
         const trackerUrl = process.env.ALSA_REALTIME_TRACKER_URL ?? defaultTrackerUrl;
@@ -220,7 +241,8 @@ export class AlsaRealtimeClient
             headers: {
                 Accept: "text/html,application/xhtml+xml",
                 "Accept-Language": "fr-FR,fr;q=0.9"
-            }
+            },
+            signal
         });
 
         if (!response.ok)
@@ -245,7 +267,7 @@ export class AlsaRealtimeClient
         return value;
     }
 
-    private async loadLocations(session: AlsaSession): Promise<AlsaTrackingLocation[]>
+    private async loadLocations(session: AlsaSession, signal: AbortSignal): Promise<AlsaTrackingLocation[]>
     {
         const trackerUrl = process.env.ALSA_REALTIME_TRACKER_URL ?? defaultTrackerUrl;
         const configuredUrl = process.env.ALSA_REALTIME_LOCATIONS_URL?.trim();
@@ -258,7 +280,8 @@ export class AlsaRealtimeClient
             headers: {
                 Accept: "application/json",
                 Referer: trackerUrl
-            }
+            },
+            signal
         });
 
         if (!response.ok)
@@ -273,7 +296,8 @@ export class AlsaRealtimeClient
     private async searchRoute(
         session: AlsaSession,
         origin: AlsaTrackingLocation,
-        destination: AlsaTrackingLocation
+        destination: AlsaTrackingLocation,
+        signal: AbortSignal
     ): Promise<CachedRouteSearch>
     {
         const body = new URLSearchParams();
@@ -289,7 +313,8 @@ export class AlsaRealtimeClient
                 Accept: "text/html,application/xhtml+xml",
                 "Content-Type": "application/x-www-form-urlencoded",
                 Referer: process.env.ALSA_REALTIME_TRACKER_URL ?? defaultTrackerUrl
-            }
+            },
+            signal
         });
 
         if (!response.ok)
@@ -311,7 +336,8 @@ export class AlsaRealtimeClient
 
     private async loadTracking(
         selection: AlsaSearchSelection,
-        request: AlsaRealtimeRequest
+        request: AlsaRealtimeRequest,
+        signal: AbortSignal
     ): Promise<AlsaRealtimeJourney | null>
     {
         const url = new URL(selection.resourceUrl);
@@ -327,7 +353,8 @@ export class AlsaRealtimeClient
                 Accept: "application/json",
                 "X-Requested-With": "XMLHttpRequest",
                 Referer: process.env.ALSA_REALTIME_TRACKER_URL ?? defaultTrackerUrl
-            }
+            },
+            signal
         });
 
         if (!response.ok)
@@ -378,7 +405,14 @@ export class AlsaRealtimeClient
                 return response;
             }
 
-            url = new URL(location, url);
+            const redirectUrl = new URL(location, url);
+
+            if (isQueueItUrl(redirectUrl))
+            {
+                throw new AlsaRealtimeUnavailableError("Le suivi ALSA utilise temporairement une file d’attente");
+            }
+
+            url = redirectUrl;
 
             if (response.status === 303 || (response.status === 301 || response.status === 302) && method === "POST")
             {
@@ -797,6 +831,12 @@ function splitSetCookieHeader(value: string | null): string[]
 function isRedirect(status: number): boolean
 {
     return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+}
+
+function isQueueItUrl(url: URL): boolean
+{
+    const hostname = url.hostname.toLowerCase();
+    return hostname === "queue-it.net" || hostname.endsWith(".queue-it.net");
 }
 
 function compactDate(value: string): string
