@@ -9,9 +9,9 @@ export default async function NotFoundPage()
     return (
         <div className="not-found-page">
             <span>404</span>
-            <h1>{localize(locale, "Ce bus a quitté le radar.", "This bus has left the radar.")}</h1>
-            <p>{localize(locale, "Le bus demandé n’existe pas ou n’est plus disponible.", "The requested bus does not exist or is no longer available.")}</p>
-            <Link href="/">{localize(locale, "Revenir à la recherche", "Back to search")}</Link>
+            <h1>{localize(locale, "Ce bus a quitté le radar.", "This bus has left the radar.", "Este autobús ha desaparecido del radar.")}</h1>
+            <p>{localize(locale, "Le bus demandé n’existe pas ou n’est plus disponible.", "The requested bus does not exist or is no longer available.", "El autobús que buscas no existe o ya no está disponible.")}</p>
+            <Link href="/">{localize(locale, "Revenir à la recherche", "Back to search", "Volver a la búsqueda")}</Link>
         </div>
     );
 }

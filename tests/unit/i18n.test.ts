@@ -12,8 +12,17 @@ describe("i18n", () =>
 
     it("sélectionne les textes et pluriels anglais", () =>
     {
-        expect(localize("en", "Gare", "Station")).toBe("Station");
-        expect(countLabel("en", 1, "gare", "gares", "station", "stations")).toBe("1 station");
-        expect(countLabel("en", 2, "gare", "gares", "station", "stations")).toBe("2 stations");
+        expect(localize("en", "Gare", "Station", "Estación")).toBe("Station");
+        expect(countLabel("en", 1, "gare", "gares", "station", "stations", "estación", "estaciones")).toBe("1 station");
+        expect(countLabel("en", 2, "gare", "gares", "station", "stations", "estación", "estaciones")).toBe("2 stations");
+    });
+
+    it("sélectionne les textes, la locale et les pluriels espagnols", () =>
+    {
+        expect(normalizeLocale("es")).toBe("es");
+        expect(localeTag("es")).toBe("es-ES");
+        expect(localize("es", "Gare", "Station", "Estación")).toBe("Estación");
+        expect(countLabel("es", 1, "gare", "gares", "station", "stations", "estación", "estaciones")).toBe("1 estación");
+        expect(countLabel("es", 2, "gare", "gares", "station", "stations", "estación", "estaciones")).toBe("2 estaciones");
     });
 });

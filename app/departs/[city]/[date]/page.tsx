@@ -23,26 +23,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!isValidDate(date))
     {
-        return { title: localize(locale, "Date invalide", "Invalid date"), robots: { index: false, follow: true } };
+        return { title: localize(locale, "Date invalide", "Invalid date", "Fecha no válida"), robots: { index: false, follow: true } };
     }
 
     const board = await transitDataService.getDepartureBoard(city, date);
 
     if (!board)
     {
-        return { title: localize(locale, "Ville introuvable", "City not found") };
+        return { title: localize(locale, "Ville introuvable", "City not found", "Ciudad no encontrada") };
     }
 
     return {
         title: localize(
             locale,
             `Départs de bus à ${board.name} le ${shortDate(date, locale)} en temps réel`,
-            `Live bus departures in ${board.name} on ${shortDate(date, locale)}`
+            `Live bus departures in ${board.name} on ${shortDate(date, locale)}`,
+            `Salidas de autobús en ${board.name} el ${shortDate(date, locale)} en tiempo real`
         ),
         description: localize(
             locale,
             `Consultez les départs BlaBlaCar Bus, FlixBus et Alsa à ${board.name} le ${longDate(date, locale)}, avec les retards disponibles en temps réel.`,
-            `Check BlaBlaCar Bus, FlixBus and Alsa departures in ${board.name} on ${longDate(date, locale)}, including live delays when available.`
+            `Check BlaBlaCar Bus, FlixBus and Alsa departures in ${board.name} on ${longDate(date, locale)}, including live delays when available.`,
+            `Consulta las salidas de BlaBlaCar Bus, FlixBus y Alsa en ${board.name} el ${longDate(date, locale)}, con los retrasos en tiempo real cuando estén disponibles.`
         ),
         alternates: {
             canonical: `/departs/${board.slug}/${date}`
@@ -81,15 +83,15 @@ export default async function DeparturesPage({ params }: PageProps)
     const structuredData = [
         breadcrumbStructuredData(
         [
-            { name: localize(locale, "Accueil", "Home"), path: "/" },
-            { name: localize(locale, "Villes et gares", "Cities and stations"), path: "/villes" },
+            { name: localize(locale, "Accueil", "Home", "Inicio"), path: "/" },
+            { name: localize(locale, "Villes et gares", "Cities and stations", "Ciudades y estaciones"), path: "/villes" },
             { name: board.name, path: `/ville/${board.slug}` },
             { name: longDate(date, locale), path: `/departs/${board.slug}/${date}` }
         ]),
         {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: localize(locale, `Départs de bus à ${board.name} le ${longDate(date, locale)}`, `Bus departures in ${board.name} on ${longDate(date, locale)}`),
+            name: localize(locale, `Départs de bus à ${board.name} le ${longDate(date, locale)}`, `Bus departures in ${board.name} on ${longDate(date, locale)}`, `Salidas de autobús en ${board.name} el ${longDate(date, locale)}`),
             url: absoluteUrl(`/departs/${board.slug}/${date}`),
             datePublished: date,
             mainEntity: {
@@ -100,7 +102,7 @@ export default async function DeparturesPage({ params }: PageProps)
                     return {
                         "@type": "ListItem",
                         position: index + 1,
-                        name: localize(locale, `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`, `Bus ${journey.serviceNumber} ${journey.originCity} to ${journey.destinationCity}`),
+                        name: localize(locale, `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`, `Bus ${journey.serviceNumber} ${journey.originCity} to ${journey.destinationCity}`, `Autobús ${journey.serviceNumber} de ${journey.originCity} a ${journey.destinationCity}`),
                         url: absoluteUrl(journeyPath(journey.journeyRef))
                     };
                 })
@@ -110,17 +112,17 @@ export default async function DeparturesPage({ params }: PageProps)
 
     return (
         <div className="page-shell departures-page">
-            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb")}>
-                <Link href="/">{localize(locale, "Accueil", "Home")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities")}</Link><span>›</span><Link href={`/ville/${board.slug}`}>{board.name}</Link><span>›</span><span>{shortDate(date, locale)}</span>
+            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb", "Migas de pan")}>
+                <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities", "Ciudades")}</Link><span>›</span><Link href={`/ville/${board.slug}`}>{board.name}</Link><span>›</span><span>{shortDate(date, locale)}</span>
             </nav>
             <header className="listing-heading">
-                <span className="section-kicker">{localize(locale, "Tableau des départs", "Departure board")}</span>
+                <span className="section-kicker">{localize(locale, "Tableau des départs", "Departure board", "Panel de salidas")}</span>
                 <h1>{board.name}, <em>{shortDate(date, locale)}</em></h1>
-                <p>{localize(locale, "Départs et passages connus dans toutes les gares routières de la ville.", "Known departures and services across all coach stations in the city.")}</p>
+                <p>{localize(locale, "Départs et passages connus dans toutes les gares routières de la ville.", "Known departures and services across all coach stations in the city.", "Salidas y pasos previstos en todas las estaciones de autobuses de la ciudad.")}</p>
             </header>
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel", "Live")}</span><h2>{localize(locale, "Bus disponibles", "Available buses")}</h2></div>
+                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel", "Live", "Tiempo real")}</span><h2>{localize(locale, "Bus disponibles", "Available buses", "Autobuses disponibles")}</h2></div>
                     <span>{initialPage.totalCount} bus</span>
                 </div>
                 <CityJourneyList citySlug={board.slug} initialPage={initialPage} locale={locale} serviceDate={date} />

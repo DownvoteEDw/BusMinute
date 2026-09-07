@@ -81,11 +81,11 @@ export function stationDateHeading(value: string, now = new Date(), locale: Loca
     const yesterday = addDays(today, -1);
     const tomorrow = addDays(today, 1);
     const relative = value === yesterday
-        ? localize(locale, "Hier", "Yesterday")
+        ? localize(locale, "Hier", "Yesterday", "Ayer")
         : value === today
-            ? localize(locale, "Aujourd’hui", "Today")
+            ? localize(locale, "Aujourd’hui", "Today", "Hoy")
             : value === tomorrow
-                ? localize(locale, "Demain", "Tomorrow")
+                ? localize(locale, "Demain", "Tomorrow", "Mañana")
                 : null;
     const formatted = new Intl.DateTimeFormat(localeTag(locale),
     {

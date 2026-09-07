@@ -50,7 +50,7 @@ export function CityJourneyList(
 
             if (!response.ok)
             {
-                setError(localize(locale, "Impossible de charger les trajets suivants.", "Unable to load more buses."));
+                setError(localize(locale, "Impossible de charger les trajets suivants.", "Unable to load more buses.", "No se han podido cargar más trayectos."));
                 return;
             }
 
@@ -60,7 +60,7 @@ export function CityJourneyList(
         }
         catch
         {
-            setError(localize(locale, "Impossible de charger les trajets suivants.", "Unable to load more buses."));
+            setError(localize(locale, "Impossible de charger les trajets suivants.", "Unable to load more buses.", "No se han podido cargar más trayectos."));
         }
         finally
         {
@@ -72,8 +72,8 @@ export function CityJourneyList(
     {
         return (
             <div className="empty-state">
-                <h2>{localize(locale, "Aucun passage disponible pour cette date", "No services available on this date")}</h2>
-                <p>{localize(locale, "Les prochains horaires apparaîtront automatiquement.", "Upcoming times will appear automatically.")}</p>
+                <h2>{localize(locale, "Aucun passage disponible pour cette date", "No services available on this date", "No hay servicios disponibles para esta fecha")}</h2>
+                <p>{localize(locale, "Les prochains horaires apparaîtront automatiquement.", "Upcoming times will appear automatically.", "Los próximos horarios aparecerán automáticamente.")}</p>
             </div>
         );
     }
@@ -91,13 +91,14 @@ export function CityJourneyList(
                 <div className="journey-load-more">
                     <button disabled={loading} onClick={() => void loadMore()} type="button">
                         {loading
-                            ? localize(locale, "Chargement…", "Loading…")
-                            : localize(locale, "Voir plus de trajets", "Show more buses")}
+                            ? localize(locale, "Chargement…", "Loading…", "Cargando…")
+                            : localize(locale, "Voir plus de trajets", "Show more buses", "Ver más trayectos")}
                     </button>
                     <span>{localize(
                         locale,
                         `${journeys.length} sur ${initialPage.totalCount} passages affichés`,
-                        `${journeys.length} of ${initialPage.totalCount} services shown`
+                        `${journeys.length} of ${initialPage.totalCount} services shown`,
+                        `${journeys.length} de ${initialPage.totalCount} servicios mostrados`
                     )}</span>
                 </div>
             )}

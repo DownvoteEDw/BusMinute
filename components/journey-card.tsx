@@ -38,7 +38,7 @@ export function JourneyCard({ journey, stopId, eventStopId, originStopId, destin
                         <OperatorLogo operatorSlug={journey.operatorSlug} />
                         <b>Bus {journey.serviceNumber}</b>
                     </span>
-                    <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled")}</span>
+                    <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled", "Horario previsto")}</span>
                 </div>
                 <h2>{originCity} <span>→</span> {destinationCity}</h2>
                 <p>{event.detail}</p>
@@ -75,17 +75,18 @@ function journeyEvent(
     {
         const destination = findStop(journey, destinationStopId);
         const continuation = destination && destination.stopId !== journey.destinationStopId
-            ? localize(locale, ` · Continue vers ${journey.destinationCity}`, ` · Continues to ${journey.destinationCity}`)
+            ? localize(locale, ` · Continue vers ${journey.destinationCity}`, ` · Continues to ${journey.destinationCity}`, ` · Continúa hasta ${journey.destinationCity}`)
             : "";
 
         return {
             stop,
             time,
-            label: localize(locale, "Départ", "Departure"),
+            label: localize(locale, "Départ", "Departure", "Salida"),
             detail: localize(
                 locale,
                 `Arrivée ${formatTime(plannedTime(destination), locale)} à ${destination?.city ?? destinationStopId}${continuation}`,
-                `Arrival ${formatTime(plannedTime(destination), locale)} in ${destination?.city ?? destinationStopId}${continuation}`
+                `Arrival ${formatTime(plannedTime(destination), locale)} in ${destination?.city ?? destinationStopId}${continuation}`,
+                `Llegada a las ${formatTime(plannedTime(destination), locale)} a ${destination?.city ?? destinationStopId}${continuation}`
             )
         };
     }
@@ -95,16 +96,16 @@ function journeyEvent(
         return {
             stop,
             time,
-            label: localize(locale, "Départ", "Departure"),
+            label: localize(locale, "Départ", "Departure", "Salida"),
             detail: `${formatDate(journey.serviceDate, locale)} · ${journey.originName}`
         };
     }
 
     const label = resolvedIndex === 0
-        ? localize(locale, "Départ", "Departure")
+        ? localize(locale, "Départ", "Departure", "Salida")
         : resolvedIndex === journey.stops.length - 1
-            ? localize(locale, "Arrivée", "Arrival")
-            : localize(locale, "Passage", "Calling");
+            ? localize(locale, "Arrivée", "Arrival", "Llegada")
+            : localize(locale, "Passage", "Calling", "Paso");
 
     return {
         stop,
@@ -162,10 +163,10 @@ function formatDate(value: string, locale: Locale): string
 function statusLabel(status: JourneyView["status"], locale: Locale): string
 {
     const labels = {
-        scheduled: localize(locale, "À venir", "Upcoming"),
-        in_transit: localize(locale, "En route", "En route"),
-        arrived: localize(locale, "Terminé", "Completed"),
-        cancelled: localize(locale, "Annulé", "Cancelled")
+        scheduled: localize(locale, "À venir", "Upcoming", "Próximo"),
+        in_transit: localize(locale, "En route", "En route", "En ruta"),
+        arrived: localize(locale, "Terminé", "Completed", "Finalizado"),
+        cancelled: localize(locale, "Annulé", "Cancelled", "Cancelado")
     };
     return labels[status];
 }
@@ -174,24 +175,24 @@ function delayLabel(seconds: number | null, state: DelayState, locale: Locale): 
 {
     if (state === "cancelled")
     {
-        return localize(locale, "Annulé", "Cancelled");
+        return localize(locale, "Annulé", "Cancelled", "Cancelado");
     }
 
     if (seconds === null)
     {
-        return localize(locale, "Prévu", "Scheduled");
+        return localize(locale, "Prévu", "Scheduled", "Previsto");
     }
 
     const minutes = Math.round(seconds / 60);
 
     if (Math.abs(minutes) < 5)
     {
-        return localize(locale, "À l'heure", "On time");
+        return localize(locale, "À l'heure", "On time", "Puntual");
     }
 
     return minutes > 0
         ? `+${minutes} min`
-        : localize(locale, `${Math.abs(minutes)} min d'avance`, `${Math.abs(minutes)} min early`);
+        : localize(locale, `${Math.abs(minutes)} min d'avance`, `${Math.abs(minutes)} min early`, `${Math.abs(minutes)} min de adelanto`);
 }
 
 type DelayState = "scheduled" | "on-time" | "late" | "early" | "cancelled";
@@ -219,11 +220,11 @@ function journeyDelayState(journey: JourneyView, seconds: number | null): DelayS
 function delayDetail(state: DelayState, locale: Locale): string
 {
     const labels: Record<DelayState, string> = {
-        scheduled: localize(locale, "Sans suivi en temps réel", "No live tracking"),
-        "on-time": localize(locale, "Moins de 5 min d’écart", "Less than 5 min difference"),
-        late: localize(locale, "Retard estimé", "Estimated delay"),
-        early: localize(locale, "Avance estimée", "Running early"),
-        cancelled: localize(locale, "Bus annulé", "Bus cancelled")
+        scheduled: localize(locale, "Sans suivi en temps réel", "No live tracking", "Sin seguimiento en tiempo real"),
+        "on-time": localize(locale, "Moins de 5 min d’écart", "Less than 5 min difference", "Menos de 5 min de diferencia"),
+        late: localize(locale, "Retard estimé", "Estimated delay", "Retraso estimado"),
+        early: localize(locale, "Avance estimée", "Running early", "Adelanto estimado"),
+        cancelled: localize(locale, "Bus annulé", "Bus cancelled", "Autobús cancelado")
     };
     return labels[state];
 }

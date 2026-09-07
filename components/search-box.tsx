@@ -125,7 +125,7 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
     return (
         <div className={`search-shell ${compact ? "is-compact" : ""}`}>
             <form className="search-box" onSubmit={submit} role="search">
-                <label htmlFor={compact ? "service-number-compact" : "service-number"}>{localize(locale, "Numéro, ville ou trajet", "Bus number, city or route")}</label>
+                <label htmlFor={compact ? "service-number-compact" : "service-number"}>{localize(locale, "Numéro, ville ou trajet", "Bus number, city or route", "Número, ciudad o ruta")}</label>
                 <div>
                     <input
                         autoComplete="off"
@@ -133,19 +133,20 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
                         name="q"
                         onChange={(event) => setQuery(event.target.value)}
                         onFocus={() => setOpen(results.length > 0 || places.length > 0)}
-                        placeholder={localize(locale, "Ex. 50819 ou Paris → Tours", "E.g. 50819 or Paris → Tours")}
+                        placeholder={localize(locale, "Ex. 50819 ou Paris → Tours", "E.g. 50819 or Paris → Tours", "Ej. 50819 o París → Tours")}
                         value={query}
                     />
-                    <button type="submit">{loading ? localize(locale, "Recherche…", "Searching…") : localize(locale, "Rechercher", "Search")}</button>
+                    <button type="submit">{loading ? localize(locale, "Recherche…", "Searching…", "Buscando…") : localize(locale, "Rechercher", "Search", "Buscar")}</button>
                 </div>
             </form>
             {open && (
-                <div className="search-results" role="listbox" aria-label={localize(locale, "Résultats de recherche", "Search results")}>
+                <div className="search-results" role="listbox" aria-label={localize(locale, "Résultats de recherche", "Search results", "Resultados de búsqueda")}>
                     {places.length === 0 && results.length === 0 ? (
                         <p>{localize(
                             locale,
                             "Aucun bus trouvé aujourd’hui. Essayez une ville, un numéro ou un trajet comme Paris → Tours.",
-                            "No buses found today. Try a city, bus number or route such as Paris → Tours."
+                            "No buses found today. Try a city, bus number or route such as Paris → Tours.",
+                            "No hemos encontrado autobuses para hoy. Prueba con una ciudad, un número o una ruta como París → Tours."
                         )}</p>
                     ) : (
                         <>
@@ -154,7 +155,7 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
                                 return (
                                     <button key={`${place.type}-${place.id}`} onClick={() => choosePlace(place)} role="option">
                                         <span><b>{place.label}</b><small>{placeDetail(place, locale)}</small></span>
-                                        <span className="place-result-type">{place.type === "city" ? localize(locale, "Ville", "City") : localize(locale, "Gare", "Station")}</span>
+                                        <span className="place-result-type">{place.type === "city" ? localize(locale, "Ville", "City", "Ciudad") : localize(locale, "Gare", "Station", "Estación")}</span>
                                     </button>
                                 );
                             })}
@@ -182,15 +183,15 @@ function formatDelay(journey: JourneyView, locale: Locale): string
     if (seconds === null)
     {
         return journey.realtimeObserved
-            ? localize(locale, "À venir", "Upcoming")
-            : localize(locale, "Horaire prévu", "Scheduled");
+            ? localize(locale, "À venir", "Upcoming", "Próximo")
+            : localize(locale, "Horaire prévu", "Scheduled", "Horario previsto");
     }
 
     const minutes = Math.round(seconds / 60);
 
     if (minutes === 0)
     {
-        return localize(locale, "À l'heure", "On time");
+        return localize(locale, "À l'heure", "On time", "Puntual");
     }
 
     return minutes > 0 ? `+${minutes} min` : `${minutes} min`;
@@ -205,7 +206,7 @@ function placeDetail(place: PlaceSearchResultView, locale: Locale): string
 
     const count = Number.parseInt(place.detail, 10);
     return Number.isFinite(count)
-        ? countLabel(locale, count, "gare", "gares", "station", "stations")
+        ? countLabel(locale, count, "gare", "gares", "station", "stations", "estación", "estaciones")
         : place.detail;
 }
 

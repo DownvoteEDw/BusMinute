@@ -25,15 +25,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!board)
     {
-        return { title: localize(locale, "Ville introuvable", "City not found") };
+        return { title: localize(locale, "Ville introuvable", "City not found", "Ciudad no encontrada") };
     }
 
     return {
-        title: localize(locale, `Bus à ${board.name} en temps réel : gares et départs`, `Live buses in ${board.name}: stations and departures`),
+        title: localize(locale, `Bus à ${board.name} en temps réel : gares et départs`, `Live buses in ${board.name}: stations and departures`, `Autobuses en tiempo real en ${board.name}: estaciones y salidas`),
         description: localize(
             locale,
             `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus, FlixBus et Alsa, avec les retards disponibles en temps réel.`,
-            `Find coach stations in ${board.name}, upcoming BlaBlaCar Bus, FlixBus and Alsa services, with live delays when available.`
+            `Find coach stations in ${board.name}, upcoming BlaBlaCar Bus, FlixBus and Alsa services, with live delays when available.`,
+            `Encuentra las estaciones de autobuses de ${board.name} y las próximas salidas de BlaBlaCar Bus, FlixBus y Alsa, con retrasos en tiempo real cuando estén disponibles.`
         ),
         alternates: {
             canonical: `/ville/${board.slug}`
@@ -63,14 +64,14 @@ export default async function CityPage({ params }: PageProps)
     const structuredData = [
         breadcrumbStructuredData(
         [
-            { name: localize(locale, "Accueil", "Home"), path: "/" },
-            { name: localize(locale, "Villes et gares", "Cities and stations"), path: "/villes" },
+            { name: localize(locale, "Accueil", "Home", "Inicio"), path: "/" },
+            { name: localize(locale, "Villes et gares", "Cities and stations", "Ciudades y estaciones"), path: "/villes" },
             { name: board.name, path: `/ville/${board.slug}` }
         ]),
         {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: localize(locale, `Bus et gares routières à ${board.name}`, `Buses and coach stations in ${board.name}`),
+            name: localize(locale, `Bus et gares routières à ${board.name}`, `Buses and coach stations in ${board.name}`, `Autobuses y estaciones en ${board.name}`),
             url: absoluteUrl(`/ville/${board.slug}`),
             mainEntity: {
                 "@type": "ItemList",
@@ -98,23 +99,24 @@ export default async function CityPage({ params }: PageProps)
 
     return (
         <div className="page-shell city-page">
-            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb")}>
-                <Link href="/">{localize(locale, "Accueil", "Home")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities")}</Link><span>›</span><span>{board.name}</span>
+            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb", "Migas de pan")}>
+                <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities", "Ciudades")}</Link><span>›</span><span>{board.name}</span>
             </nav>
             <header className="listing-heading city-heading">
-                <span className="section-kicker">{localize(locale, "Départs et retards en temps réel", "Live departures and delays")}</span>
-                <h1>{localize(locale, "Bus à", "Buses in")} <em>{board.name}</em></h1>
+                <span className="section-kicker">{localize(locale, "Départs et retards en temps réel", "Live departures and delays", "Salidas y retrasos en tiempo real")}</span>
+                <h1>{localize(locale, "Bus à", "Buses in", "Autobuses en")} <em>{board.name}</em></h1>
                 <p>{localize(
                     locale,
                     `${board.stops.length} gare${board.stops.length > 1 ? "s routières" : " routière"} référencée${board.stops.length > 1 ? "s" : ""}.`,
-                    `${countLabel(locale, board.stops.length, "gare", "gares", "coach station", "coach stations")} listed.`
+                    `${countLabel(locale, board.stops.length, "gare", "gares", "coach station", "coach stations", "estación", "estaciones")} listed.`,
+                    `${countLabel(locale, board.stops.length, "gare", "gares", "coach station", "coach stations", "estación", "estaciones")} registradas.`
                 )}</p>
                 <SearchBox compact initialQuery="" locale={locale} />
             </header>
             <section className="station-section">
                 <div className="section-heading-row">
-                    <h2>{localize(locale, `Gares routières à ${board.name}`, `Coach stations in ${board.name}`)}</h2>
-                    <span>{localize(locale, "Classées par nombre de bus à venir", "Sorted by upcoming buses")}</span>
+                    <h2>{localize(locale, `Gares routières à ${board.name}`, `Coach stations in ${board.name}`, `Estaciones de autobuses en ${board.name}`)}</h2>
+                    <span>{localize(locale, "Classées par nombre de bus à venir", "Sorted by upcoming buses", "Ordenadas por número de próximas salidas")}</span>
                 </div>
                 <div className="station-grid">
                     {board.stops.map((stop, index) =>
@@ -129,9 +131,9 @@ export default async function CityPage({ params }: PageProps)
                                         {
                                             return <OperatorLogo key={operatorSlug} operatorSlug={operatorSlug} />;
                                         })}
-                                        <small>{localize(locale, "Gare routière", "Coach station")}</small>
+                                        <small>{localize(locale, "Gare routière", "Coach station", "Estación de autobuses")}</small>
                                     </span>
-                                    {isPrimary && <span className="station-card-popular">{localize(locale, "La plus active", "Most active")}</span>}
+                                    {isPrimary && <span className="station-card-popular">{localize(locale, "La plus active", "Most active", "La más activa")}</span>}
                                 </span>
                                 <span className="station-card-main">
                                     <span className="station-card-name">
@@ -140,14 +142,14 @@ export default async function CityPage({ params }: PageProps)
                                     </span>
                                     <span className="station-card-activity">
                                         <b>{stop.upcomingJourneyCount}</b>
-                                        <span>{localize(locale, "bus à venir", stop.upcomingJourneyCount === 1 ? "upcoming bus" : "upcoming buses")}</span>
+                                        <span>{localize(locale, "bus à venir", stop.upcomingJourneyCount === 1 ? "upcoming bus" : "upcoming buses", stop.upcomingJourneyCount === 1 ? "autobús próximo" : "autobuses próximos")}</span>
                                     </span>
                                 </span>
                                 <span className="station-card-footer">
                                     <span>{stop.nextJourneyAt
-                                        ? localize(locale, `Prochain passage à ${formatTime(stop.nextJourneyAt, locale)}`, `Next service at ${formatTime(stop.nextJourneyAt, locale)}`)
-                                        : localize(locale, "Aucun passage annoncé", "No service announced")}</span>
-                                    <strong>{localize(locale, "Voir la gare", "View station")} <b aria-hidden="true">›</b></strong>
+                                        ? localize(locale, `Prochain passage à ${formatTime(stop.nextJourneyAt, locale)}`, `Next service at ${formatTime(stop.nextJourneyAt, locale)}`, `Próxima salida a las ${formatTime(stop.nextJourneyAt, locale)}`)
+                                        : localize(locale, "Aucun passage annoncé", "No service announced", "No hay salidas anunciadas")}</span>
+                                    <strong>{localize(locale, "Voir la gare", "View station", "Ver la estación")} <b aria-hidden="true">›</b></strong>
                                 </span>
                             </Link>
                         );
@@ -156,7 +158,7 @@ export default async function CityPage({ params }: PageProps)
             </section>
             {dates.length > 0 && (
                 <section className="date-links-section">
-                    <h2>{localize(locale, "Départs par date", "Departures by date")}</h2>
+                    <h2>{localize(locale, "Départs par date", "Departures by date", "Salidas por fecha")}</h2>
                     <div className="date-links">
                         {dates.map((date) =>
                         {
@@ -171,8 +173,8 @@ export default async function CityPage({ params }: PageProps)
             )}
             <section className="journey-list-section">
                 <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available")}</span><h2>{localize(locale, `Bus passant par ${board.name} aujourd’hui`, `Buses calling at ${board.name} today`)}</h2></div>
-                    <span>{countLabel(locale, initialPage.totalCount, "passage", "passages", "service", "services")}</span>
+                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available", "Datos en tiempo real disponibles")}</span><h2>{localize(locale, `Bus passant par ${board.name} aujourd’hui`, `Buses calling at ${board.name} today`, `Autobuses que pasan hoy por ${board.name}`)}</h2></div>
+                    <span>{countLabel(locale, initialPage.totalCount, "passage", "passages", "service", "services", "servicio", "servicios")}</span>
                 </div>
                 <CityJourneyList citySlug={board.slug} initialPage={initialPage} locale={locale} serviceDate={today} />
             </section>
@@ -185,9 +187,9 @@ function dateLinkLabel(value: string, today: string, locale: Locale): string
 {
     const tomorrow = addDays(today, 1);
     const relative = value === today
-        ? localize(locale, "Aujourd’hui", "Today")
+        ? localize(locale, "Aujourd’hui", "Today", "Hoy")
         : value === tomorrow
-            ? localize(locale, "Demain", "Tomorrow")
+            ? localize(locale, "Demain", "Tomorrow", "Mañana")
             : null;
     const date = new Intl.DateTimeFormat(localeTag(locale),
     {

@@ -9,6 +9,7 @@ Application monolithique d’horaires et de suivi en temps réel Alsa, BlaBlaCar
 - rafraîchissement automatique toutes les 30 secondes ;
 - recherche par ville et gare, même sans circulation active ;
 - pages de ville, gare, départ daté et liaison ;
+- interface disponible en français, anglais et espagnol ;
 - signalements voyageurs avec persistance PostgreSQL et repli en mémoire ;
 - synchronisation quotidienne des horaires BlaBlaCar Bus, FlixBus et Alsa, et SIRI-Lite BlaBlaCar Bus chaque minute ;
 - suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus avec repli automatique sur l’horaire prévu ;

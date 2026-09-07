@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useState } from "react";
-import type { Locale } from "../src/application/i18n";
+import { localize, type Locale } from "../src/application/i18n";
 
 interface LanguageSwitcherProps
 {
@@ -41,15 +41,16 @@ export function LanguageSwitcher({ locale }: LanguageSwitcherProps)
 
     return (
         <label className="language-switcher">
-            <span>{locale === "en" ? "Language" : "Langue"}</span>
+            <span>{localize(locale, "Langue", "Language", "Idioma")}</span>
             <select
-                aria-label={locale === "en" ? "Choose language" : "Choisir la langue"}
+                aria-label={localize(locale, "Choisir la langue", "Choose language", "Elegir idioma")}
                 disabled={pending}
                 onChange={(event) => void changeLanguage(event)}
                 value={locale}
             >
                 <option value="fr">FR</option>
                 <option value="en">EN</option>
+                <option value="es">ES</option>
             </select>
         </label>
     );
