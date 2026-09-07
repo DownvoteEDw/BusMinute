@@ -13,7 +13,10 @@ import { BlaBlaCarSiriParser } from "../providers/blablacar/siri/parser.js";
 import { isServiceActive } from "../providers/blablacar/gtfs/service-calendar.js";
 import { FlixBusDataSource } from "../providers/flixbus/data-source.js";
 import { FlixBusRealtimeClient } from "../providers/flixbus/realtime-client.js";
+import { AlsaDataSource } from "../providers/alsa/data-source.js";
+import { AlsaRealtimeClient } from "../providers/alsa/realtime-client.js";
 import { GtfsSiriTripMatcher } from "../services/trip-matcher.js";
+import { enrichAlsaJourney as applyAlsaRealtime } from "./alsa-realtime.js";
 import { enrichFlixBusJourney } from "./flixbus-realtime.js";
 import
 {
@@ -34,6 +37,7 @@ import
 } from "./journey-view.js";
 import
 {
+    alsaOperator,
     blablacarBusOperator,
     flixBusOperator,
     parseScheduledJourneyRef,
@@ -79,13 +83,18 @@ export class TransitDataService
     private readonly matcher = new GtfsSiriTripMatcher();
     private readonly flixBusDataSource = new FlixBusDataSource();
     private readonly flixBusRealtimeClient = new FlixBusRealtimeClient();
+    private readonly alsaDataSource = new AlsaDataSource();
+    private readonly alsaRealtimeClient = new AlsaRealtimeClient();
     private gtfsPromise: Promise<GtfsFeed> | null = null;
     private flixBusGtfsPromise: Promise<GtfsFeed | null> | null = null;
+    private alsaGtfsPromise: Promise<GtfsFeed | null> | null = null;
     private databaseFeedCache: TimedValue<GtfsFeed> | null = null;
     private flixBusDatabaseFeedCache: TimedValue<GtfsFeed> | null = null;
+    private alsaDatabaseFeedCache: TimedValue<GtfsFeed> | null = null;
     private siriCache: TimedValue<SiriEstimatedTimetable> | null = null;
     private blablacarJourneyViews: { feed: GtfsFeed; timetable: SiriEstimatedTimetable; views: JourneyView[] } | null = null;
     private flixBusJourneyCache: TimedValue<JourneyView[]> | null = null;
+    private alsaJourneyCache: TimedValue<JourneyView[]> | null = null;
     private readonly allJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000);
     private readonly datedJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000, 10);
     private readonly cityDirectoryCache = new AsyncCache<CityDirectoryEntryView[]>(15_000);
@@ -95,9 +104,11 @@ export class TransitDataService
     private readonly liveBoardCache = new AsyncCache<JourneyView[]>(liveBoardLifetimeMilliseconds);
     private readonly feedRequests = new AsyncCache<GtfsFeed>(0);
     private readonly flixBusFeedRequests = new AsyncCache<GtfsFeed | null>(0);
+    private readonly alsaFeedRequests = new AsyncCache<GtfsFeed | null>(0);
     private readonly timetableRequests = new AsyncCache<SiriEstimatedTimetable>(0);
     private databaseRepository: PostgresTransitSnapshotRepository | null = null;
     private flixBusDatabaseRepository: PostgresTransitSnapshotRepository | null = null;
+    private alsaDatabaseRepository: PostgresTransitSnapshotRepository | null = null;
     private readonly punctualityCache = new Map<string, TimedValue<PunctualitySummaryView | null>>();
 
     public async search(query: string, limit = 12): Promise<JourneyView[]>
@@ -297,11 +308,12 @@ export class TransitDataService
         }
 
         const journeys = await this.getJourneysForServiceDate(serviceDate);
+        const datedJourneys = journeys.filter((journey) => journeyDateInCity(journey, slug) === serviceDate)
+            .sort((first, second) => compareJourneyViewsInCity(first, second, slug));
         return {
             ...board,
             serviceDate,
-            journeys: journeys.filter((journey) => journeyDateInCity(journey, slug) === serviceDate)
-                .sort((first, second) => compareJourneyViewsInCity(first, second, slug))
+            journeys: await this.enrichAlsaJourneys(datedJourneys)
         };
     }
 
@@ -374,7 +386,7 @@ export class TransitDataService
 
     private async loadJourney(journeyRef: string): Promise<JourneyView | null>
     {
-        const scheduledOperator = [flixBusOperator, blablacarBusOperator].find((operator) =>
+        const scheduledOperator = [flixBusOperator, alsaOperator, blablacarBusOperator].find((operator) =>
         {
             return parseScheduledJourneyRef(journeyRef, operator) !== null;
         });
@@ -386,7 +398,9 @@ export class TransitDataService
         {
             const feed = scheduledOperator.slug === flixBusOperator.slug
                 ? await this.getFlixBusFeed()
-                : await this.getFeed();
+                : scheduledOperator.slug === alsaOperator.slug
+                    ? await this.getAlsaFeed()
+                    : await this.getFeed();
             const trip = feed?.trips.find((candidate) => candidate.externalId === scheduledReference.tripId);
             const calendar = feed?.calendars.find((candidate) => candidate.externalId === trip?.serviceExternalId);
 
@@ -413,6 +427,11 @@ export class TransitDataService
             if (scheduledOperator.slug === flixBusOperator.slug)
             {
                 return this.enrichFlixBusJourney(view);
+            }
+
+            if (scheduledOperator.slug === alsaOperator.slug)
+            {
+                return this.enrichAlsaJourney(view);
             }
 
             const realtimeView = (await this.getAllJourneyViews()).find((journey) =>
@@ -486,12 +505,13 @@ export class TransitDataService
             return journey.stops.some((candidate) => stopIds.has(candidate.stopId));
         });
         const currentTime = Date.now();
-        const journeys = (await this.enrichFlixBusJourneysAtStops(
+        const flixBusJourneys = await this.enrichFlixBusJourneysAtStops(
             stationJourneys,
             operatorStops
                 .filter((candidate) => candidate.operatorSlug === flixBusOperator.slug)
                 .map((candidate) => candidate.stopId)
-        )).filter((journey) =>
+        );
+        const journeys = (await this.enrichAlsaJourneys(flixBusJourneys)).filter((journey) =>
         {
             return isUpcomingAtStops(journey, stopIds, currentTime);
         }).sort((first, second) =>
@@ -552,7 +572,7 @@ export class TransitDataService
 
         const publicOriginId = publicStopId(operatorFeed.operator, origin.externalId);
         const publicDestinationId = publicStopId(operatorFeed.operator, destination.externalId);
-        const journeys = (await this.getAllJourneyViews()).filter((journey) =>
+        const matchingJourneys = (await this.getAllJourneyViews()).filter((journey) =>
         {
             const originIndex = journey.stops.findIndex((stop) => stop.stopId === publicOriginId);
             const destinationIndex = journey.stops.findIndex((stop) => stop.stopId === publicDestinationId);
@@ -560,14 +580,15 @@ export class TransitDataService
         }).sort((first, second) =>
         {
             return compareJourneyViewsAtStops(first, second, new Set([publicOriginId]));
-        });
+        }).slice(0, 40);
+        const journeys = await this.enrichAlsaJourneys(matchingJourneys);
 
         return {
             originStopId: publicOriginId,
             originName: origin.name,
             destinationStopId: publicDestinationId,
             destinationName: destination.name,
-            journeys: journeys.slice(0, 40)
+            journeys
         };
     }
 
@@ -606,7 +627,9 @@ export class TransitDataService
         {
             return journey.operatorSlug === flixBusOperator.slug
                 ? this.enrichFlixBusJourney(journey)
-                : Promise.resolve(journey);
+                : journey.operatorSlug === alsaOperator.slug
+                    ? this.enrichAlsaJourney(journey)
+                    : Promise.resolve(journey);
         }));
         const visible = enriched.filter((journey) =>
         {
@@ -670,10 +693,11 @@ export class TransitDataService
 
     private async loadAllJourneyViews(): Promise<JourneyView[]>
     {
-        const [feed, timetable, flixBusJourneys] = await Promise.all([
+        const [feed, timetable, flixBusJourneys, alsaJourneys] = await Promise.all([
             this.getFeed(),
             this.getTimetable(),
-            this.getFlixBusJourneys()
+            this.getFlixBusJourneys(),
+            this.getAlsaJourneys()
         ]);
         if (this.blablacarJourneyViews?.feed !== feed || this.blablacarJourneyViews.timetable !== timetable)
         {
@@ -687,7 +711,8 @@ export class TransitDataService
 
         return [
             ...this.blablacarJourneyViews.views,
-            ...flixBusJourneys
+            ...flixBusJourneys,
+            ...alsaJourneys
         ];
     }
 
@@ -720,9 +745,10 @@ export class TransitDataService
 
     private async getOperatorFeeds(): Promise<OperatorFeed[]>
     {
-        const [blablacarFeed, flixBusFeed] = await Promise.all([
+        const [blablacarFeed, flixBusFeed, alsaFeed] = await Promise.all([
             this.getFeed(),
-            this.getFlixBusFeed()
+            this.getFlixBusFeed(),
+            this.getAlsaFeed()
         ]);
         const values: OperatorFeed[] = [
             {
@@ -736,7 +762,102 @@ export class TransitDataService
             values.push({ operator: flixBusOperator, feed: flixBusFeed });
         }
 
+        if (alsaFeed)
+        {
+            values.push({ operator: alsaOperator, feed: alsaFeed });
+        }
+
         return values;
+    }
+
+    private async getAlsaJourneys(): Promise<JourneyView[]>
+    {
+        if (this.alsaJourneyCache && this.alsaJourneyCache.expiresAt > Date.now())
+        {
+            return this.alsaJourneyCache.value;
+        }
+
+        const feed = await this.getAlsaFeed();
+
+        if (!feed)
+        {
+            return [];
+        }
+
+        const now = new Date();
+        const views = buildScheduledJourneyViews(
+            feed,
+            alsaOperator,
+            scheduledServiceDates(feed, now, 3),
+            now
+        ).filter((journey) =>
+        {
+            return boardEventTime(journey) >= now.getTime() - 300_000;
+        });
+        this.alsaJourneyCache = {
+            value: views,
+            expiresAt: Date.now() + scheduledJourneyLifetimeMilliseconds
+        };
+        return views;
+    }
+
+    private async getAlsaFeed(): Promise<GtfsFeed | null>
+    {
+        return this.alsaFeedRequests.get("feed", () => this.loadAlsaFeed());
+    }
+
+    private async loadAlsaFeed(): Promise<GtfsFeed | null>
+    {
+        if (process.env.ALSA_ENABLED !== "true")
+        {
+            return null;
+        }
+
+        if (this.alsaDatabaseFeedCache && this.alsaDatabaseFeedCache.expiresAt > Date.now())
+        {
+            return this.alsaDatabaseFeedCache.value;
+        }
+
+        const repository = this.getAlsaDatabaseRepository();
+
+        if (repository)
+        {
+            try
+            {
+                const persistedFeed = await repository.loadFeed();
+
+                if (persistedFeed)
+                {
+                    this.alsaDatabaseFeedCache = {
+                        value: persistedFeed,
+                        expiresAt: Date.now() + databaseFeedLifetimeMilliseconds
+                    };
+                    return persistedFeed;
+                }
+            }
+            catch
+            {
+            }
+
+            if (process.env.NODE_ENV === "production")
+            {
+                return null;
+            }
+        }
+
+        if (!this.alsaGtfsPromise)
+        {
+            this.alsaGtfsPromise = this.alsaDataSource.loadGtfs(false).catch(() => null);
+        }
+
+        const feed = await this.alsaGtfsPromise;
+
+        if (!feed)
+        {
+            this.alsaGtfsPromise = null;
+        }
+
+        return feed;
     }
 
     private async getFlixBusJourneys(): Promise<JourneyView[]>
@@ -906,6 +1027,81 @@ export class TransitDataService
         }
     }
 
+    private async enrichAlsaJourneys(journeys: JourneyView[]): Promise<JourneyView[]>
+    {
+        if (!this.alsaRealtimeClient.isEnabled())
+        {
+            return journeys;
+        }
+
+        return Promise.all(journeys.map((journey) =>
+        {
+            return journey.operatorSlug === alsaOperator.slug
+                ? this.enrichAlsaJourney(journey)
+                : Promise.resolve(journey);
+        }));
+    }
+
+    private async enrichAlsaJourney(journey: JourneyView): Promise<JourneyView>
+    {
+        if (!this.alsaRealtimeClient.isEnabled())
+        {
+            return journey;
+        }
+
+        const feed = await this.getAlsaFeed();
+        const originView = journey.stops[0];
+        const destinationView = journey.stops[journey.stops.length - 1];
+        const originReference = originView ? parseStopReference(originView.stopId) : null;
+        const destinationReference = destinationView ? parseStopReference(destinationView.stopId) : null;
+        const origin = feed?.stops.find((stop) => stop.externalId === originReference?.externalId);
+        const destination = feed?.stops.find((stop) => stop.externalId === destinationReference?.externalId);
+        const departureAt = originView?.aimedDepartureAt;
+        const arrivalAt = destinationView?.aimedArrivalAt;
+
+        if (!feed
+            || !originView
+            || !destinationView
+            || !originReference
+            || !destinationReference
+            || !departureAt
+            || !arrivalAt)
+        {
+            return journey;
+        }
+
+        const defaultTimezone = feed.agencies[0]?.timezone ?? "Europe/Paris";
+
+        try
+        {
+            const realtime = await this.alsaRealtimeClient.loadJourney(
+            {
+                cacheKey: journey.journeyRef,
+                serviceNumber: journey.serviceNumber,
+                serviceDate: journey.serviceDate,
+                departureAt,
+                arrivalAt,
+                origin: {
+                    name: originView.name,
+                    city: originView.city,
+                    countryCode: originReference.externalId.slice(0, 2),
+                    timezone: origin?.timezone ?? defaultTimezone
+                },
+                destination: {
+                    name: destinationView.name,
+                    city: destinationView.city,
+                    countryCode: destinationReference.externalId.slice(0, 2),
+                    timezone: destination?.timezone ?? defaultTimezone
+                }
+            });
+            return applyAlsaRealtime(journey, realtime);
+        }
+        catch
+        {
+            return journey;
+        }
+    }
+
     private async getFeed(): Promise<GtfsFeed>
     {
         return this.feedRequests.get("feed", () => this.loadCurrentFeed());
@@ -1066,6 +1262,19 @@ export class TransitDataService
 
         this.flixBusDatabaseRepository ??= new PostgresTransitSnapshotRepository(pool, flixBusOperator.slug);
         return this.flixBusDatabaseRepository;
+    }
+
+    private getAlsaDatabaseRepository(): PostgresTransitSnapshotRepository | null
+    {
+        const pool = getDatabasePool();
+
+        if (!pool)
+        {
+            return null;
+        }
+
+        this.alsaDatabaseRepository ??= new PostgresTransitSnapshotRepository(pool, alsaOperator.slug);
+        return this.alsaDatabaseRepository;
     }
 
     private async readPersistedJourney(journeyRef: string): Promise<SiriJourney | null>
@@ -1369,7 +1578,7 @@ export function selectLiveBoard(journeys: JourneyView[], limit: number): Journey
         return [];
     }
 
-    const availableOperators = [blablacarBusOperator.slug, flixBusOperator.slug].filter((operatorSlug) =>
+    const availableOperators = [blablacarBusOperator.slug, flixBusOperator.slug, alsaOperator.slug].filter((operatorSlug) =>
     {
         return journeys.some((journey) => journey.operatorSlug === operatorSlug);
     });
@@ -1604,7 +1813,12 @@ function groupCityStops(
     {
         const group = groups.find((members) =>
         {
-            return members.some(({ stop }) => samePhysicalStation(stop, candidate.stop));
+            return members.some(({ stop, operator }) => samePhysicalStation(
+                stop,
+                candidate.stop,
+                operator.slug,
+                candidate.operator.slug
+            ));
         });
 
         if (group)
@@ -1641,7 +1855,12 @@ function stationOperatorStops(
         const candidate = operatorFeed.operator.slug === currentOperatorFeed.operator.slug
             ? currentStop
             : operatorFeed.feed.stops
-                .filter((stop) => samePhysicalStation(currentStop, stop))
+                .filter((stop) => samePhysicalStation(
+                    currentStop,
+                    stop,
+                    currentOperatorFeed.operator.slug,
+                    operatorFeed.operator.slug
+                ))
                 .map((stop) =>
                 {
                     return {
@@ -1681,7 +1900,12 @@ function operatorRank(operatorSlug: string): number
         return 1;
     }
 
-    return 2;
+    if (operatorSlug === alsaOperator.slug)
+    {
+        return 2;
+    }
+
+    return 3;
 }
 
 function placeSearchScore(place: PlaceSearchResultView, query: string): number

@@ -32,8 +32,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         title: localize(locale, `Bus à ${board.name} en temps réel : gares et départs`, `Live buses in ${board.name}: stations and departures`),
         description: localize(
             locale,
-            `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus et FlixBus et leurs retards en temps réel.`,
-            `Find coach stations in ${board.name}, upcoming BlaBlaCar Bus and FlixBus services and live delays.`
+            `Trouvez les gares routières de ${board.name}, les prochains BlaBlaCar Bus, FlixBus et Alsa, avec les retards disponibles en temps réel.`,
+            `Find coach stations in ${board.name}, upcoming BlaBlaCar Bus, FlixBus and Alsa services, with live delays when available.`
         ),
         alternates: {
             canonical: `/ville/${board.slug}`

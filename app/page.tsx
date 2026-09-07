@@ -29,8 +29,8 @@ export default async function HomePage()
                     )}</p>
                     <SearchBox locale={locale} />
                     <div className="trust-row">
-                        <span><b>{localize(locale, "2 opérateurs", "2 operators")}</b> BlaBlaCar Bus + FlixBus</span>
-                        <span><b>{localize(locale, "Temps réel", "Live data")}</b> {localize(locale, "Actualisé automatiquement", "Updated automatically")}</span>
+                        <span><b>{localize(locale, "3 opérateurs", "3 operators")}</b> BlaBlaCar Bus + FlixBus + Alsa</span>
+                        <span><b>{localize(locale, "Données actualisées", "Updated data")}</b> {localize(locale, "Temps réel selon l’opérateur", "Live updates by operator")}</span>
                     </div>
                 </div>
                 <LiveDeparturesBoard initialJourneys={journeys} locale={locale} />

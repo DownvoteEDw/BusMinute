@@ -41,8 +41,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         ),
         description: localize(
             locale,
-            `Consultez les départs de bus à ${board.name} le ${longDate(date, locale)}, les horaires BlaBlaCar Bus et FlixBus et les retards en temps réel disponibles.`,
-            `Check BlaBlaCar Bus and FlixBus departures in ${board.name} on ${longDate(date, locale)}, including live delays when available.`
+            `Consultez les départs BlaBlaCar Bus, FlixBus et Alsa à ${board.name} le ${longDate(date, locale)}, avec les retards disponibles en temps réel.`,
+            `Check BlaBlaCar Bus, FlixBus and Alsa departures in ${board.name} on ${longDate(date, locale)}, including live delays when available.`
         ),
         alternates: {
             canonical: `/departs/${board.slug}/${date}`

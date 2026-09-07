@@ -13,4 +13,7 @@ export * from "./providers/blablacar/gtfs/importer.js";
 export * from "./providers/blablacar/gtfs/service-calendar.js";
 export * from "./providers/blablacar/siri/parser.js";
 export * from "./providers/flixbus/data-source.js";
+export * from "./providers/alsa/data-source.js";
+export * from "./providers/alsa/realtime-client.js";
+export * from "./application/alsa-realtime.js";
 export * from "./services/trip-matcher.js";

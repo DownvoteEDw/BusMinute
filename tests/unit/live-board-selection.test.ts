@@ -36,6 +36,26 @@ describe("sélection du panneau d’accueil", () =>
             time: "2026-09-05T19:10:00Z"
         });
     });
+
+    it("réserve une place aux trois opérateurs", () =>
+    {
+        const journeys = [
+            journey("b1", "blablacar-bus", "2026-09-05T10:01:00Z"),
+            journey("b2", "blablacar-bus", "2026-09-05T10:02:00Z"),
+            journey("b3", "blablacar-bus", "2026-09-05T10:03:00Z"),
+            journey("b4", "blablacar-bus", "2026-09-05T10:04:00Z"),
+            journey("f1", "flixbus", "2026-09-05T10:05:00Z"),
+            journey("f2", "flixbus", "2026-09-05T10:06:00Z"),
+            journey("a1", "alsa", "2026-09-05T10:07:00Z"),
+            journey("a2", "alsa", "2026-09-05T10:08:00Z")
+        ];
+        const selected = selectLiveBoard(journeys, 7);
+
+        expect(selected).toHaveLength(7);
+        expect(selected.filter((item) => item.operatorSlug === "blablacar-bus")).toHaveLength(3);
+        expect(selected.filter((item) => item.operatorSlug === "flixbus")).toHaveLength(2);
+        expect(selected.filter((item) => item.operatorSlug === "alsa")).toHaveLength(2);
+    });
 });
 
 function journey(journeyRef: string, operatorSlug: string, time: string): JourneyView

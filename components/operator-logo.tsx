@@ -12,6 +12,10 @@ const operators: Record<string, { name: string; logo: string }> = {
     flixbus: {
         name: "FlixBus",
         logo: "/operators/flixbus.svg"
+    },
+    alsa: {
+        name: "Alsa",
+        logo: "/operators/alsa.svg"
     }
 };
 

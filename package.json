@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Suivi en temps réel BlaBlaCar Bus et FlixBus, horaires multi-opérateurs et retards en gare",
+  "description": "Horaires et suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus, avec retards en gare",
   "scripts": {
     "dev": "next dev --webpack",
     "start": "next start",

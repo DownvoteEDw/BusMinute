@@ -15,8 +15,8 @@ export async function generateMetadata(): Promise<Metadata>
         title: localize(locale, "Bus en temps réel par ville et gare routière", "Live buses by city and coach station"),
         description: localize(
             locale,
-            "Retrouvez les gares routières BlaBlaCar Bus et FlixBus, les prochains passages et les retards BlaBlaCar Bus en temps réel.",
-            "Find BlaBlaCar Bus and FlixBus coach stations, upcoming services and live delay information."
+            "Retrouvez les gares routières BlaBlaCar Bus, FlixBus et Alsa, les prochains passages et les retards disponibles en temps réel.",
+            "Find BlaBlaCar Bus, FlixBus and Alsa coach stations, upcoming services and available live delay information."
         ),
         alternates: {
             canonical: "/villes"

@@ -12,18 +12,21 @@ import
 } from "../db/postgres-realtime-repository.js";
 import { BlaBlaCarDataSource } from "../providers/blablacar/data-source.js";
 import { FlixBusDataSource } from "../providers/flixbus/data-source.js";
-import { blablacarBusOperator, flixBusOperator } from "./operators.js";
+import { AlsaDataSource } from "../providers/alsa/data-source.js";
+import { alsaOperator, blablacarBusOperator, flixBusOperator } from "./operators.js";
 
 export interface PersistedOperatorGtfsCounts
 {
     blablacarBus: PersistedGtfsCounts;
     flixBus: PersistedGtfsCounts | null;
+    alsa: PersistedGtfsCounts | null;
 }
 
 export class TransitSyncService
 {
     private readonly dataSource = new BlaBlaCarDataSource();
     private readonly flixBusDataSource = new FlixBusDataSource();
+    private readonly alsaDataSource = new AlsaDataSource();
     private readonly gtfsRepository: PostgresGtfsRepository;
     private readonly realtimeRepository: PostgresRealtimeRepository;
     private feed: GtfsFeed | null = null;
@@ -38,6 +41,7 @@ export class TransitSyncService
     {
         const blablacarBus = await this.syncBlablacarGtfs(forceDownload);
         let flixBus: PersistedGtfsCounts | null = null;
+        let alsa: PersistedGtfsCounts | null = null;
 
         if (process.env.FLIXBUS_GTFS_ENABLED !== "false")
         {
@@ -50,7 +54,18 @@ export class TransitSyncService
             }
         }
 
-        return { blablacarBus, flixBus };
+        if (process.env.ALSA_ENABLED === "true")
+        {
+            try
+            {
+                alsa = await this.syncAlsaGtfs(forceDownload);
+            }
+            catch
+            {
+            }
+        }
+
+        return { blablacarBus, flixBus, alsa };
     }
 
     public async syncRealtime(): Promise<PersistedRealtimeCounts>
@@ -112,6 +127,24 @@ export class TransitSyncService
         {
             const feed = await this.flixBusDataSource.loadGtfs(forceDownload);
             const counts = await this.gtfsRepository.replaceOperatorSchedule(feed, flixBusOperator);
+            await this.realtimeRepository.completeSyncRun(runId, counts.trips, null);
+            return counts;
+        }
+        catch (error)
+        {
+            await this.realtimeRepository.failSyncRun(runId, error);
+            throw error;
+        }
+    }
+
+    private async syncAlsaGtfs(forceDownload: boolean): Promise<PersistedGtfsCounts>
+    {
+        const runId = await this.realtimeRepository.startSyncRun("GTFS_ALSA", alsaOperator.slug);
+
+        try
+        {
+            const feed = await this.alsaDataSource.loadGtfs(forceDownload);
+            const counts = await this.gtfsRepository.replaceOperatorSchedule(feed, alsaOperator);
             await this.realtimeRepository.completeSyncRun(runId, counts.trips, null);
             return counts;
         }

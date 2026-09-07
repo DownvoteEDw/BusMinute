@@ -106,7 +106,7 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
                 })}
             </div>
             <footer>
-                <span>{localize(locale, "Retards BlaBlaCar Bus et FlixBus en temps réel", "Live BlaBlaCar Bus and FlixBus delays")}</span>
+                <span>{localize(locale, "Retards Alsa, BlaBlaCar Bus et FlixBus en temps réel", "Live Alsa, BlaBlaCar Bus and FlixBus delays")}</span>
                 <span>{localize(locale, "Actualisation automatique · 30 s", "Automatic refresh · 30 sec")}</span>
             </footer>
         </section>

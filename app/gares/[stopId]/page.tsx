@@ -8,7 +8,7 @@ import { SearchBox } from "../../../components/search-box";
 import { StructuredData } from "../../../components/structured-data";
 import { countLabel, localize } from "../../../src/application/i18n";
 import { citySlug, type JourneyView } from "../../../src/application/journey-view";
-import { blablacarBusOperator, flixBusOperator } from "../../../src/application/operators";
+import { alsaOperator, blablacarBusOperator, flixBusOperator } from "../../../src/application/operators";
 import { requestLocale } from "../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../src/application/seo";
 import { groupStationJourneysByDate, stationDateHeading } from "../../../src/application/station-schedule";
@@ -40,16 +40,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         title: localize(locale, `Bus à ${board.city} en temps réel : départs et retards`, `Live buses in ${board.city}: departures and delays`),
         description: localize(
             locale,
-            `Consultez les prochains bus à ${board.name} et les retards BlaBlaCar Bus et FlixBus en temps réel.`,
-            `Check upcoming buses at ${board.name} and live BlaBlaCar Bus and FlixBus delays.`
+            `Consultez les prochains bus à ${board.name} pour BlaBlaCar Bus, FlixBus et Alsa, avec les retards disponibles en temps réel.`,
+            `Check upcoming BlaBlaCar Bus, FlixBus and Alsa services at ${board.name}, with live delays when available.`
         ),
         alternates: { canonical: `/gares/${encodeURIComponent(board.stopId)}` },
         openGraph: {
             title: localize(locale, `Bus à ${board.name} : horaires et retards en temps réel`, `Buses at ${board.name}: live times and delays`),
             description: localize(
                 locale,
-                `Prochains départs BlaBlaCar Bus et FlixBus à ${board.city}, avec le temps réel disponible.`,
-                `Upcoming BlaBlaCar Bus and FlixBus departures in ${board.city}, with live updates when available.`
+                `Prochains départs BlaBlaCar Bus, FlixBus et Alsa à ${board.city}, avec le temps réel disponible.`,
+                `Upcoming BlaBlaCar Bus, FlixBus and Alsa departures in ${board.city}, with live updates when available.`
             ),
             type: "website",
             url: `/gares/${encodeURIComponent(board.stopId)}`
@@ -114,7 +114,7 @@ export default async function StopPage({ params, searchParams }: PageProps)
     const destinationList = [...destinations.values()].slice(0, 12);
     const journeyGroups = groupStationJourneysByDate(visibleJourneys, stationStopId);
     const hasRealtime = board.operatorStops.some((operator) => operator.realtimeAvailable);
-    const filterOperators = [blablacarBusOperator, flixBusOperator];
+    const filterOperators = [blablacarBusOperator, flixBusOperator, alsaOperator];
 
     const structuredData = [
         breadcrumbStructuredData(

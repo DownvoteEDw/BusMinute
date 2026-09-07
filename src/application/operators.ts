@@ -17,6 +17,12 @@ export const flixBusOperator: TransitOperator = {
     realtimeAvailable: true
 };
 
+export const alsaOperator: TransitOperator = {
+    slug: "alsa",
+    name: "Alsa",
+    realtimeAvailable: true
+};
+
 export interface StopReference
 {
     operatorSlug: string;

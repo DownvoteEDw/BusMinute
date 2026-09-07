@@ -200,7 +200,9 @@ export class PostgresTransitSnapshotRepository
                     name: operator.name,
                     url: operator.slug === "flixbus"
                         ? "https://www.flixbus.fr"
-                        : "https://www.blablacar.fr/bus",
+                        : operator.slug === "alsa"
+                            ? "https://www.alsa.com/fr"
+                            : "https://www.blablacar.fr/bus",
                     timezone: operator.source_timezone,
                     language: "fr"
                 }

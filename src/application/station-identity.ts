@@ -1,5 +1,6 @@
 import type { GtfsStop } from "../domain/models.js";
 import { cityName, citySlug } from "./journey-view.js";
+import { areVerifiedEquivalentStops } from "./verified-stations.js";
 
 const maximumDistanceMeters = 250;
 const genericWords = new Set([
@@ -17,14 +18,32 @@ const genericWords = new Set([
     "terminal"
 ]);
 
-export function samePhysicalStation(first: GtfsStop, second: GtfsStop): boolean
+export function samePhysicalStation(
+    first: GtfsStop,
+    second: GtfsStop,
+    firstOperatorSlug: string,
+    secondOperatorSlug: string
+): boolean
 {
+    const distance = distanceMeters(first, second);
+
+    if (firstOperatorSlug === "alsa" || secondOperatorSlug === "alsa")
+    {
+        return distance <= maximumDistanceMeters
+            && areVerifiedEquivalentStops(
+                firstOperatorSlug,
+                first.externalId,
+                secondOperatorSlug,
+                second.externalId
+            );
+    }
+
     if (citySlug(cityName(first.name)) !== citySlug(cityName(second.name)))
     {
         return false;
     }
 
-    if (distanceMeters(first, second) > maximumDistanceMeters)
+    if (distance > maximumDistanceMeters)
     {
         return false;
     }

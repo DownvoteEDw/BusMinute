@@ -1,6 +1,6 @@
 # BusMinute
 
-Application monolithique de suivi BlaBlaCar Bus et FlixBus. Elle rapproche les horaires prévus et le temps réel de chaque circulation pour présenter les départs, les arrivées et les retards dans une interface web complète.
+Application monolithique d’horaires et de suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus. Elle rapproche les horaires prévus et le temps réel disponible pour présenter les départs, les arrivées et les retards dans une interface web complète.
 
 ## Fonctionnalités
 
@@ -10,8 +10,10 @@ Application monolithique de suivi BlaBlaCar Bus et FlixBus. Elle rapproche les h
 - recherche par ville et gare, même sans circulation active ;
 - pages de ville, gare, départ daté et liaison ;
 - signalements voyageurs avec persistance PostgreSQL et repli en mémoire ;
-- synchronisation quotidienne des GTFS BlaBlaCar Bus et FlixBus, et SIRI-Lite BlaBlaCar Bus chaque minute ;
-- suivi en temps réel BlaBlaCar Bus et FlixBus avec repli automatique sur l’horaire prévu ;
+- synchronisation quotidienne des horaires BlaBlaCar Bus, FlixBus et Alsa, et SIRI-Lite BlaBlaCar Bus chaque minute ;
+- suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus avec repli automatique sur l’horaire prévu ;
+- horaires Alsa issus de l’interface publique de réservation et retards issus du localisateur public des bus en circulation ;
+- repli sur l’horaire prévu lorsqu’un véhicule Alsa n’est pas encore en circulation ou ne publie pas de suivi ;
 - état temps réel courant et observations historiques conservés dans PostgreSQL ;
 - historique de ponctualité par ligne et destination ;
 - import GTFS depuis un dossier ou une archive ZIP ;
@@ -90,6 +92,25 @@ Variables disponibles :
 | `FLIXBUS_REALTIME_API_KEY` | non | clé facultative, sinon retrouvée automatiquement |
 | `FLIXBUS_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête FlixBus, `12000` par défaut |
 | `FLIXBUS_REALTIME_CACHE_SECONDS` | non | durée du cache en mémoire, `30` secondes par défaut |
+| `ALSA_ENABLED` | non | active les horaires Alsa, `true` dans Docker Compose |
+| `ALSA_LOCATIONS_URL` | non | catalogue public des gares Alsa |
+| `ALSA_CONNECTIONS_URL` | non | horaires publics de réservation Alsa |
+| `ALSA_TIMEOUT_MS` | non | délai maximal d’une requête Alsa, `30000` par défaut |
+| `ALSA_LOCATION_LIMIT` | non | nombre maximal de lieux principaux découverts, `500` par défaut |
+| `ALSA_SERVICE_DAYS` | non | nombre de jours d’horaires Alsa synchronisés, `3` par défaut |
+| `ALSA_CONCURRENCY` | non | nombre maximal de requêtes Alsa simultanées, `4` par défaut |
+| `ALSA_ORIGIN_BATCH_SIZE` | non | nombre de gares de départ par requête Alsa, `10` par défaut |
+| `ALSA_DESTINATION_BATCH_SIZE` | non | nombre de gares d’arrivée par requête Alsa, `70` par défaut |
+| `ALSA_DESTINATION_COUNTRIES` | non | filtre facultatif de pays, séparés par des virgules |
+| `ALSA_REALTIME_ENABLED` | non | active le suivi Alsa, `true` par défaut |
+| `ALSA_REALTIME_TRACKER_URL` | non | page publique utilisée pour ouvrir une session de suivi Alsa |
+| `ALSA_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête de suivi Alsa, `15000` par défaut |
+| `ALSA_REALTIME_CACHE_SECONDS` | non | durée du cache des retards Alsa, `30` secondes par défaut |
+| `ALSA_REALTIME_LOCATION_CACHE_SECONDS` | non | durée du cache du catalogue de villes Alsa, `21600` secondes par défaut |
+| `ALSA_REALTIME_SESSION_SECONDS` | non | durée de réutilisation d’une session du localisateur Alsa, `600` secondes par défaut |
+| `ALSA_REALTIME_CONCURRENCY` | non | nombre maximal de recherches de suivi Alsa simultanées, `2` par défaut |
+| `ALSA_REALTIME_BEFORE_DEPARTURE_MINUTES` | non | ouverture de la fenêtre de suivi avant le départ, `120` minutes par défaut |
+| `ALSA_REALTIME_AFTER_ARRIVAL_MINUTES` | non | fermeture de la fenêtre de suivi après l’arrivée, `360` minutes par défaut |
 | `SIRI_URL` | non | source SIRI-Lite officielle |
 | `REALTIME_SYNC_INTERVAL_SECONDS` | non | fréquence SIRI, `60` par défaut |
 | `GTFS_SYNC_INTERVAL_HOURS` | non | fréquence GTFS, `24` par défaut |
@@ -103,7 +124,7 @@ PostgreSQL n’est pas publié sur Internet. Seul le service `app` est exposé a
 Le worker applique le cycle suivant :
 
 ```text
-GTFS BlaBlaCar Bus + FlixBus quotidien
+Horaires BlaBlaCar Bus + FlixBus + Alsa quotidiens
       ↓
 horaires PostgreSQL
       ↓

@@ -14,13 +14,13 @@ export async function generateMetadata(): Promise<Metadata>
     const locale = await requestLocale();
     const description = localize(
         locale,
-        "Suivez les bus BlaBlaCar Bus et FlixBus en temps réel, consultez leurs retards et les prochains passages en gare.",
-        "Track BlaBlaCar Bus and FlixBus services in real time, check delays and view upcoming station departures."
+        "Suivez les bus Alsa, BlaBlaCar Bus et FlixBus en temps réel, avec les prochains passages et retards en gare.",
+        "Track Alsa, BlaBlaCar Bus and FlixBus services live, with upcoming station departures and delays."
     );
     const socialDescription = localize(
         locale,
-        "Suivez votre bus BlaBlaCar Bus ou FlixBus en temps réel et consultez les prochains départs en gare.",
-        "Track your BlaBlaCar Bus or FlixBus service in real time and check upcoming station departures."
+        "Suivez votre bus Alsa, BlaBlaCar Bus ou FlixBus en temps réel.",
+        "Track your Alsa, BlaBlaCar Bus or FlixBus service live."
     );
 
     return {
@@ -33,8 +33,8 @@ export async function generateMetadata(): Promise<Metadata>
         description,
         category: "transport",
         keywords: locale === "en"
-            ? ["live bus tracking", "bus delay", "BlaBlaCar Bus", "FlixBus", "coach station", "coach times"]
-            : ["suivi bus", "retard bus", "BlaBlaCar Bus", "FlixBus", "gare routière", "horaires autocar"],
+            ? ["live bus tracking", "bus delay", "BlaBlaCar Bus", "FlixBus", "Alsa", "coach station", "coach times"]
+            : ["suivi bus", "retard bus", "BlaBlaCar Bus", "FlixBus", "Alsa", "gare routière", "horaires autocar"],
         openGraph: {
             title: localize(locale, "BusMinute — Bus et retards en temps réel", "BusMinute — Live bus times and delays"),
             description: socialDescription,

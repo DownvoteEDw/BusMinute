@@ -27,6 +27,10 @@ describe("artefacts de déploiement", () =>
         expect(compose).toContain("  worker:");
         expect(compose).toContain("dist/src/cli/sync-worker.js");
         expect(compose).toContain("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?");
+        expect(compose).toContain("ALSA_ENABLED: ${ALSA_ENABLED:-true}");
+        expect(compose).toContain("ALSA_CONNECTIONS_URL:");
+        expect(compose).toContain("ALSA_REALTIME_ENABLED: ${ALSA_REALTIME_ENABLED:-true}");
+        expect(compose).toContain("ALSA_REALTIME_TRACKER_URL:");
         expect(compose).toContain("condition: service_completed_successfully");
         expect(compose).toContain("busminute-postgres:/var/lib/postgresql/data");
         expect(compose.match(/^    build:$/gm)).toHaveLength(1);
