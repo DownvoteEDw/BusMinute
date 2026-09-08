@@ -53,6 +53,9 @@ import
 } from "./scheduled-journeys.js";
 import { distanceMeters, samePhysicalStation } from "./station-identity.js";
 import { AsyncCache } from "./async-cache.js";
+import { JourneyPublications } from "./journey-publications.js";
+import { busServicePath, cityRoutePath } from "./journey-url.js";
+import { isJourneyCompleted, isJourneyOutsideIndexingWindow } from "./seo.js";
 import { liveBoardEventTime as boardEventTime } from "./live-board.js";
 import { journeyDateInCity, journeyStopInCity, journeyTimeInCity } from "./station-schedule.js";
 
@@ -78,6 +81,8 @@ interface TimedValue<T>
 
 export class TransitDataService
 {
+    private readonly publications = new JourneyPublications();
+    private readonly servicePages = new AsyncCache<{ example: JourneyView; journeys: JourneyView[] } | null>(30_000, 200);
     private readonly gtfsImporter = new BlaBlaCarGtfsImporter();
     private readonly siriParser = new BlaBlaCarSiriParser();
     private readonly matcher = new GtfsSiriTripMatcher();
@@ -96,6 +101,7 @@ export class TransitDataService
     private flixBusJourneyCache: TimedValue<JourneyView[]> | null = null;
     private alsaJourneyCache: TimedValue<JourneyView[]> | null = null;
     private readonly allJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000);
+    private readonly availableJourneyViewsCache = new AsyncCache<JourneyView[]>(30_000);
     private readonly datedJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000, 10);
     private readonly cityDirectoryCache = new AsyncCache<CityDirectoryEntryView[]>(15_000);
     private readonly cityBoardCache = new AsyncCache<CityBoardView | null>(15_000, 100);
@@ -338,7 +344,7 @@ export class TransitDataService
     {
         const [operatorFeeds, journeys] = await Promise.all([
             this.getOperatorFeeds(),
-            this.getAllJourneyViews()
+            this.getAvailableJourneyViews()
         ]);
         const cities = buildCityDirectory(operatorFeeds, journeys);
         const routes = new Map<string, { originStopId: string; destinationStopId: string }>();
@@ -375,13 +381,93 @@ export class TransitDataService
             }),
             routes: [...routes.values()],
             departures: [...departures.values()],
-            journeys: journeys.map((journey) => ({ journeyRef: journey.journeyRef }))
+            journeys: journeys.filter((journey) => !isJourneyOutsideIndexingWindow(journey))
+                .map((journey) => ({ journeyRef: journey.journeyRef, publicPath: journey.publicPath })),
+            services: (await this.publications.listServices()).map(busServicePath),
+            cityRoutes: journeys.map((journey) => cityRoutePath(citySlug(journey.originCity), citySlug(journey.destinationCity)))
         };
     }
 
     public async getJourney(journeyRef: string): Promise<JourneyView | null>
     {
-        return this.journeyCache.get(journeyRef, () => this.loadJourney(journeyRef));
+        return this.journeyCache.get(journeyRef, async () =>
+        {
+            const archived = await this.publications.findByReference(journeyRef);
+            if (archived && isJourneyOutsideIndexingWindow(archived))
+            {
+                return archived;
+            }
+            try
+            {
+                const journey = await this.loadJourney(journeyRef);
+                return journey ? (await this.publications.publish([journey]))[0] ?? null : archived;
+            }
+            catch (error)
+            {
+                if (archived)
+                {
+                    return archived;
+                }
+                throw error;
+            }
+        });
+    }
+
+    public async getPublicJourney(id: string): Promise<JourneyView | null>
+    {
+        if (!/^[a-f0-9]{20}$/.test(id))
+        {
+            return null;
+        }
+        let journey = await this.publications.findById(id);
+        if (!journey)
+        {
+            journey = (await this.getAllJourneyViews()).find((candidate) => candidate.publicId === id) ?? null;
+        }
+        return journey ? this.getJourney(journey.journeyRef) : null;
+    }
+
+    public async getBusService(operator: string, service: string): Promise<{ example: JourneyView; journeys: JourneyView[] } | null>
+    {
+        if (![blablacarBusOperator.slug, flixBusOperator.slug, alsaOperator.slug].includes(operator) || service.length > 100)
+        {
+            return null;
+        }
+        return this.servicePages.get(`${operator}:${service}`, async () =>
+        {
+            const [feeds, current] = await Promise.all([this.getOperatorFeeds(), this.getAllJourneyViews()]);
+            const realtime = current.filter((journey) => journey.operatorSlug === operator && journey.serviceNumber === service);
+            const source = feeds.find((entry) => entry.operator.slug === operator);
+            const scheduled = source ? buildScheduledJourneyViews(
+                { ...source.feed, trips: source.feed.trips.filter((trip) => trip.serviceNumber === service) }, source.operator
+            ) : [];
+            const matchedTrips = new Set(realtime.map((journey) => `${journey.scheduledTripId}:${journey.serviceDate}`));
+            const candidates = [...realtime, ...scheduled.filter((journey) => !matchedTrips.has(`${journey.scheduledTripId}:${journey.serviceDate}`))];
+            const published = await this.publications.publish(candidates);
+            const journeys = published.filter((journey) => !isJourneyCompleted(journey))
+                .sort((a, b) => boardEventTime(a) - boardEventTime(b));
+            const example = journeys[0] ?? published[0] ?? await this.publications.serviceExample(operator, service);
+            return example ? { example, journeys } : null;
+        });
+    }
+
+    public async getCityRouteBoard(origin: string, destination: string): Promise<{
+        originCity: string; destinationCity: string; journeys: JourneyView[];
+    } | null>
+    {
+        const [directory, journeys] = await Promise.all([this.getCityDirectory(), this.getAvailableJourneyViews()]);
+        const from = directory.find((city) => city.slug === origin);
+        const to = directory.find((city) => city.slug === destination);
+        if (!from || !to || from.slug === to.slug)
+        {
+            return null;
+        }
+        const matching = journeys.filter((journey) =>
+        {
+            const start = journey.stops.findIndex((stop) => citySlug(stop.city) === origin);
+            return start >= 0 && journey.stops.some((stop, index) => index > start && citySlug(stop.city) === destination);
+        }).filter((journey) => !isJourneyCompleted(journey)).sort((a, b) => boardEventTime(a) - boardEventTime(b));
+        return { originCity: from.name, destinationCity: to.name, journeys: matching };
     }
 
     private async loadJourney(journeyRef: string): Promise<JourneyView | null>
@@ -691,6 +777,19 @@ export class TransitDataService
         return this.allJourneyViewsCache.get("journeys", () => this.loadAllJourneyViews());
     }
 
+    private async getAvailableJourneyViews(): Promise<JourneyView[]>
+    {
+        return this.availableJourneyViewsCache.get("available", async () =>
+        {
+            const [current, feed] = await Promise.all([this.getAllJourneyViews(), this.getFeed()]);
+            const matchedTrips = new Set(current.filter((journey) => journey.operatorSlug === blablacarBusOperator.slug)
+                .map((journey) => `${journey.scheduledTripId}:${journey.serviceDate}`));
+            const scheduled = buildScheduledJourneyViews(feed, blablacarBusOperator)
+                .filter((journey) => !matchedTrips.has(`${journey.scheduledTripId}:${journey.serviceDate}`));
+            return [...current, ...await this.publications.publish(scheduled)];
+        });
+    }
+
     private async loadAllJourneyViews(): Promise<JourneyView[]>
     {
         const [feed, timetable, flixBusJourneys, alsaJourneys] = await Promise.all([
@@ -709,11 +808,11 @@ export class TransitDataService
             };
         }
 
-        return [
+        return this.publications.publish([
             ...this.blablacarJourneyViews.views,
             ...flixBusJourneys,
             ...alsaJourneys
-        ];
+        ]);
     }
 
     private async getJourneysForServiceDate(serviceDate: string): Promise<JourneyView[]>
@@ -739,7 +838,7 @@ export class TransitDataService
                 return !journey.scheduledTripId
                     || !currentTripKeys.has(scheduledTripKey(journey.operatorSlug, journey.scheduledTripId, journey.serviceDate));
             });
-            return [...currentForDate, ...scheduledJourneys];
+            return this.publications.publish([...currentForDate, ...scheduledJourneys]);
         });
     }
 

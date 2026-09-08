@@ -1,3 +1,5 @@
+import { CityRoutePage } from "../../../../components/city-route-page";
+import { cityRoutePath } from "../../../../src/application/journey-url";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -20,6 +22,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 {
     const locale = await requestLocale();
     const { origin, destination } = await params;
+    const cityBoard = await transitDataService.getCityRouteBoard(origin, destination);
+    if (cityBoard)
+    {
+        return {
+            title: localize(locale, `Bus ${cityBoard.originCity} → ${cityBoard.destinationCity} : horaires et suivi`, `Buses ${cityBoard.originCity} → ${cityBoard.destinationCity}: times and tracking`, `Autobuses ${cityBoard.originCity} → ${cityBoard.destinationCity}: horarios y seguimiento`),
+            description: localize(locale, `Comparez les départs de bus de ${cityBoard.originCity} à ${cityBoard.destinationCity}, toutes gares et compagnies disponibles.`, `Find bus departures from ${cityBoard.originCity} to ${cityBoard.destinationCity} across available stations and operators.`, `Consulta las salidas de autobús de ${cityBoard.originCity} a ${cityBoard.destinationCity} de las estaciones y compañías disponibles.`),
+            alternates: { canonical: cityRoutePath(origin, destination) },
+            robots: { index: cityBoard.journeys.length > 0, follow: true }
+        };
+    }
     const board = await transitDataService.getRouteBoard(origin, destination);
 
     if (!board)
@@ -50,6 +62,11 @@ export default async function RoutePage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const { origin, destination } = await params;
+    const cityBoard = await transitDataService.getCityRouteBoard(origin, destination);
+    if (cityBoard)
+    {
+        return <CityRoutePage board={cityBoard} origin={origin} destination={destination} locale={locale} />;
+    }
     const board = await transitDataService.getRouteBoard(origin, destination);
 
     if (!board)

@@ -20,6 +20,16 @@ const index: SeoIndexView = {
 
 describe("sitemaps SEO", () =>
 {
+    it("référence les nouvelles URL et les services sans ajouter leur ancienne adresse", () =>
+    {
+        const publicPath = "/suivi/flixbus/1606/2026-09-08-0123456789abcdef0123";
+        const current = { ...index, journeys: [{ journeyRef: "technical#reference", publicPath }], services: ["/bus/flixbus/1606", "/bus/flixbus/1606"], cityRoutes: ["/trajets/paris/lyon"] };
+        const xml = buildSitemapSectionXml("https://bus-minute.xyz", "journeys", current);
+        expect(xml).toContain(publicPath);
+        expect(xml).not.toContain("technical");
+        expect(buildSitemapSectionXml("https://bus-minute.xyz", "services", current).match(/<url>/g)).toHaveLength(1);
+        expect(buildSitemapSectionXml("https://bus-minute.xyz", "routes", current)).toContain("/trajets/paris/lyon");
+    });
     it("publie des liens FlixBus compatibles avec le proxy", () =>
     {
         const journeyRef = "flixbus:774-2-0745092026-CAE#PQB-00:2026-09-05";

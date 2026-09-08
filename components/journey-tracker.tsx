@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import type { PassengerReport, PassengerReportType } from "../src/application/passenger-reports";
+import { isJourneyCompleted } from "../src/application/seo";
 
 interface JourneyResponse
 {
@@ -29,12 +30,14 @@ const reportChoices: Array<{ type: PassengerReportType; icon: string }> = [
 interface JourneyTrackerProps
 {
     initialJourney: JourneyView;
+    completed?: boolean;
     locale?: Locale;
 }
 
-export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTrackerProps)
+export function JourneyTracker({ initialJourney, locale = "fr", completed = false }: JourneyTrackerProps)
 {
     const [journey, setJourney] = useState(initialJourney);
+    const isCompleted = completed || isJourneyCompleted(journey);
     const [reports, setReports] = useState<PassengerReport[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [reporting, setReporting] = useState<PassengerReportType | null>(null);
@@ -53,7 +56,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
 
     useEffect(() =>
     {
-        const interval = journey.realtimeAvailable
+        const interval = !isCompleted && journey.realtimeAvailable
             && journey.realtimeStatus !== "not_offered"
             && journey.realtimeStatus !== "outside_tracking_period"
             ? window.setInterval(() => void refreshJourney(), 30_000)
@@ -65,7 +68,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
                 window.clearInterval(interval);
             }
         };
-    }, [journey.realtimeAvailable, journey.realtimeStatus]);
+    }, [isCompleted, journey.realtimeAvailable, journey.realtimeStatus]);
 
     async function refreshJourney(): Promise<void>
     {
@@ -142,8 +145,8 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
             <section className="tracker-main">
                 <div className={`tracker-summary${staleRealtime ? " is-stale" : ""}`}>
                     <div>
-                        <span className={`operational-pill ${staleRealtime ? "stale" : journey.realtimeObserved ? journey.status : "scheduled"}`}><i /> {realtimeHeadline(journey, staleRealtime, locale)}</span>
-                        <p>{realtimeDescription(journey, refreshing, locale)}</p>
+                        <span className={`operational-pill ${staleRealtime ? "stale" : journey.realtimeObserved ? journey.status : "scheduled"}`}><i /> {isCompleted ? localize(locale, "Trajet terminé", "Journey completed", "Trayecto finalizado") : realtimeHeadline(journey, staleRealtime, locale)}</span>
+                        <p>{isCompleted ? localize(locale, "Horaires enregistrés pour cette circulation passée.", "Recorded times for this past journey.", "Horarios registrados de este trayecto pasado.") : realtimeDescription(journey, refreshing, locale)}</p>
                     </div>
                     <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}${staleRealtime ? " is-stale" : ""}`}>
                         <strong>{delayNumber(journey.delaySeconds, locale)}</strong>
@@ -159,6 +162,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
             </section>
             <aside className="community-panel">
                 <span className="section-kicker">{localize(locale, "Informations voyageurs", "Passenger updates", "Avisos de viajeros")}</span>
+                {!isCompleted && <>
                 <h2>{localize(locale, "Que voyez-vous ?", "What can you see?", "¿Qué estás viendo?")}</h2>
                 <p>{localize(locale, "Un clic suffit. Aucun compte n’est nécessaire.", "One tap is enough. No account needed.", "Basta con un toque. No necesitas una cuenta.")}</p>
                 <div className="report-grid">
@@ -177,6 +181,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
                     })}
                 </div>
                 {feedback && <p className="report-feedback" role="status">{feedback}</p>}
+                </>}
                 <div className={`punctuality-card${journey.punctuality ? ` ${punctualityTone(journey.punctuality.onTimePercentage)}` : ""}`}>
                     <span className="section-kicker">{localize(locale, "Ponctualité à l’arrivée", "Arrival punctuality", "Puntualidad en la llegada")}</span>
                     {journey.punctuality ? (
@@ -213,7 +218,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
                 <div className="recent-reports">
                     <h3>{localize(locale, "Derniers signalements", "Latest reports", "Últimos avisos")}</h3>
                     {reports.length === 0 ? (
-                        <p className="empty-reports">{localize(locale, "Aucun signalement pour l’instant. Soyez le premier.", "No reports yet. Be the first.", "Todavía no hay avisos. Sé el primero en informar.")}</p>
+                        <p className="empty-reports">{isCompleted ? localize(locale, "Aucun signalement enregistré.", "No reports recorded.", "No hay avisos registrados.") : localize(locale, "Aucun signalement pour l’instant. Soyez le premier.", "No reports yet. Be the first.", "Todavía no hay avisos. Sé el primero en informar.")}</p>
                     ) : reports.slice(0, 5).map((report) =>
                     {
                         return (

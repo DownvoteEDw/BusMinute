@@ -2679,3 +2679,52 @@ h1 em {
         gap: 8px;
     }
 }
+.service-dates,
+.journey-share
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.service-dates a,
+.service-follow-link,
+.journey-share button
+{
+    display: inline-block;
+    border: 1px solid currentColor;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.service-follow-link
+{
+    margin-top: 16px;
+}
+
+.service-date-section
+{
+    scroll-margin-top: 100px;
+}
+
+.journey-share span
+{
+    font-size: 0.85rem;
+}
+
+.journey-share input
+{
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--ink);
+}

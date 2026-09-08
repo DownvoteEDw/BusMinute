@@ -13,6 +13,7 @@
     "check": "npm run build:core && npm run test && npm run build",
     "match": "npm run build:core --silent && node dist/src/cli/match.js",
     "db:migrate": "npm run build:core --silent && node dist/src/cli/migrate.js",
+    "db:backfill-links": "npm run build:core --silent && node dist/src/cli/backfill-journey-links.js",
     "db:import-gtfs": "npm run build:core --silent && node dist/src/cli/import-gtfs.js",
     "db:sync": "npm run build:core --silent && node dist/src/cli/sync-worker.js",
     "worker": "node dist/src/cli/sync-worker.js"

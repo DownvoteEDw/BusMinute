@@ -4,6 +4,8 @@ import
     isPassengerReportType,
     listPassengerReports
 } from "../../../src/application/passenger-reports.js";
+import { transitDataService } from "../../../src/application/transit-data-service.js";
+import { isJourneyCompleted } from "../../../src/application/seo.js";
 
 const recentSubmissions = new Map<string, number>();
 
@@ -32,6 +34,16 @@ export async function POST(request: Request): Promise<Response>
         || !isPassengerReportType(body.type))
     {
         return Response.json({ error: "Signalement invalide" }, { status: 400 });
+    }
+
+    const journey = await transitDataService.getJourney(journeyRef);
+    if (!journey)
+    {
+        return Response.json({ error: "Circulation introuvable" }, { status: 404 });
+    }
+    if (isJourneyCompleted(journey))
+    {
+        return Response.json({ error: "Les signalements sont fermés pour cette circulation terminée." }, { status: 409 });
     }
 
     const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";

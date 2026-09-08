@@ -73,3 +73,16 @@ export function isJourneyOutsideIndexingWindow(
     return Number.isFinite(effectiveEnd)
         && now.getTime() > effectiveEnd + journeyIndexingGracePeriodMilliseconds;
 }
+
+export function isJourneyCompleted(journey: JourneySeoTiming & { status?: string }, now = new Date()): boolean
+{
+    if (journey.status === "arrived")
+    {
+        return true;
+    }
+    const last = journey.stops[journey.stops.length - 1];
+    const end = last?.actualArrivalAt ?? last?.actualDepartureAt ?? last?.expectedArrivalAt
+        ?? last?.expectedDepartureAt ?? last?.aimedArrivalAt ?? last?.aimedDepartureAt;
+    const timestamp = new Date(end ?? `${journey.serviceDate}T23:59:59Z`).getTime();
+    return Number.isFinite(timestamp) && timestamp < now.getTime();
+}

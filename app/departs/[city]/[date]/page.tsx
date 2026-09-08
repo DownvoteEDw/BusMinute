@@ -103,7 +103,7 @@ export default async function DeparturesPage({ params }: PageProps)
                         "@type": "ListItem",
                         position: index + 1,
                         name: localize(locale, `Bus ${journey.serviceNumber} ${journey.originCity} vers ${journey.destinationCity}`, `Bus ${journey.serviceNumber} ${journey.originCity} to ${journey.destinationCity}`, `Autobús ${journey.serviceNumber} de ${journey.originCity} a ${journey.destinationCity}`),
-                        url: absoluteUrl(journeyPath(journey.journeyRef))
+                        url: absoluteUrl(journeyPath(journey))
                     };
                 })
             }

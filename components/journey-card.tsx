@@ -27,7 +27,7 @@ export function JourneyCard({ journey, stopId, eventStopId, originStopId, destin
     const destinationCity = segmentDestination?.city ?? journey.destinationCity;
 
     return (
-        <Link className={`journey-card${isStationContext ? ` is-station is-${delayState}` : ""}`} href={journeyPath(journey.journeyRef)}>
+        <Link className={`journey-card${isStationContext ? ` is-station is-${delayState}` : ""}`} href={journeyPath(journey)}>
             <div className="journey-card-time">
                 <time dateTime={event.time ?? undefined}>{formatTime(event.time, locale)}</time>
                 <span>{event.label}</span>
@@ -41,7 +41,7 @@ export function JourneyCard({ journey, stopId, eventStopId, originStopId, destin
                     <span className={`journey-status ${journey.status}`}><i /> {journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled", "Horario previsto")}</span>
                 </div>
                 <h2>{originCity} <span>→</span> {destinationCity}</h2>
-                <p>{event.detail}</p>
+                <p>{(originStopId || destinationStopId) && <>{formatDate(journey.serviceDate, locale)} · </>}{event.detail}</p>
             </div>
             <div className={`journey-card-delay ${delayState}`}>
                 <strong>{delayLabel(delaySeconds, delayState, locale)}</strong>

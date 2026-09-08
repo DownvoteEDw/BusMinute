@@ -117,6 +117,8 @@ describe("TransitDataService", () =>
 
     it("construit l’index SEO à partir des données GTFS et SIRI", async () =>
     {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-08-22T12:00:00Z"));
         const service = new TransitDataService();
         const index = await service.getSeoIndex();
 
@@ -124,7 +126,40 @@ describe("TransitDataService", () =>
         expect(index.stops).toContainEqual({ stopId: "XPB" });
         expect(index.routes).toContainEqual({ originStopId: "XPB", destinationStopId: "XTO" });
         expect(index.departures).toContainEqual({ citySlug: "paris", serviceDate: "2026-08-22" });
-        expect(index.journeys).toContainEqual({ journeyRef: "50819:2026-08-22" });
+        expect(index.journeys).toContainEqual(expect.objectContaining({ journeyRef: "50819:2026-08-22", publicPath: expect.stringMatching(/^\/suivi\/blablacar-bus\/50819\/2026-08-22-[a-f0-9]{20}$/) }));
+        expect(index.services).toContain("/bus/blablacar-bus/50819");
+    });
+
+    it("retire les circulations expirées du sitemap et conserve leur page permanente", async () =>
+    {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
+        const service = new TransitDataService();
+        const index = await service.getSeoIndex();
+        expect(index.journeys.some((journey) => journey.journeyRef === "50819:2026-08-22")).toBe(false);
+        expect(index.services).toContain("/bus/blablacar-bus/50819");
+        const archived = await service.getJourney("50819:2026-08-22");
+        expect(archived?.publicId).toMatch(/^[a-f0-9]{20}$/);
+        expect(await service.getPublicJourney(archived!.publicId!)).toEqual(archived);
+    });
+
+    it("sépare les prochains départs du service permanent et retrouve un départ publié", async () =>
+    {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-09-08T00:00:00Z"));
+        const service = new TransitDataService();
+        const board = await service.getBusService("blablacar-bus", "50819");
+        expect(board?.journeys.map((journey) => journey.serviceDate)).toEqual(["2026-09-08", "2026-09-09", "2026-09-10"]);
+        const first = board!.journeys[0]!;
+        expect((await service.getPublicJourney(first.publicId!))?.journeyRef).toBe(first.journeyRef);
+        expect(await service.getBusService("unknown", "50819")).toBeNull();
+        expect(await service.getPublicJourney("../../invalid")).toBeNull();
+        const route = await service.getCityRouteBoard("paris", "tours");
+        expect(route?.journeys.map((journey) => journey.publicPath)).toContain(first.publicPath);
+        vi.setSystemTime(new Date("2028-01-01T12:00:00Z"));
+        const endedService = await service.getBusService("blablacar-bus", "50819");
+        expect(endedService?.journeys).toEqual([]);
+        expect(endedService?.example.serviceNumber).toBe("50819");
     });
 
     it("trouve un trajet par origine et destination dans les deux sens", async () =>

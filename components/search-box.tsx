@@ -100,7 +100,7 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
 
         if (first)
         {
-            router.push(journeyPath(first.journeyRef));
+            router.push(journeyPath(first));
             return;
         }
 
@@ -113,7 +113,7 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
     function choose(journey: JourneyView): void
     {
         setOpen(false);
-        router.push(journeyPath(journey.journeyRef));
+        router.push(journeyPath(journey));
     }
 
     function choosePlace(place: PlaceSearchResultView): void

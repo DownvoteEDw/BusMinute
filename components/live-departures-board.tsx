@@ -84,7 +84,7 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
                     return (
                         <Link
                             className="station-board-row"
-                            href={journeyPath(journey.journeyRef)}
+                            href={journeyPath(journey)}
                             key={journey.journeyRef}
                         >
                             <time dateTime={event.time ?? undefined}>

@@ -46,6 +46,8 @@ export interface PunctualitySummaryView
 
 export interface JourneyView
 {
+    publicId?: string;
+    publicPath?: string;
     journeyRef: string;
     serviceNumber: string;
     serviceDate: string;
@@ -151,7 +153,9 @@ export interface SeoIndexView
     stops: Array<{ stopId: string }>;
     routes: Array<{ originStopId: string; destinationStopId: string }>;
     departures: Array<{ citySlug: string; serviceDate: string }>;
-    journeys: Array<{ journeyRef: string }>;
+    journeys: Array<{ journeyRef: string; publicPath?: string }>;
+    services?: string[];
+    cityRoutes?: string[];
 }
 
 export interface RouteBoardView

@@ -8,6 +8,7 @@ export const sitemapSectionNames = [
     "stops",
     "routes",
     "departures",
+    "services",
     "journeys"
 ] as const;
 
@@ -116,10 +117,12 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
         case "stops":
             return uniqueSorted(index.stops.map((stop) => `/gares/${encodeURIComponent(stop.stopId)}`));
         case "routes":
-            return uniqueSorted(index.routes.map((route) =>
+            return uniqueSorted([...(index.cityRoutes ?? []), ...index.routes.map((route) =>
             {
                 return `/trajets/${encodeURIComponent(route.originStopId)}/${encodeURIComponent(route.destinationStopId)}`;
-            }));
+            })]);
+        case "services":
+            return uniqueSorted(index.services ?? []);
         case "departures":
             return uniqueSorted(index.departures.map((departure) =>
             {
@@ -128,7 +131,7 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
         case "journeys":
             return uniqueSorted(index.journeys.map((journey) =>
             {
-                return journeyPath(journey.journeyRef);
+                return journeyPath(journey);
             }));
     }
 }
