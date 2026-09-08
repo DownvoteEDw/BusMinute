@@ -1,7 +1,8 @@
 import type
 {
     AlsaRealtimeCall,
-    AlsaRealtimeJourney
+    AlsaRealtimeJourney,
+    AlsaRealtimeLookupResult
 } from "../providers/alsa/realtime-client.js";
 import type
 {
@@ -13,12 +14,25 @@ import type
 
 export function enrichAlsaJourney(
     journey: JourneyView,
-    realtime: AlsaRealtimeJourney | null
+    lookup: AlsaRealtimeLookupResult
 ): JourneyView
 {
-    if (!realtime || normalize(realtime.serviceNumber) !== normalize(journey.serviceNumber))
+    const realtime = lookup.journey;
+
+    if (!realtime)
     {
-        return journey;
+        return {
+            ...journey,
+            realtimeStatus: lookup.status
+        };
+    }
+
+    if (normalize(realtime.serviceNumber) !== normalize(journey.serviceNumber))
+    {
+        return {
+            ...journey,
+            realtimeStatus: "temporarily_unavailable"
+        };
     }
 
     const currentCallIndex = findCurrentCallIndex(realtime.calls);
@@ -32,6 +46,7 @@ export function enrichAlsaJourney(
         ...journey,
         realtimeAvailable: true,
         realtimeObserved: true,
+        realtimeStatus: "live",
         status: journeyStatus(realtime.calls),
         delaySeconds: currentDelay(realtime.calls),
         updatedAt: realtime.recordedAt,

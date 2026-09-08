@@ -70,11 +70,12 @@ describe("temps réel Alsa", () =>
         ]);
 
         expect(first).toEqual(second);
-        expect(first?.serviceNumber).toBe("3235");
-        expect(first?.flight).toBe("54");
-        expect(first?.calls[0]?.actualDepartureAt).toBe("2026-09-07T05:03:00.000Z");
-        expect(first?.calls[3]?.expectedArrivalAt).toBe("2026-09-07T10:04:00.000Z");
-        expect(first?.vehicles[0]).toEqual({
+        expect(first.status).toBe("live");
+        expect(first.journey?.serviceNumber).toBe("3235");
+        expect(first.journey?.flight).toBe("54");
+        expect(first.journey?.calls[0]?.actualDepartureAt).toBe("2026-09-07T05:03:00.000Z");
+        expect(first.journey?.calls[3]?.expectedArrivalAt).toBe("2026-09-07T10:04:00.000Z");
+        expect(first.journey?.vehicles[0]).toEqual({
             registration: "8997MZG",
             latitude: 42.024962864,
             longitude: -3.764288023
@@ -100,10 +101,11 @@ describe("temps réel Alsa", () =>
             request,
             new Date("2026-09-07T09:30:00Z")
         )[0] ?? null;
-        const journey = enrichAlsaJourney(scheduledJourney(), realtime);
+        const journey = enrichAlsaJourney(scheduledJourney(), { status: "live", journey: realtime });
 
         expect(journey.realtimeAvailable).toBe(true);
         expect(journey.realtimeObserved).toBe(true);
+        expect(journey.realtimeStatus).toBe("live");
         expect(journey.status).toBe("in_transit");
         expect(journey.delaySeconds).toBe(840);
         expect(journey.matchMethod).toBe("ALSA_TRACKING_BUS_API");
@@ -112,6 +114,19 @@ describe("temps réel Alsa", () =>
         expect(journey.stops[0]?.phase).toBe("passed");
         expect(journey.stops[1]?.expectedArrivalAt).toBe("2026-09-07T10:04:00.000Z");
         expect(journey.stops[1]?.arrivalStatus).toBe("DELAYED");
+    });
+
+    it("conserve l’horaire prévu et expose l’absence de suivi pour le véhicule", () =>
+    {
+        const journey = enrichAlsaJourney(scheduledJourney(), {
+            status: "not_offered",
+            journey: null
+        });
+
+        expect(journey.realtimeAvailable).toBe(true);
+        expect(journey.realtimeObserved).toBe(false);
+        expect(journey.realtimeStatus).toBe("not_offered");
+        expect(journey.matchMethod).toBe("GTFS_SCHEDULE");
     });
 
     it("lit la liste des circulations et choisit les villes dans le bon pays", () =>
@@ -145,8 +160,42 @@ describe("temps réel Alsa", () =>
             arrivalAt: "2026-09-08T09:50:00.000Z"
         };
 
-        expect(await client.loadJourney(request)).toBeNull();
+        expect(await client.loadJourney(request)).toEqual({
+            status: "outside_tracking_period",
+            journey: null
+        });
         expect(fetchImplementation).not.toHaveBeenCalled();
+    });
+
+    it("continue de chercher le suivi après minuit pour un trajet de nuit", async () =>
+    {
+        vi.stubEnv("ALSA_REALTIME_ENABLED", "true");
+        const fetchImplementation = vi.fn(async () =>
+        {
+            return new Response(null,
+            {
+                status: 302,
+                headers: {
+                    Location: "https://alsa.queue-it.net/?c=alsa&e=streamingibai"
+                }
+            });
+        });
+        const client = new AlsaRealtimeClient(
+            fetchImplementation,
+            () => new Date("2026-09-08T09:30:00Z")
+        );
+        const request = {
+            ...realtimeRequest(),
+            serviceDate: "2026-09-07",
+            departureAt: "2026-09-07T17:00:00.000Z",
+            arrivalAt: "2026-09-08T13:15:00.000Z"
+        };
+
+        expect(await client.loadJourney(request)).toEqual({
+            status: "temporarily_unavailable",
+            journey: null
+        });
+        expect(fetchImplementation).toHaveBeenCalledTimes(1);
     });
 
     it("abandonne immédiatement lorsque le suivi ALSA active Queue-it", async () =>
@@ -167,8 +216,14 @@ describe("temps réel Alsa", () =>
             () => new Date("2026-09-07T09:30:00Z")
         );
 
-        expect(await client.loadJourney(realtimeRequest())).toBeNull();
-        expect(await client.loadJourney(realtimeRequest())).toBeNull();
+        expect(await client.loadJourney(realtimeRequest())).toEqual({
+            status: "temporarily_unavailable",
+            journey: null
+        });
+        expect(await client.loadJourney(realtimeRequest())).toEqual({
+            status: "temporarily_unavailable",
+            journey: null
+        });
         expect(fetchImplementation).toHaveBeenCalledTimes(1);
     });
 
@@ -188,8 +243,57 @@ describe("temps réel Alsa", () =>
             () => new Date("2026-09-07T09:30:00Z")
         );
 
-        expect(await client.loadJourney(realtimeRequest())).toBeNull();
+        expect(await client.loadJourney(realtimeRequest())).toEqual({
+            status: "temporarily_unavailable",
+            journey: null
+        });
         expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    });
+
+    it("distingue un véhicule pour lequel Alsa ne propose pas de suivi", async () =>
+    {
+        vi.stubEnv("ALSA_REALTIME_ENABLED", "true");
+        const fetchImplementation = vi.fn(async (input: string | URL | Request) =>
+        {
+            const url = input instanceof Request ? input.url : input.toString();
+
+            if (url === trackerUrl)
+            {
+                return new Response(bootstrapHtml(),
+                {
+                    headers: { "Set-Cookie": "JSESSIONID=session-test; Path=/; HttpOnly" }
+                });
+            }
+
+            if (url.includes("JsonGetOrigins"))
+            {
+                return Response.json([
+                    { id: "90155", name: "Madrid (Tous les arrêts)", provincecountryName: "Madrid, Espagne" },
+                    { id: "90365", name: "Bilbao (Tous les arrêts)", provincecountryName: "Bizkaia, Espagne" }
+                ]);
+            }
+
+            if (url.includes("trackingBusTrayectoAction"))
+            {
+                return new Response(searchHtml());
+            }
+
+            if (url.includes("AjaxGetBusServiceTracking"))
+            {
+                return Response.json([]);
+            }
+
+            return new Response(null, { status: 404 });
+        });
+        const client = new AlsaRealtimeClient(
+            fetchImplementation,
+            () => new Date("2026-09-07T09:30:00Z")
+        );
+
+        expect(await client.loadJourney(realtimeRequest())).toEqual({
+            status: "not_offered",
+            journey: null
+        });
     });
 });
 
@@ -311,6 +415,7 @@ function scheduledJourney(): JourneyView
         operatorName: "Alsa",
         realtimeAvailable: true,
         realtimeObserved: false,
+        realtimeStatus: "scheduled_only",
         originStopId: "alsa:ESMAD",
         originName: "Madrid - Intercambiador Avenida de América",
         originCity: "Madrid",

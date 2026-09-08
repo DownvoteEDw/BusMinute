@@ -39,6 +39,7 @@ function journey(index: number): JourneyView
         operatorName: "FlixBus",
         realtimeAvailable: true,
         realtimeObserved: false,
+        realtimeStatus: "scheduled_only",
         originStopId: "paris",
         originName: "Paris",
         originCity: "Paris",

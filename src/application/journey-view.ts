@@ -8,6 +8,12 @@ import type
 import { blablacarBusOperator, type TransitOperator } from "./operators.js";
 
 export type JourneyOperationalStatus = "scheduled" | "in_transit" | "arrived" | "cancelled";
+export type JourneyRealtimeStatus =
+    | "live"
+    | "scheduled_only"
+    | "not_offered"
+    | "temporarily_unavailable"
+    | "outside_tracking_period";
 export type JourneyStopPhase = "passed" | "current" | "upcoming";
 
 export interface JourneyStopView
@@ -47,6 +53,7 @@ export interface JourneyView
     operatorName: string;
     realtimeAvailable: boolean;
     realtimeObserved: boolean;
+    realtimeStatus: JourneyRealtimeStatus;
     originStopId: string;
     originName: string;
     originCity: string;
@@ -205,6 +212,7 @@ export function buildJourneyView(
         operatorName: operator.name,
         realtimeAvailable: operator.realtimeAvailable,
         realtimeObserved: true,
+        realtimeStatus: "live",
         originStopId: origin.stopId,
         originName: origin.name,
         originCity: origin.city,

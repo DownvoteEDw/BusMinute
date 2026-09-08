@@ -54,6 +54,18 @@ export interface AlsaRealtimeJourney
     vehicles: AlsaRealtimeVehicle[];
 }
 
+export type AlsaRealtimeLookupStatus =
+    | "live"
+    | "not_offered"
+    | "temporarily_unavailable"
+    | "outside_tracking_period";
+
+export interface AlsaRealtimeLookupResult
+{
+    status: AlsaRealtimeLookupStatus;
+    journey: AlsaRealtimeJourney | null;
+}
+
 export interface AlsaTrackingLocation
 {
     id: string;
@@ -112,7 +124,7 @@ class AlsaRealtimeUnavailableError extends Error
 
 export class AlsaRealtimeClient
 {
-    private readonly journeyCache = new AsyncCache<AlsaRealtimeJourney | null>(
+    private readonly journeyCache = new AsyncCache<AlsaRealtimeLookupResult>(
         readPositiveInteger("ALSA_REALTIME_CACHE_SECONDS", 30) * 1000,
         300
     );
@@ -144,11 +156,16 @@ export class AlsaRealtimeClient
         return process.env.NODE_ENV !== "test" || process.env.ALSA_REALTIME_ENABLED === "true";
     }
 
-    public async loadJourney(request: AlsaRealtimeRequest): Promise<AlsaRealtimeJourney | null>
+    public async loadJourney(request: AlsaRealtimeRequest): Promise<AlsaRealtimeLookupResult>
     {
-        if (!this.isEnabled() || !isWithinTrackingWindow(request, this.now()))
+        if (!this.isEnabled())
         {
-            return null;
+            return realtimeLookup("temporarily_unavailable");
+        }
+
+        if (!isWithinTrackingWindow(request, this.now()))
+        {
+            return realtimeLookup("outside_tracking_period");
         }
 
         const signal = AbortSignal.timeout(readPositiveInteger("ALSA_REALTIME_BUDGET_MS", 5_000));
@@ -162,7 +179,7 @@ export class AlsaRealtimeClient
             {
                 if (signal.aborted || error instanceof AlsaRealtimeUnavailableError)
                 {
-                    return null;
+                    return realtimeLookup("temporarily_unavailable");
                 }
 
                 this.invalidateSession();
@@ -173,7 +190,7 @@ export class AlsaRealtimeClient
                 }
                 catch
                 {
-                    return null;
+                    return realtimeLookup("temporarily_unavailable");
                 }
             }
         }));
@@ -182,7 +199,7 @@ export class AlsaRealtimeClient
     private async loadJourneyOnce(
         request: AlsaRealtimeRequest,
         signal: AbortSignal
-    ): Promise<AlsaRealtimeJourney | null>
+    ): Promise<AlsaRealtimeLookupResult>
     {
         const session = await this.loadSession(signal);
         const locations = await this.locationCache.get("locations", () => this.loadLocations(session, signal));
@@ -195,7 +212,7 @@ export class AlsaRealtimeClient
 
         if (!origin || !destination)
         {
-            return null;
+            return realtimeLookup("temporarily_unavailable");
         }
 
         const routeKey = `${session.generation}:${origin.id}:${destination.id}`;
@@ -207,10 +224,13 @@ export class AlsaRealtimeClient
 
         if (!selection)
         {
-            return null;
+            return realtimeLookup("temporarily_unavailable");
         }
 
-        return this.loadTracking(selection, request, signal);
+        const journey = await this.loadTracking(selection, request, signal);
+        return journey
+            ? { status: "live", journey }
+            : realtimeLookup("not_offered");
     }
 
     private async loadSession(signal: AbortSignal): Promise<AlsaSession>
@@ -769,13 +789,6 @@ function parseVehicle(value: unknown): AlsaRealtimeVehicle | null
 
 function isWithinTrackingWindow(request: AlsaRealtimeRequest, now: Date): boolean
 {
-    const today = DateTime.fromJSDate(now, { zone: request.origin.timezone }).toISODate();
-
-    if (today !== request.serviceDate)
-    {
-        return false;
-    }
-
     const departure = new Date(request.departureAt).getTime();
     const arrival = new Date(request.arrivalAt).getTime();
     const current = now.getTime();
@@ -996,4 +1009,9 @@ function readPositiveInteger(name: string, fallback: number): number
 {
     const value = Number.parseInt(process.env[name] ?? "", 10);
     return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function realtimeLookup(status: Exclude<AlsaRealtimeLookupStatus, "live">): AlsaRealtimeLookupResult
+{
+    return { status, journey: null };
 }

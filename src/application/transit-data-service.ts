@@ -1074,7 +1074,7 @@ export class TransitDataService
 
         try
         {
-            const realtime = await this.alsaRealtimeClient.loadJourney(
+            const lookup = await this.alsaRealtimeClient.loadJourney(
             {
                 cacheKey: journey.journeyRef,
                 serviceNumber: journey.serviceNumber,
@@ -1094,7 +1094,7 @@ export class TransitDataService
                     timezone: destination?.timezone ?? defaultTimezone
                 }
             });
-            return applyAlsaRealtime(journey, realtime);
+            return applyAlsaRealtime(journey, lookup);
         }
         catch
         {

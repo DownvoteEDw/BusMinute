@@ -49,7 +49,13 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
     useEffect(() =>
     {
         void refreshReports();
+    }, []);
+
+    useEffect(() =>
+    {
         const interval = journey.realtimeAvailable
+            && journey.realtimeStatus !== "not_offered"
+            && journey.realtimeStatus !== "outside_tracking_period"
             ? window.setInterval(() => void refreshJourney(), 30_000)
             : null;
         return () =>
@@ -59,7 +65,7 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
                 window.clearInterval(interval);
             }
         };
-    }, []);
+    }, [journey.realtimeAvailable, journey.realtimeStatus]);
 
     async function refreshJourney(): Promise<void>
     {
@@ -136,14 +142,12 @@ export function JourneyTracker({ initialJourney, locale = "fr" }: JourneyTracker
             <section className="tracker-main">
                 <div className={`tracker-summary${staleRealtime ? " is-stale" : ""}`}>
                     <div>
-                        <span className={`operational-pill ${staleRealtime ? "stale" : journey.status}`}><i /> {staleRealtime ? localize(locale, "Information temps réel ancienne", "Stale live information", "Datos en tiempo real desactualizados") : journey.realtimeObserved ? statusLabel(journey.status, locale) : localize(locale, "Horaire prévu", "Scheduled", "Horario previsto")}</span>
-                        <p>{journey.realtimeObserved
-                            ? `${localize(locale, `Dernière donnée ${journey.operatorName} reçue`, `Latest ${journey.operatorName} data received`, `Último dato de ${journey.operatorName} recibido`)} ${relativeTime(journey.updatedAt, locale)} ${refreshing ? localize(locale, "· vérification…", "· checking…", "· comprobando…") : ""}`
-                            : `${localize(locale, "Horaire prévu", "Scheduled by", "Horario previsto de")} ${journey.operatorName}`}</p>
+                        <span className={`operational-pill ${staleRealtime ? "stale" : journey.realtimeObserved ? journey.status : "scheduled"}`}><i /> {realtimeHeadline(journey, staleRealtime, locale)}</span>
+                        <p>{realtimeDescription(journey, refreshing, locale)}</p>
                     </div>
                     <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}${staleRealtime ? " is-stale" : ""}`}>
                         <strong>{delayNumber(journey.delaySeconds, locale)}</strong>
-                        <span>{staleRealtime ? localize(locale, `dernière estimation · ${delayCaption(journey.delaySeconds, locale)}`, `last estimate · ${delayCaption(journey.delaySeconds, locale)}`, `última estimación · ${delayCaption(journey.delaySeconds, locale)}`) : delayCaption(journey.delaySeconds, locale)}</span>
+                        <span>{staleRealtime ? localize(locale, `dernière estimation · ${delayCaption(journey, locale)}`, `last estimate · ${delayCaption(journey, locale)}`, `última estimación · ${delayCaption(journey, locale)}`) : delayCaption(journey, locale)}</span>
                     </div>
                 </div>
                 <ol className="route-timeline">
@@ -319,10 +323,92 @@ function delayNumber(seconds: number | null, locale: Locale): string
     return minutes > 0 ? `+${minutes}` : String(Math.abs(minutes));
 }
 
-function delayCaption(seconds: number | null, locale: Locale): string
+function realtimeHeadline(journey: JourneyView, stale: boolean, locale: Locale): string
 {
+    if (stale)
+    {
+        return localize(locale, "Information temps réel ancienne", "Stale live information", "Datos en tiempo real desactualizados");
+    }
+
+    if (journey.realtimeObserved)
+    {
+        return statusLabel(journey.status, locale);
+    }
+
+    return journey.realtimeStatus === "temporarily_unavailable"
+        ? localize(locale, "Suivi momentanément indisponible", "Live tracking temporarily unavailable", "Seguimiento temporalmente no disponible")
+        : localize(locale, "Horaire prévu", "Scheduled", "Horario previsto");
+}
+
+function realtimeDescription(
+    journey: JourneyView,
+    refreshing: boolean,
+    locale: Locale
+): string
+{
+    if (journey.realtimeObserved)
+    {
+        return `${localize(locale, `Dernière donnée ${journey.operatorName} reçue`, `Latest ${journey.operatorName} data received`, `Último dato de ${journey.operatorName} recibido`)} ${relativeTime(journey.updatedAt, locale)} ${refreshing ? localize(locale, "· vérification…", "· checking…", "· comprobando…") : ""}`;
+    }
+
+    if (journey.realtimeStatus === "not_offered")
+    {
+        return localize(
+            locale,
+            `${journey.operatorName} ne propose pas de suivi en direct pour ce véhicule.`,
+            `${journey.operatorName} does not offer live tracking for this vehicle.`,
+            `${journey.operatorName} no ofrece seguimiento en directo para este vehículo.`
+        );
+    }
+
+    if (journey.realtimeStatus === "temporarily_unavailable")
+    {
+        return localize(
+            locale,
+            "Le suivi en direct n’est pas disponible pour le moment. Les horaires prévus restent affichés.",
+            "Live tracking is not available right now. Scheduled times remain visible.",
+            "El seguimiento en directo no está disponible por el momento. Se siguen mostrando los horarios previstos."
+        );
+    }
+
+    if (journey.realtimeStatus === "outside_tracking_period")
+    {
+        const departureAt = journey.stops[0]?.aimedDepartureAt;
+        const departureIsAhead = departureAt && new Date(departureAt).getTime() > Date.now();
+        return departureIsAhead
+            ? localize(
+                locale,
+                "Le suivi en direct pourra apparaître à l’approche du départ.",
+                "Live tracking may appear closer to departure.",
+                "El seguimiento en directo podrá aparecer cuando se acerque la salida."
+            )
+            : localize(
+                locale,
+                "Les horaires prévus de ce trajet sont affichés.",
+                "The scheduled times for this journey are displayed.",
+                "Se muestran los horarios previstos de este trayecto."
+            );
+    }
+
+    return `${localize(locale, "Horaire prévu", "Scheduled by", "Horario previsto de")} ${journey.operatorName}`;
+}
+
+function delayCaption(journey: JourneyView, locale: Locale): string
+{
+    const seconds = journey.delaySeconds;
+
     if (seconds === null)
     {
+        if (journey.realtimeStatus === "not_offered")
+        {
+            return localize(locale, "suivi non proposé", "live tracking not offered", "seguimiento no disponible");
+        }
+
+        if (journey.realtimeStatus === "temporarily_unavailable")
+        {
+            return localize(locale, "suivi momentanément indisponible", "live tracking temporarily unavailable", "seguimiento temporalmente no disponible");
+        }
+
         return localize(locale, "pas d’information en temps réel", "no live information", "sin información en tiempo real");
     }
 

@@ -258,6 +258,7 @@ function scheduledJourney(): JourneyView
         operatorName: "FlixBus",
         realtimeAvailable: true,
         realtimeObserved: false,
+        realtimeStatus: "scheduled_only",
         originStopId: "flixbus:paris-stop",
         originName: "Paris",
         originCity: "Paris",

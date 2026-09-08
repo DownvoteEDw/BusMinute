@@ -42,6 +42,7 @@ export function enrichFlixBusJourney(
         ...journey,
         realtimeAvailable: true,
         realtimeObserved: true,
+        realtimeStatus: "live",
         status: journeyStatus(stops, match.ride, now),
         delaySeconds,
         updatedAt,

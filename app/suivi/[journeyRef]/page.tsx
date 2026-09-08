@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             `View the recorded schedule for bus ${journey.serviceNumber} from ${journey.originCity} to ${journey.destinationCity} on ${date}.`,
             `Consulta los horarios registrados del autobús ${journey.serviceNumber}, de ${journey.originCity} a ${journey.destinationCity}, para el servicio del ${date}.`
         )
-        : journey.realtimeAvailable
+        : journey.realtimeObserved
         ? localize(
             locale,
             `Suivez le bus ${journey.serviceNumber} du ${date} en direct : horaires réels, retard à chaque arrêt et signalements voyageurs.`,
@@ -130,7 +130,7 @@ export default async function JourneyPage({ params }: PageProps)
             </nav>
             <header className="route-heading">
                 <div>
-                    <span className="section-kicker">{journey.realtimeAvailable ? localize(locale, "Suivi en temps réel + voyageurs", "Live tracking + passenger updates", "Seguimiento en tiempo real + avisos de viajeros") : localize(locale, "Horaire prévu", "Scheduled time", "Horario previsto")}</span>
+                    <span className="section-kicker">{journey.realtimeObserved ? localize(locale, "Suivi en temps réel + voyageurs", "Live tracking + passenger updates", "Seguimiento en tiempo real + avisos de viajeros") : localize(locale, "Horaire prévu + voyageurs", "Scheduled times + passenger updates", "Horarios previstos + avisos de viajeros")}</span>
                     <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
                     <div className="route-identity">
                         <OperatorLogo className="route-operator-logo" operatorSlug={journey.operatorSlug} />

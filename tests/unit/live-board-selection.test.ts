@@ -84,6 +84,7 @@ function journeyWithPassedOrigin(journeyRef: string, originTime: string, nextSto
         operatorName: "FlixBus",
         realtimeAvailable: true,
         realtimeObserved: false,
+        realtimeStatus: "scheduled_only",
         originStopId: "origin",
         originName: "Origin",
         originCity: "Origin",
