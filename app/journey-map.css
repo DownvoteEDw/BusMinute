@@ -173,6 +173,284 @@
     border-color: var(--coral);
 }
 
+.journey-map-stop-label
+{
+    background: rgba(255, 255, 255, .94);
+    border: 1px solid rgba(16, 33, 27, .18);
+    border-radius: 5px;
+    box-shadow: 0 1px 4px rgba(16, 33, 27, .16);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 9px;
+    font-weight: 750;
+    line-height: 1.2;
+    max-width: 130px;
+    padding: 2px 4px;
+    pointer-events: none;
+    position: absolute;
+    width: max-content;
+}
+
+.journey-map-stop-label[data-placement="0"]
+{
+    bottom: 27px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="1"]
+{
+    left: 27px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="2"]
+{
+    left: 50%;
+    top: 27px;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="3"]
+{
+    right: 27px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="4"]
+{
+    bottom: 22px;
+    left: 22px;
+}
+
+.journey-map-stop-label[data-placement="5"]
+{
+    left: 22px;
+    top: 22px;
+}
+
+.journey-map-stop-label[data-placement="6"]
+{
+    right: 22px;
+    top: 22px;
+}
+
+.journey-map-stop-label[data-placement="7"]
+{
+    bottom: 22px;
+    right: 22px;
+}
+
+.journey-map-stop-label[data-placement="8"]
+{
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="9"]
+{
+    left: 50%;
+    top: 48px;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="10"]
+{
+    left: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="11"]
+{
+    right: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="12"]
+{
+    bottom: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="13"]
+{
+    left: 50%;
+    top: 64px;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="8"]::after,
+.journey-map-stop-label[data-placement="12"]::after
+{
+    border-left: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    height: 24px;
+    left: 50%;
+    position: absolute;
+    top: 100%;
+}
+
+.journey-map-stop-label[data-placement="9"]::after,
+.journey-map-stop-label[data-placement="13"]::after
+{
+    border-left: 1px solid rgba(16, 33, 27, .45);
+    bottom: 100%;
+    content: "";
+    height: 24px;
+    left: 50%;
+    position: absolute;
+}
+
+.journey-map-stop-label[data-placement="10"]::after
+{
+    border-top: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    width: 24px;
+}
+
+.journey-map-stop-label[data-placement="11"]::after
+{
+    border-top: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    left: 100%;
+    position: absolute;
+    top: 50%;
+    width: 24px;
+}
+
+.journey-map-stop-label[data-placement="12"]::after,
+.journey-map-stop-label[data-placement="13"]::after
+{
+    height: 40px;
+}
+
+.journey-map-stop-label[data-placement="14"]
+{
+    left: 64px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="15"]
+{
+    right: 64px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="16"]
+{
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="17"]
+{
+    left: 50%;
+    top: 80px;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="18"]
+{
+    left: 80px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="19"]
+{
+    right: 80px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.journey-map-stop-label[data-placement="14"]::after,
+.journey-map-stop-label[data-placement="18"]::after
+{
+    border-top: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    width: 56px;
+}
+
+.journey-map-stop-label[data-placement="15"]::after,
+.journey-map-stop-label[data-placement="19"]::after
+{
+    border-top: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    left: 100%;
+    position: absolute;
+    top: 50%;
+    width: 56px;
+}
+
+.journey-map-stop-label[data-placement="16"]::after
+{
+    border-left: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    height: 56px;
+    left: 50%;
+    position: absolute;
+    top: 100%;
+}
+
+.journey-map-stop-label[data-placement="17"]::after
+{
+    border-left: 1px solid rgba(16, 33, 27, .45);
+    bottom: 100%;
+    content: "";
+    height: 56px;
+    left: 50%;
+    position: absolute;
+}
+
+.journey-map-stop-label[data-placement="20"]
+{
+    bottom: 96px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="21"]
+{
+    left: 50%;
+    top: 96px;
+    transform: translateX(-50%);
+}
+
+.journey-map-stop-label[data-placement="20"]::after
+{
+    border-left: 1px solid rgba(16, 33, 27, .45);
+    content: "";
+    height: 72px;
+    left: 50%;
+    position: absolute;
+    top: 100%;
+}
+
+.journey-map-stop-label[data-placement="21"]::after
+{
+    border-left: 1px solid rgba(16, 33, 27, .45);
+    bottom: 100%;
+    content: "";
+    height: 72px;
+    left: 50%;
+    position: absolute;
+}
+
 .journey-map .maplibregl-popup-content
 {
     color: var(--ink);
@@ -212,6 +490,12 @@
     {
         padding-left: 20px;
         padding-right: 20px;
+    }
+
+    .journey-map-stop-label
+    {
+        font-size: 8px;
+        max-width: 92px;
     }
 }
 

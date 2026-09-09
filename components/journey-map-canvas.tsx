@@ -10,6 +10,7 @@ interface MapStop extends MapCoordinates
 {
     id: string;
     name: string;
+    label: string;
     phase: JourneyStopPhase;
 }
 
@@ -115,7 +116,12 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
             following.current = false;
             setOverview(true);
         });
-        const observer = new ResizeObserver(() => instance.resize());
+        instance.on("moveend", () => placeStopLabels(instance));
+        const observer = new ResizeObserver(() =>
+        {
+            instance.resize();
+            window.requestAnimationFrame(() => placeStopLabels(instance));
+        });
         observer.observe(container.current);
 
         return () =>
@@ -139,7 +145,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
         }
 
         const activeIds = new Set<string>();
-        for (const stop of stops)
+        for (const [index, stop] of stops.entries())
         {
             const id = `stop-${stop.id}`;
             activeIds.add(id);
@@ -148,6 +154,12 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
             {
                 const button = document.createElement("button");
                 button.type = "button";
+                const label = document.createElement("span");
+                label.className = "journey-map-stop-label";
+                label.dataset.placement = String(index % 8);
+                label.ariaHidden = "true";
+                label.textContent = stop.label;
+                button.append(label);
                 marker = new maplibregl.Marker({ element: button })
                     .setLngLat([stop.longitude, stop.latitude])
                     .setPopup(new maplibregl.Popup({ offset: 12 }).setText(stop.name))
@@ -161,6 +173,11 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
                 element.classList.toggle(phase, stop.phase === phase);
             }
             element.setAttribute("aria-label", stop.name);
+            const label = element.querySelector<HTMLElement>(".journey-map-stop-label");
+            if (label)
+            {
+                label.textContent = stop.label;
+            }
             marker.setLngLat([stop.longitude, stop.latitude]);
             updatePopup(marker, stop.name);
         }
@@ -208,6 +225,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
         {
             instance.jumpTo({ center: [positions[0]!.longitude, positions[0]!.latitude] });
         }
+        window.requestAnimationFrame(() => placeStopLabels(instance));
     }, [positions, stops, ready, overview, locale, props.serviceNumber, props.operatorName]);
 
     function changeView(): void
@@ -272,5 +290,60 @@ function fitMap(map: maplibregl.Map, points: MapCoordinates[]): void
     }
     const bounds = new maplibregl.LngLatBounds();
     points.forEach((point) => bounds.extend([point.longitude, point.latitude]));
-    map.fitBounds(bounds, { padding: 45, maxZoom: 12, duration: 0 });
+    const narrow = map.getContainer().clientWidth < 500;
+    map.fitBounds(bounds, {
+        padding: narrow
+            ? { top: 40, right: 38, bottom: 40, left: 38 }
+            : { top: 48, right: 55, bottom: 48, left: 55 },
+        maxZoom: 10,
+        duration: 0
+    });
+}
+
+function placeStopLabels(map: maplibregl.Map): void
+{
+    const mapBounds = map.getContainer().getBoundingClientRect();
+    const markerBounds = [...map.getContainer().querySelectorAll<HTMLElement>(".journey-map-stop, .journey-map-vehicle")]
+        .map((element) => element.getBoundingClientRect());
+    const labels = [...map.getContainer().querySelectorAll<HTMLElement>(".journey-map-stop-label")];
+    const occupied = [...markerBounds];
+
+    labels.forEach((label, index) =>
+    {
+        const placementCount = map.getContainer().clientWidth < 500 ? 22 : 8;
+        let bestPlacement = 0;
+        let bestScore = Infinity;
+        for (let offset = 0; offset < placementCount; offset += 1)
+        {
+            const placement = (index * 3 + offset) % placementCount;
+            label.dataset.placement = String(placement);
+            const bounds = label.getBoundingClientRect();
+            const score = placementScore(bounds, mapBounds, occupied);
+            if (score < bestScore)
+            {
+                bestPlacement = placement;
+                bestScore = score;
+            }
+            if (score === 0)
+            {
+                break;
+            }
+        }
+        label.dataset.placement = String(bestPlacement);
+        occupied.push(label.getBoundingClientRect());
+    });
+}
+
+function placementScore(bounds: DOMRect, mapBounds: DOMRect, occupied: DOMRect[]): number
+{
+    const outside = Math.max(0, mapBounds.left + 4 - bounds.left)
+        + Math.max(0, bounds.right - mapBounds.right + 4)
+        + Math.max(0, mapBounds.top + 4 - bounds.top)
+        + Math.max(0, bounds.bottom - mapBounds.bottom + 4);
+    return outside * 10_000 + occupied.reduce((score, other) =>
+    {
+        const width = Math.max(0, Math.min(bounds.right, other.right + 3) - Math.max(bounds.left, other.left - 3));
+        const height = Math.max(0, Math.min(bounds.bottom, other.bottom + 3) - Math.max(bounds.top, other.top - 3));
+        return score + width * height;
+    }, 0);
 }

@@ -60,7 +60,7 @@ export function JourneyMap({ journey, locale, completed, refreshFailed, styleUrl
     const stops = journey.stops.flatMap((stop) =>
     {
         const location = mapCoordinates(stop.location?.latitude, stop.location?.longitude);
-        return location ? [{ ...location, id: `${stop.stopId}-${stop.order}`, name: stop.name, phase: stop.phase }] : [];
+        return location ? [{ ...location, id: `${stop.stopId}-${stop.order}`, name: stop.name, label: mapStopLabel(stop.city), phase: stop.phase }] : [];
     });
     const stale = refreshFailed || positions.some((position) => isVehiclePositionStale(position, now ?? 0));
     const hasPositions = positions.length > 0;
@@ -106,6 +106,15 @@ export function JourneyMap({ journey, locale, completed, refreshFailed, styleUrl
             </>}
         </div>
     );
+}
+
+function mapStopLabel(value: string): string
+{
+    return value
+        .replace(/\s+(?:central\s+)?bus station$/i, "")
+        .replace(/\s+airport bus terminal$/i, "")
+        .replace(/\s+bus terminal$/i, "")
+        .trim() || value;
 }
 
 function receivedLabel(receivedAt: number, now: number, locale: Locale, sourceTimestamp: boolean): string
