@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approximateVehiclePosition, isVehiclePositionStale, mapCoordinates, retainLastVehiclePositions, visibleVehiclePositions } from "../../src/application/journey-map.js";
+import { approximateVehiclePosition, isVehiclePositionStale, journeyVehicleProgress, mapCoordinates, retainLastVehiclePositions, visibleVehiclePositions } from "../../src/application/journey-map.js";
 import type { JourneyView } from "../../src/application/journey-view.js";
 
 const now = Date.parse("2026-09-09T12:00:00Z");
@@ -149,6 +149,23 @@ describe("position du bus sur la carte", () =>
         });
         expect(approximate?.latitude).toBeCloseTo(41.38035);
         expect(approximate?.longitude).toBeCloseTo(-3.70035);
+        expect(journeyVehicleProgress(value, now, false)).toEqual({
+            afterStopIndex: 0,
+            progress: .5,
+            approximate: true
+        });
+        value.vehiclePositions = [{
+            id: "alsa-1",
+            latitude: 40.898575,
+            longitude: -3.702075,
+            receivedAt: new Date(now).toISOString()
+        }];
+        const locatedProgress = journeyVehicleProgress(value, now, false);
+        expect(locatedProgress).toMatchObject({
+            afterStopIndex: 0,
+            approximate: false
+        });
+        expect(locatedProgress?.progress).toBeCloseTo(.25);
         expect(approximateVehiclePosition({ ...value, realtimeObserved: false }, false)).toBeNull();
         expect(approximateVehiclePosition({ ...value, status: "scheduled" }, false)).toBeNull();
         expect(approximateVehiclePosition(value, true)).toBeNull();

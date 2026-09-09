@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { journeyPathSegment } from "../src/application/journey-url";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import type { PassengerReport, PassengerReportType } from "../src/application/passenger-reports";
 import { isJourneyCompleted } from "../src/application/seo";
-import { retainLastVehiclePositions } from "../src/application/journey-map";
+import { journeyVehicleProgress, retainLastVehiclePositions, type JourneyVehicleProgress } from "../src/application/journey-map";
 import { JourneyMap } from "./journey-map";
 
 interface JourneyResponse
@@ -54,6 +54,7 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
     {
         return journey.stops.find((stop) => stop.phase === "current") ?? journey.stops[journey.stops.length - 1];
     }, [journey]);
+    const vehicleProgress = journeyVehicleProgress(journey, now, isCompleted);
 
     useEffect(() =>
     {
@@ -177,9 +178,16 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
                 </div>
                 <JourneyMap journey={journey} locale={locale} completed={isCompleted} refreshFailed={refreshFailed} styleUrl={mapStyleUrl} />
                 <ol className="route-timeline">
-                    {journey.stops.map((stop) =>
+                    {journey.stops.map((stop, index) =>
                     {
-                        return <StopRow key={`${stop.stopId}-${stop.order}`} locale={locale} stop={stop} />;
+                        return <StopRow
+                            key={`${stop.stopId}-${stop.order}`}
+                            locale={locale}
+                            stop={stop}
+                            journeyDelaySeconds={journey.realtimeObserved ? journey.delaySeconds : null}
+                            vehicleProgress={vehicleProgress?.afterStopIndex === index ? vehicleProgress : null}
+                            nextStopName={journey.stops[index + 1]?.city ?? null}
+                        />;
                     })}
                 </ol>
             </section>
@@ -257,19 +265,34 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
     );
 }
 
-function StopRow({ stop, locale }: { stop: JourneyStopView; locale: Locale })
+function StopRow({ stop, locale, journeyDelaySeconds, vehicleProgress, nextStopName }: {
+    stop: JourneyStopView;
+    locale: Locale;
+    journeyDelaySeconds: number | null;
+    vehicleProgress: JourneyVehicleProgress | null;
+    nextStopName: string | null;
+})
 {
-    const primary = stop.actualArrivalAt
-        ?? stop.actualDepartureAt
-        ?? stop.expectedArrivalAt
-        ?? stop.expectedDepartureAt
-        ?? stop.aimedArrivalAt
-        ?? stop.aimedDepartureAt;
     const aimed = stop.aimedArrivalAt ?? stop.aimedDepartureAt;
+    const expected = stop.expectedArrivalAt ?? stop.expectedDepartureAt;
+    const actual = stop.actualArrivalAt ?? stop.actualDepartureAt;
+    const displayedDelay = stop.delaySeconds ?? (stop.phase === "passed" ? null : journeyDelaySeconds);
+    const projected = shiftedTime(aimed, displayedDelay);
+    const primary = actual
+        ?? (stop.delaySeconds === null ? projected ?? expected : expected ?? projected)
+        ?? aimed;
 
     return (
         <li className={stop.phase}>
             <span className="timeline-marker" />
+            {vehicleProgress && nextStopName && <span
+                className={`timeline-bus${vehicleProgress.approximate ? " is-approximate" : ""}`}
+                role="img"
+                aria-label={vehicleProgress.approximate
+                    ? localize(locale, `Position approximative du bus entre ${stop.city} et ${nextStopName}`, `Approximate bus location between ${stop.city} and ${nextStopName}`, `Ubicación aproximada del autobús entre ${stop.city} y ${nextStopName}`)
+                    : localize(locale, `Position du bus entre ${stop.city} et ${nextStopName}`, `Bus location between ${stop.city} and ${nextStopName}`, `Ubicación del autobús entre ${stop.city} y ${nextStopName}`)}
+                style={{ "--timeline-bus-offset": `${44 + 88 * vehicleProgress.progress}px` } as CSSProperties}
+            ><img src="/icons/bus-map.svg" alt="" /></span>}
             <div className="stop-copy">
                 <Link href={`/gares/${encodeURIComponent(stop.stopId)}`}>{stop.city}</Link>
                 <span>{stop.name}</span>
@@ -278,9 +301,19 @@ function StopRow({ stop, locale }: { stop: JourneyStopView; locale: Locale })
                 <strong>{formatTime(primary, locale)}</strong>
                 {primary !== aimed && aimed && <del>{formatTime(aimed, locale)}</del>}
             </div>
-            <span className={`stop-delay ${delayTone(stop.delaySeconds)}`}>{shortDelay(stop.delaySeconds)}</span>
+            <span className={`stop-delay ${delayTone(displayedDelay)}`}>{shortDelay(displayedDelay)}</span>
         </li>
     );
+}
+
+function shiftedTime(value: string | null, delaySeconds: number | null): string | null
+{
+    if (!value || delaySeconds === null)
+    {
+        return null;
+    }
+
+    return new Date(new Date(value).getTime() + delaySeconds * 1000).toISOString();
 }
 
 function formatTime(value: string | null, locale: Locale): string
