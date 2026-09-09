@@ -129,18 +129,18 @@ export default async function JourneyPage({ params }: PageProps)
                 <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities", "Ciudades")}</Link><span>›</span><Link href={`/ville/${originCitySlug}`}>{journey.originCity}</Link><span>›</span><span>Bus {journey.serviceNumber}</span>
             </nav>
             <header className="route-heading">
-                <div>
-                    <span className="section-kicker">{archived ? localize(locale, "Horaires enregistrés", "Recorded schedule", "Horarios registrados") : journey.realtimeObserved ? localize(locale, "Suivi en temps réel + voyageurs", "Live tracking + passenger updates", "Seguimiento en tiempo real + avisos de viajeros") : localize(locale, "Horaire prévu + voyageurs", "Scheduled times + passenger updates", "Horarios previstos + avisos de viajeros")}</span>
-                    <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
+                <span className="section-kicker">{archived ? localize(locale, "Horaires enregistrés", "Recorded schedule", "Horarios registrados") : journey.realtimeObserved ? localize(locale, "Suivi en temps réel + voyageurs", "Live tracking + passenger updates", "Seguimiento en tiempo real + avisos de viajeros") : localize(locale, "Horaire prévu + voyageurs", "Scheduled times + passenger updates", "Horarios previstos + avisos de viajeros")}</span>
+                <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
+                <div className="route-heading-footer">
                     <div className="route-identity">
                         <OperatorLogo className="route-operator-logo" operatorSlug={journey.operatorSlug} />
                         <p>Bus <strong>{journey.serviceNumber}</strong> · <strong>{journeyDateLabel(journey, locale)}</strong><br /><time dateTime={journey.serviceDate}>{journeyDate}</time></p>
                     </div>
-                </div>
-                <div className="route-links">
-                    <Link href={busServicePath(journey)}>{localize(locale, `Tous les départs du bus ${journey.serviceNumber}`, `All bus ${journey.serviceNumber} departures`, `Todas las salidas del autobús ${journey.serviceNumber}`)}</Link>
-                    <Link href={cityRoutePath(citySlug(journey.originCity), citySlug(journey.destinationCity))}>{localize(locale, `Tous les bus ${journey.originCity} → ${journey.destinationCity}`, `All buses ${journey.originCity} → ${journey.destinationCity}`, `Todos los autobuses ${journey.originCity} → ${journey.destinationCity}`)}</Link>
-                    <ShareJourney path={journeyPath(journey)} title={titleForShare(journey.serviceNumber, journey.serviceDate)} locale={locale} />
+                    <div className="route-links">
+                        <Link href={busServicePath(journey)}>{localize(locale, `Tous les départs du bus ${journey.serviceNumber}`, `All bus ${journey.serviceNumber} departures`, `Todas las salidas del autobús ${journey.serviceNumber}`)}</Link>
+                        <Link href={cityRoutePath(citySlug(journey.originCity), citySlug(journey.destinationCity))}>{localize(locale, `Tous les bus ${journey.originCity} → ${journey.destinationCity}`, `All buses ${journey.originCity} → ${journey.destinationCity}`, `Todos los autobuses ${journey.originCity} → ${journey.destinationCity}`)}</Link>
+                        <ShareJourney path={journeyPath(journey)} title={titleForShare(journey.serviceNumber, journey.serviceDate)} locale={locale} />
+                    </div>
                 </div>
             </header>
             {archived && (

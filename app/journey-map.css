@@ -137,6 +137,12 @@
     border-style: dashed;
 }
 
+.journey-map-vehicle.is-approximate
+{
+    background: #50625b;
+    border-style: dashed;
+}
+
 .journey-map-stop
 {
     background: transparent;

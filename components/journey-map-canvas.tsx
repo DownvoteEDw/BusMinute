@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
-import type { JourneyVehiclePosition, MapCoordinates } from "../src/application/journey-map";
+import type { JourneyApproximatePosition, JourneyVehiclePosition, MapCoordinates } from "../src/application/journey-map";
 import { localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopPhase } from "../src/application/journey-view";
 
@@ -17,6 +17,7 @@ interface MapStop extends MapCoordinates
 interface JourneyMapCanvasProps
 {
     positions: JourneyVehiclePosition[];
+    approximatePosition: JourneyApproximatePosition | null;
     stops: MapStop[];
     locale: Locale;
     styleUrl?: string;
@@ -39,7 +40,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
     const [attempt, setAttempt] = useState(0);
     const [overview, setOverview] = useState(true);
     const following = useRef(false);
-    const { locale, positions, stops, styleUrl } = props;
+    const { approximatePosition, locale, positions, stops, styleUrl } = props;
 
     useEffect(() =>
     {
@@ -55,7 +56,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
         try
         {
             const initial = latest.current;
-            const first = initial.stops[0] ?? initial.positions[0];
+            const first = initial.stops[0] ?? initial.positions[0] ?? initial.approximatePosition;
             instance = new maplibregl.Map({
                 container: container.current,
                 style: styleUrl || defaultStyleUrl,
@@ -117,6 +118,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
             setOverview(true);
         });
         instance.on("moveend", () => placeStopLabels(instance));
+        instance.on("idle", () => placeApproximateVehicle(instance, markers.current.get("vehicle-approximate"), latest.current.approximatePosition));
         const observer = new ResizeObserver(() =>
         {
             instance.resize();
@@ -213,6 +215,40 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
             marker.setLngLat([position.longitude, position.latitude]);
             updatePopup(marker, `${label} · ${description}`);
         }
+        if (approximatePosition && positions.length === 0)
+        {
+            const id = "vehicle-approximate";
+            activeIds.add(id);
+            let marker = markers.current.get(id);
+            if (!marker)
+            {
+                const button = document.createElement("button");
+                button.type = "button";
+                const icon = document.createElement("img");
+                icon.src = "/icons/bus-map.svg";
+                icon.alt = "";
+                icon.width = 22;
+                icon.height = 22;
+                button.append(icon);
+                marker = new maplibregl.Marker({ element: button })
+                    .setLngLat([approximatePosition.longitude, approximatePosition.latitude])
+                    .setPopup(new maplibregl.Popup({ offset: 22 }))
+                    .addTo(instance);
+                markers.current.set(id, marker);
+            }
+            const element = marker.getElement();
+            element.classList.add("journey-map-vehicle", "is-approximate");
+            const label = localize(locale, `Position approximative du bus ${props.serviceNumber}`, `Approximate location of bus ${props.serviceNumber}`, `Ubicación aproximada del autobús ${props.serviceNumber}`);
+            const description = localize(
+                locale,
+                `Position exacte indisponible · entre ${approximatePosition.fromName} et ${approximatePosition.toName}`,
+                `Exact location unavailable · between ${approximatePosition.fromName} and ${approximatePosition.toName}`,
+                `Ubicación exacta no disponible · entre ${approximatePosition.fromName} y ${approximatePosition.toName}`
+            );
+            element.setAttribute("aria-label", label);
+            updatePopup(marker, `${label} · ${description}`);
+            placeApproximateVehicle(instance, marker, approximatePosition);
+        }
         for (const [id, marker] of markers.current)
         {
             if (!activeIds.has(id))
@@ -226,7 +262,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
             instance.jumpTo({ center: [positions[0]!.longitude, positions[0]!.latitude] });
         }
         window.requestAnimationFrame(() => placeStopLabels(instance));
-    }, [positions, stops, ready, overview, locale, props.serviceNumber, props.operatorName]);
+    }, [approximatePosition, positions, stops, ready, overview, locale, props.serviceNumber, props.operatorName]);
 
     function changeView(): void
     {
@@ -280,6 +316,86 @@ function updatePopup(marker: maplibregl.Marker, text: string): void
         marker.getPopup()?.setText(text);
         element.dataset.popupText = text;
     }
+}
+
+function placeApproximateVehicle(map: maplibregl.Map, marker: maplibregl.Marker | undefined, position: JourneyApproximatePosition | null): void
+{
+    if (!marker || !position || !map.isStyleLoaded())
+    {
+        return;
+    }
+
+    const center = map.project([position.longitude, position.latitude]);
+    const radius = 90;
+    const roadLayers = map.getStyle().layers
+        .filter((layer) => layer.type === "line" && /road|transport|street|motorway|highway|bridge|tunnel/i.test(layer.id))
+        .map((layer) => layer.id);
+    if (roadLayers.length === 0)
+    {
+        marker.setLngLat([position.longitude, position.latitude]);
+        return;
+    }
+
+    const features = map.queryRenderedFeatures([
+        [center.x - radius, center.y - radius],
+        [center.x + radius, center.y + radius]
+    ], { layers: roadLayers });
+    let nearest: { x: number; y: number } | null = null;
+    let nearestDistance = radius * radius;
+
+    for (const feature of features)
+    {
+        const geometry = feature.geometry as { type: string; coordinates: unknown };
+        const lines = geometry.type === "LineString"
+            ? [geometry.coordinates as number[][]]
+            : geometry.type === "MultiLineString"
+                ? geometry.coordinates as number[][][]
+                : [];
+        for (const line of lines)
+        {
+            for (let index = 1; index < line.length; index += 1)
+            {
+                const startCoordinates = line[index - 1];
+                const endCoordinates = line[index];
+                if (!startCoordinates || !endCoordinates)
+                {
+                    continue;
+                }
+                const start = map.project([startCoordinates[0]!, startCoordinates[1]!]);
+                const end = map.project([endCoordinates[0]!, endCoordinates[1]!]);
+                const candidate = closestPoint(center, start, end);
+                const distance = squaredDistance(center, candidate);
+                if (distance < nearestDistance)
+                {
+                    nearest = candidate;
+                    nearestDistance = distance;
+                }
+            }
+        }
+    }
+
+    if (nearest)
+    {
+        marker.setLngLat(map.unproject([nearest.x, nearest.y]));
+    }
+    else
+    {
+        marker.setLngLat([position.longitude, position.latitude]);
+    }
+}
+
+function closestPoint(point: { x: number; y: number }, start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }
+{
+    const x = end.x - start.x;
+    const y = end.y - start.y;
+    const length = x * x + y * y;
+    const ratio = length === 0 ? 0 : Math.max(0, Math.min(1, ((point.x - start.x) * x + (point.y - start.y) * y) / length));
+    return { x: start.x + x * ratio, y: start.y + y * ratio };
+}
+
+function squaredDistance(first: { x: number; y: number }, second: { x: number; y: number }): number
+{
+    return (first.x - second.x) ** 2 + (first.y - second.y) ** 2;
 }
 
 function fitMap(map: maplibregl.Map, points: MapCoordinates[]): void

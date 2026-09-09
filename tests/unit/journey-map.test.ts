@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isVehiclePositionStale, mapCoordinates, retainLastVehiclePositions, visibleVehiclePositions } from "../../src/application/journey-map.js";
+import { approximateVehiclePosition, isVehiclePositionStale, mapCoordinates, retainLastVehiclePositions, visibleVehiclePositions } from "../../src/application/journey-map.js";
 import type { JourneyView } from "../../src/application/journey-view.js";
 
 const now = Date.parse("2026-09-09T12:00:00Z");
@@ -97,5 +97,60 @@ describe("position du bus sur la carte", () =>
         expect(visibleVehiclePositions({ ...value, vehiclePositions: undefined }, now, false)).toEqual([]);
         expect(visibleVehiclePositions({ ...value, vehiclePositions: [{ ...value.vehiclePositions![0]!, receivedAt: "invalid" }] }, now, false)).toEqual([]);
         expect(visibleVehiclePositions(value, now - 120_000, false)).toEqual([]);
+    });
+
+    it("situe approximativement le bus entre le dernier arrêt passé et le prochain arrêt", () =>
+    {
+        const value = journey();
+        value.vehiclePositions = [];
+        value.stops = [
+            {
+                stopId: "madrid",
+                name: "Madrid",
+                city: "Madrid",
+                order: 1,
+                phase: "passed",
+                location: { latitude: 40.4168, longitude: -3.7038 },
+                aimedArrivalAt: null,
+                expectedArrivalAt: null,
+                actualArrivalAt: null,
+                aimedDepartureAt: null,
+                expectedDepartureAt: null,
+                actualDepartureAt: null,
+                arrivalStatus: null,
+                departureStatus: null,
+                delaySeconds: 600,
+                cancelled: false
+            },
+            {
+                stopId: "burgos",
+                name: "Burgos",
+                city: "Burgos",
+                order: 2,
+                phase: "current",
+                location: { latitude: 42.3439, longitude: -3.6969 },
+                aimedArrivalAt: null,
+                expectedArrivalAt: null,
+                actualArrivalAt: null,
+                aimedDepartureAt: null,
+                expectedDepartureAt: null,
+                actualDepartureAt: null,
+                arrivalStatus: null,
+                departureStatus: null,
+                delaySeconds: 600,
+                cancelled: false
+            }
+        ];
+
+        const approximate = approximateVehiclePosition(value, false);
+        expect(approximate).toMatchObject({
+            fromName: "Madrid",
+            toName: "Burgos"
+        });
+        expect(approximate?.latitude).toBeCloseTo(41.38035);
+        expect(approximate?.longitude).toBeCloseTo(-3.70035);
+        expect(approximateVehiclePosition({ ...value, realtimeObserved: false }, false)).toBeNull();
+        expect(approximateVehiclePosition({ ...value, status: "scheduled" }, false)).toBeNull();
+        expect(approximateVehiclePosition(value, true)).toBeNull();
     });
 });

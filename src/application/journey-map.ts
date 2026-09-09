@@ -14,6 +14,12 @@ export interface JourneyVehiclePosition extends MapCoordinates
     lastKnown?: boolean;
 }
 
+export interface JourneyApproximatePosition extends MapCoordinates
+{
+    fromName: string;
+    toName: string;
+}
+
 export const positionStaleAfterMilliseconds = 120_000;
 const maximumPositionAgeMilliseconds = 30 * 60_000;
 
@@ -49,6 +55,45 @@ export function visibleVehiclePositions(journey: JourneyView, now: number, compl
             && age >= -60_000
             && age <= maximumPositionAgeMilliseconds;
     });
+}
+
+export function approximateVehiclePosition(journey: JourneyView, completed: boolean): JourneyApproximatePosition | null
+{
+    if (completed || journey.cancelled || journey.status !== "in_transit"
+        || !journey.realtimeObserved || journey.realtimeStatus !== "live")
+    {
+        return null;
+    }
+
+    let previous: { name: string } & MapCoordinates | null = null;
+    for (const stop of journey.stops)
+    {
+        const location = mapCoordinates(stop.location?.latitude, stop.location?.longitude);
+        if (!location)
+        {
+            continue;
+        }
+
+        if (stop.phase === "passed")
+        {
+            previous = { ...location, name: stop.name };
+            continue;
+        }
+
+        if (previous && stop.phase === "current")
+        {
+            return {
+                latitude: (previous.latitude + location.latitude) / 2,
+                longitude: (previous.longitude + location.longitude) / 2,
+                fromName: previous.name,
+                toName: stop.name
+            };
+        }
+
+        break;
+    }
+
+    return null;
 }
 
 export function isVehiclePositionStale(position: JourneyVehiclePosition, now: number): boolean
