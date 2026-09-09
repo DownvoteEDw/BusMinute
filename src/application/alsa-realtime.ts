@@ -4,6 +4,7 @@ import type
     AlsaRealtimeJourney,
     AlsaRealtimeLookupResult
 } from "../providers/alsa/realtime-client.js";
+import { mapCoordinates } from "./journey-map.js";
 import type
 {
     JourneyOperationalStatus,
@@ -53,6 +54,11 @@ export function enrichAlsaJourney(
         completeStopSequence: realtime.calls.length >= journey.stops.length,
         matchConfidence: matchConfidence(journey, realtime),
         matchMethod: "ALSA_TRACKING_BUS_API",
+        vehiclePositions: realtime.vehicles.flatMap((vehicle, index) =>
+        {
+            const position = mapCoordinates(vehicle.latitude, vehicle.longitude);
+            return position ? [{ ...position, id: `alsa-${index + 1}`, receivedAt: realtime.recordedAt }] : [];
+        }),
         stops
     };
 }
@@ -102,6 +108,7 @@ function enrichStop(
 
     return {
         ...stop,
+        location: stop.location ?? mapCoordinates(call.latitude, call.longitude),
         phase: stopPhase(callIndex, currentCallIndex, call),
         aimedArrivalAt,
         expectedArrivalAt: call.expectedArrivalAt,

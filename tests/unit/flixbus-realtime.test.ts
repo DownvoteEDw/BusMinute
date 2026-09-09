@@ -165,6 +165,28 @@ describe("temps réel FlixBus", () =>
         expect(enriched.stops[0]?.departureStatus).toBe("EARLY");
     });
 
+    it("transmet la position et son heure source sans exposer les informations du véhicule", () =>
+    {
+        const payload = realtimePayload() as { rides: Array<Record<string, unknown>> };
+        payload.rides[0]!.location = {
+            coordinates: { latitude: 48.883759, longitude: 2.459167 },
+            updated_at: "2026-09-02T09:00:00Z"
+        };
+        payload.rides[0]!.vehicle = { license_plate: "PRIVATE-PLATE" };
+        const rides = parseRealtimeRides(payload, new Date("2026-09-02T09:05:00Z"));
+        const enriched = enrichFlixBusJourney(scheduledJourney(), rides, new Date("2026-09-02T09:05:00Z"));
+        expect(enriched.vehiclePositions).toEqual([{
+            id: "ride-9901",
+            latitude: 48.883759,
+            longitude: 2.459167,
+            receivedAt: "2026-09-02T09:05:00.000Z",
+            recordedAt: "2026-09-02T09:00:00.000Z"
+        }]);
+        expect(JSON.stringify(enriched)).not.toContain("PRIVATE-PLATE");
+        payload.rides[0]!.location = { coordinates: { latitude: 0, longitude: 0 } };
+        expect(parseRealtimeRides(payload)[0]?.position).toBeNull();
+    });
+
     it("ne confond pas deux départs rapprochés portant le même numéro", () =>
     {
         const rides = parseRealtimeRides(realtimePayload(

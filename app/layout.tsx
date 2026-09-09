@@ -8,6 +8,8 @@ import { localeTag, localize } from "../src/application/i18n";
 import { requestLocale } from "./request-locale";
 import { absoluteUrl } from "../src/application/seo";
 import "./globals.css";
+import "maplibre-gl/dist/maplibre-gl.css";
+import "./journey-map.css";
 
 export async function generateMetadata(): Promise<Metadata>
 {

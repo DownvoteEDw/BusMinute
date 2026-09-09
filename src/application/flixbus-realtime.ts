@@ -48,6 +48,7 @@ export function enrichFlixBusJourney(
         updatedAt,
         matchConfidence: matchConfidence(match, journey.stops.length),
         matchMethod: "FLIXBUS_REALTIME_API",
+        vehiclePositions: match.ride.position ? [match.ride.position] : [],
         stops
     };
 }

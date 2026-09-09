@@ -154,7 +154,7 @@ export default async function JourneyPage({ params }: PageProps)
                     </Link>
                 </aside>
             )}
-            <JourneyTracker initialJourney={journey} locale={locale} completed={archived} />
+            <JourneyTracker initialJourney={journey} initialNow={Date.now()} locale={locale} completed={archived} mapStyleUrl={process.env.MAP_STYLE_URL || undefined} />
             <StructuredData value={structuredData} />
         </div>
     );

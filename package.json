@@ -5,6 +5,8 @@
   "type": "module",
   "description": "Horaires et suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus, avec retards en gare",
   "scripts": {
+    "predev": "node scripts/copy-maplibre-worker.mjs",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "dev": "next dev --webpack",
     "start": "next start",
     "build": "next build --webpack",
@@ -25,6 +27,7 @@
     "adm-zip": "^0.6.0",
     "csv-parse": "^6.1.0",
     "luxon": "^3.7.2",
+    "maplibre-gl": "6.9.0",
     "next": "16.3.2",
     "pg": "^8.16.3",
     "react": "19.2.8",

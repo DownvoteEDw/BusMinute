@@ -74,6 +74,8 @@ describe("TransitDataService", () =>
         expect(journey?.scheduledTripId).toBe("7672428505");
         expect(journey?.status).toBe("arrived");
         expect(journey?.delaySeconds).toBe(-544);
+        expect(journey?.stops.every((stop) => stop.location && Number.isFinite(stop.location.latitude))).toBe(true);
+        expect(journey?.vehiclePositions).toEqual([]);
         expect(stop?.journeys).toHaveLength(0);
         expect(stop?.operatorStops).toEqual(
         [

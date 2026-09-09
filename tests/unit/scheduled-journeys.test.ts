@@ -38,5 +38,7 @@ describe("conversion des horaires GTFS", () =>
         expect(journey?.stops[1]?.aimedArrivalAt).toBe(expected);
         expect(journey?.stops[0]?.phase).toBe("passed");
         expect(journey?.stops[1]?.phase).toBe("current");
+        expect(journey?.stops[0]?.location).toEqual({ latitude: feed.stops[0]!.latitude, longitude: feed.stops[0]!.longitude });
+        expect(journey?.vehiclePositions).toEqual([]);
     });
 });

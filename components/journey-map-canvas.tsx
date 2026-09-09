@@ -1,0 +1,279 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import * as maplibregl from "maplibre-gl";
+import type { JourneyVehiclePosition, MapCoordinates } from "../src/application/journey-map";
+import { localize, type Locale } from "../src/application/i18n";
+import type { JourneyStopPhase } from "../src/application/journey-view";
+
+interface MapStop extends MapCoordinates
+{
+    id: string;
+    name: string;
+    phase: JourneyStopPhase;
+}
+
+interface JourneyMapCanvasProps
+{
+    positions: JourneyVehiclePosition[];
+    stops: MapStop[];
+    locale: Locale;
+    styleUrl?: string;
+    serviceNumber: string;
+    operatorName: string;
+}
+
+const defaultStyleUrl = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+maplibregl.setWorkerUrl(`/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`);
+
+export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
+{
+    const container = useRef<HTMLDivElement>(null);
+    const map = useRef<maplibregl.Map | null>(null);
+    const markers = useRef(new Map<string, maplibregl.Marker>());
+    const latest = useRef(props);
+    latest.current = props;
+    const [ready, setReady] = useState(false);
+    const [failed, setFailed] = useState(false);
+    const [attempt, setAttempt] = useState(0);
+    const [overview, setOverview] = useState(props.positions.length === 0);
+    const following = useRef(props.positions.length > 0);
+    const { locale, positions, stops, styleUrl } = props;
+
+    useEffect(() =>
+    {
+        if (!container.current)
+        {
+            return;
+        }
+
+        let instance: maplibregl.Map;
+        let disposed = false;
+        setReady(false);
+        setFailed(false);
+        try
+        {
+            const initial = latest.current;
+            const first = initial.positions[0] ?? initial.stops[0];
+            instance = new maplibregl.Map({
+                container: container.current,
+                style: styleUrl || defaultStyleUrl,
+                center: first ? [first.longitude, first.latitude] : [0, 0],
+                zoom: initial.positions.length > 0 ? 10 : 7,
+                minZoom: 2,
+                maxZoom: 18,
+                attributionControl: false,
+                scrollZoom: false,
+                dragRotate: false,
+                pitchWithRotate: false,
+                touchPitch: false,
+                locale: {
+                    "NavigationControl.ZoomIn": localize(locale, "Zoomer", "Zoom in", "Acercar"),
+                    "NavigationControl.ZoomOut": localize(locale, "Dézoomer", "Zoom out", "Alejar"),
+                    "Popup.Close": localize(locale, "Fermer", "Close", "Cerrar"),
+                    "AttributionControl.ToggleAttribution": localize(locale, "Sources de la carte", "Map attribution", "Fuentes del mapa")
+                }
+            });
+        }
+        catch
+        {
+            setFailed(true);
+            return;
+        }
+
+        map.current = instance;
+        instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+        instance.addControl(new maplibregl.AttributionControl({ compact: false }), "bottom-right");
+        const timeout = window.setTimeout(() =>
+        {
+            if (!disposed)
+            {
+                setFailed(true);
+            }
+        }, 20_000);
+        instance.on("load", () =>
+        {
+            if (disposed)
+            {
+                return;
+            }
+            window.clearTimeout(timeout);
+            setReady(true);
+            setFailed(false);
+            const current = latest.current;
+            if (current.positions.length !== 1)
+            {
+                fitMap(instance, current.positions.length > 1 ? current.positions : current.stops);
+            }
+        });
+        instance.on("error", () =>
+        {
+            if (!disposed && !instance.isStyleLoaded())
+            {
+                setFailed(true);
+            }
+        });
+        instance.on("dragstart", () =>
+        {
+            following.current = false;
+            setOverview(true);
+        });
+        const observer = new ResizeObserver(() => instance.resize());
+        observer.observe(container.current);
+
+        return () =>
+        {
+            disposed = true;
+            observer.disconnect();
+            window.clearTimeout(timeout);
+            markers.current.forEach((marker) => marker.remove());
+            markers.current.clear();
+            map.current = null;
+            instance.remove();
+        };
+    }, [styleUrl, locale, attempt]);
+
+    useEffect(() =>
+    {
+        const instance = map.current;
+        if (!instance || !ready)
+        {
+            return;
+        }
+
+        const activeIds = new Set<string>();
+        for (const stop of stops)
+        {
+            const id = `stop-${stop.id}`;
+            activeIds.add(id);
+            let marker = markers.current.get(id);
+            if (!marker)
+            {
+                const button = document.createElement("button");
+                button.type = "button";
+                marker = new maplibregl.Marker({ element: button })
+                    .setLngLat([stop.longitude, stop.latitude])
+                    .setPopup(new maplibregl.Popup({ offset: 12 }).setText(stop.name))
+                    .addTo(instance);
+                markers.current.set(id, marker);
+            }
+            const element = marker.getElement();
+            element.classList.add("journey-map-stop");
+            for (const phase of ["passed", "current", "upcoming"])
+            {
+                element.classList.toggle(phase, stop.phase === phase);
+            }
+            element.setAttribute("aria-label", stop.name);
+            marker.setLngLat([stop.longitude, stop.latitude]);
+            updatePopup(marker, stop.name);
+        }
+        for (const position of positions)
+        {
+            const id = `vehicle-${position.id}`;
+            activeIds.add(id);
+            let marker = markers.current.get(id);
+            if (!marker)
+            {
+                const button = document.createElement("button");
+                button.type = "button";
+                const icon = document.createElement("img");
+                icon.src = "/icons/bus-map.svg";
+                icon.alt = "";
+                icon.width = 22;
+                icon.height = 22;
+                button.append(icon);
+                marker = new maplibregl.Marker({ element: button })
+                    .setLngLat([position.longitude, position.latitude])
+                    .setPopup(new maplibregl.Popup({ offset: 22 }))
+                    .addTo(instance);
+                markers.current.set(id, marker);
+            }
+            const element = marker.getElement();
+            element.classList.add("journey-map-vehicle");
+            element.classList.toggle("is-stale", position.lastKnown === true);
+            const label = localize(locale, `Bus ${props.serviceNumber} · ${props.operatorName}`, `Bus ${props.serviceNumber} · ${props.operatorName}`, `Autobús ${props.serviceNumber} · ${props.operatorName}`);
+            element.setAttribute("aria-label", label);
+            const description = position.lastKnown
+                ? localize(locale, "Dernière position connue", "Last known position", "Última posición conocida")
+                : localize(locale, "Position transmise par le transporteur", "Position provided by the operator", "Posición facilitada por el operador");
+            marker.setLngLat([position.longitude, position.latitude]);
+            updatePopup(marker, `${label} · ${description}`);
+        }
+        for (const [id, marker] of markers.current)
+        {
+            if (!activeIds.has(id))
+            {
+                marker.remove();
+                markers.current.delete(id);
+            }
+        }
+        if (following.current && !overview && positions.length === 1)
+        {
+            instance.jumpTo({ center: [positions[0]!.longitude, positions[0]!.latitude] });
+        }
+    }, [positions, stops, ready, overview, locale, props.serviceNumber, props.operatorName]);
+
+    function changeView(): void
+    {
+        const instance = map.current;
+        if (!instance)
+        {
+            return;
+        }
+
+        const showOverview = !overview;
+        setOverview(showOverview);
+        following.current = !showOverview;
+        if (showOverview)
+        {
+            fitMap(instance, [...stops, ...positions]);
+        }
+        else if (positions.length === 1)
+        {
+            instance.jumpTo({ center: [positions[0]!.longitude, positions[0]!.latitude], zoom: 10 });
+        }
+        else
+        {
+            fitMap(instance, positions);
+        }
+    }
+
+    return (
+        <div className="journey-map-content">
+            <div className="journey-map-surface">
+                <div className="journey-map-canvas" ref={container} aria-label={localize(locale, "Carte routière du trajet", "Journey road map", "Mapa del trayecto")} />
+                {!ready && !failed && <div className="journey-map-message" role="status">{localize(locale, "Chargement de la carte…", "Loading map…", "Cargando mapa…")}</div>}
+                {failed && <div className="journey-map-message" role="status">
+                    <span>{localize(locale, "La carte n’est pas disponible pour le moment.", "The map is currently unavailable.", "El mapa no está disponible en este momento.")}</span>
+                    <button type="button" onClick={() => setAttempt((value) => value + 1)}>{localize(locale, "Réessayer", "Try again", "Reintentar")}</button>
+                </div>}
+            </div>
+            {ready && !failed && positions.length > 0 && <div className="journey-map-toolbar">
+                <button type="button" onClick={changeView}>{overview
+                    ? localize(locale, "Recentrer sur le bus", "Center on the bus", "Centrar en el autobús")
+                    : localize(locale, "Voir tout le trajet", "View entire journey", "Ver todo el trayecto")}</button>
+            </div>}
+        </div>
+    );
+}
+
+function updatePopup(marker: maplibregl.Marker, text: string): void
+{
+    const element = marker.getElement();
+    if (element.dataset.popupText !== text)
+    {
+        marker.getPopup()?.setText(text);
+        element.dataset.popupText = text;
+    }
+}
+
+function fitMap(map: maplibregl.Map, points: MapCoordinates[]): void
+{
+    if (points.length === 0)
+    {
+        return;
+    }
+    const bounds = new maplibregl.LngLatBounds();
+    points.forEach((point) => bounds.extend([point.longitude, point.latitude]));
+    map.fitBounds(bounds, { padding: 45, maxZoom: 12, duration: 0 });
+}

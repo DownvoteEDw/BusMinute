@@ -8,6 +8,7 @@ x-busminute-environment: &busminute-environment
   HOSTNAME: 0.0.0.0
   PORT: 3000
   SITE_URL: ${SITE_URL:?SITE_URL est requis}
+  MAP_STYLE_URL: ${MAP_STYLE_URL:-https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json}
   POSTGRES_HOST: postgres
   POSTGRES_PORT: 5432
   POSTGRES_DB: ${POSTGRES_DB:-busminute}

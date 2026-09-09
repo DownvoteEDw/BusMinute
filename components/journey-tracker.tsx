@@ -7,6 +7,8 @@ import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import type { PassengerReport, PassengerReportType } from "../src/application/passenger-reports";
 import { isJourneyCompleted } from "../src/application/seo";
+import { retainLastVehiclePositions } from "../src/application/journey-map";
+import { JourneyMap } from "./journey-map";
 
 interface JourneyResponse
 {
@@ -32,22 +34,33 @@ interface JourneyTrackerProps
     initialJourney: JourneyView;
     completed?: boolean;
     locale?: Locale;
+    mapStyleUrl?: string;
+    initialNow: number;
 }
 
-export function JourneyTracker({ initialJourney, locale = "fr", completed = false }: JourneyTrackerProps)
+export function JourneyTracker({ initialJourney, locale = "fr", completed = false, mapStyleUrl, initialNow }: JourneyTrackerProps)
 {
     const [journey, setJourney] = useState(initialJourney);
-    const isCompleted = completed || isJourneyCompleted(journey);
+    const [now, setNow] = useState(initialNow);
+    const isCompleted = completed || isJourneyCompleted(journey, new Date(now));
     const [reports, setReports] = useState<PassengerReport[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshFailed, setRefreshFailed] = useState(false);
     const [reporting, setReporting] = useState<PassengerReportType | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
     const isOnTime = journey.delaySeconds !== null && Math.abs(journey.delaySeconds) < 300;
-    const staleRealtime = journey.realtimeObserved && isRealtimeStale(journey.updatedAt);
+    const staleRealtime = journey.realtimeObserved && isRealtimeStale(journey.updatedAt, now);
     const currentStop = useMemo(() =>
     {
         return journey.stops.find((stop) => stop.phase === "current") ?? journey.stops[journey.stops.length - 1];
     }, [journey]);
+
+    useEffect(() =>
+    {
+        setNow(Date.now());
+        const interval = window.setInterval(() => setNow(Date.now()), 15_000);
+        return () => window.clearInterval(interval);
+    }, []);
 
     useEffect(() =>
     {
@@ -81,8 +94,17 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
             if (response.ok)
             {
                 const data = await response.json() as JourneyResponse;
-                setJourney(data.journey);
+                setJourney((previous) => retainLastVehiclePositions(previous, data.journey));
+                setRefreshFailed(false);
             }
+            else
+            {
+                setRefreshFailed(true);
+            }
+        }
+        catch
+        {
+            setRefreshFailed(true);
         }
         finally
         {
@@ -146,13 +168,14 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
                 <div className={`tracker-summary${staleRealtime ? " is-stale" : ""}`}>
                     <div>
                         <span className={`operational-pill ${staleRealtime ? "stale" : journey.realtimeObserved ? journey.status : "scheduled"}`}><i /> {isCompleted ? localize(locale, "Trajet terminé", "Journey completed", "Trayecto finalizado") : realtimeHeadline(journey, staleRealtime, locale)}</span>
-                        <p>{isCompleted ? localize(locale, "Horaires enregistrés pour cette circulation passée.", "Recorded times for this past journey.", "Horarios registrados de este trayecto pasado.") : realtimeDescription(journey, refreshing, locale)}</p>
+                        <p>{isCompleted ? localize(locale, "Horaires enregistrés pour cette circulation passée.", "Recorded times for this past journey.", "Horarios registrados de este trayecto pasado.") : realtimeDescription(journey, refreshing, locale, now)}</p>
                     </div>
                     <div className={`big-delay ${delayTone(journey.delaySeconds)}${isOnTime ? " is-on-time-label" : ""}${staleRealtime ? " is-stale" : ""}`}>
                         <strong>{delayNumber(journey.delaySeconds, locale)}</strong>
                         <span>{staleRealtime ? localize(locale, `dernière estimation · ${delayCaption(journey, locale)}`, `last estimate · ${delayCaption(journey, locale)}`, `última estimación · ${delayCaption(journey, locale)}`) : delayCaption(journey, locale)}</span>
                     </div>
                 </div>
+                <JourneyMap journey={journey} locale={locale} completed={isCompleted} refreshFailed={refreshFailed} styleUrl={mapStyleUrl} />
                 <ol className="route-timeline">
                     {journey.stops.map((stop) =>
                     {
@@ -224,7 +247,7 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
                         return (
                             <div key={report.id}>
                                 <span>{reportLabel(report.type, locale)}</span>
-                                <time dateTime={report.createdAt}>{relativeTime(report.createdAt, locale)}</time>
+                                <time dateTime={report.createdAt}>{relativeTime(report.createdAt, locale, now)}</time>
                             </div>
                         );
                     })}
@@ -275,9 +298,9 @@ function formatTime(value: string | null, locale: Locale): string
     }).format(new Date(value));
 }
 
-function relativeTime(value: string, locale: Locale): string
+function relativeTime(value: string, locale: Locale, now: number): string
 {
-    const seconds = Math.round((new Date(value).getTime() - Date.now()) / 1000);
+    const seconds = Math.round((new Date(value).getTime() - now) / 1000);
     const formatter = new Intl.RelativeTimeFormat(localeTag(locale), { numeric: "auto" });
 
     if (Math.abs(seconds) < 60)
@@ -295,11 +318,11 @@ function relativeTime(value: string, locale: Locale): string
     return formatter.format(Math.round(minutes / 60), "hour");
 }
 
-function isRealtimeStale(value: string): boolean
+function isRealtimeStale(value: string, now: number): boolean
 {
     const timestamp = new Date(value).getTime();
 
-    return Number.isFinite(timestamp) && Date.now() - timestamp > 15 * 60 * 1000;
+    return Number.isFinite(timestamp) && now - timestamp > 15 * 60 * 1000;
 }
 
 function statusLabel(status: JourneyView["status"], locale: Locale): string
@@ -348,12 +371,13 @@ function realtimeHeadline(journey: JourneyView, stale: boolean, locale: Locale):
 function realtimeDescription(
     journey: JourneyView,
     refreshing: boolean,
-    locale: Locale
+    locale: Locale,
+    now: number
 ): string
 {
     if (journey.realtimeObserved)
     {
-        return `${localize(locale, `Dernière donnée ${journey.operatorName} reçue`, `Latest ${journey.operatorName} data received`, `Último dato de ${journey.operatorName} recibido`)} ${relativeTime(journey.updatedAt, locale)} ${refreshing ? localize(locale, "· vérification…", "· checking…", "· comprobando…") : ""}`;
+        return `${localize(locale, `Dernière donnée ${journey.operatorName} reçue`, `Latest ${journey.operatorName} data received`, `Último dato de ${journey.operatorName} recibido`)} ${relativeTime(journey.updatedAt, locale, now)} ${refreshing ? localize(locale, "· vérification…", "· checking…", "· comprobando…") : ""}`;
     }
 
     if (journey.realtimeStatus === "not_offered")
@@ -379,7 +403,7 @@ function realtimeDescription(
     if (journey.realtimeStatus === "outside_tracking_period")
     {
         const departureAt = journey.stops[0]?.aimedDepartureAt;
-        const departureIsAhead = departureAt && new Date(departureAt).getTime() > Date.now();
+        const departureIsAhead = departureAt && new Date(departureAt).getTime() > now;
         return departureIsAhead
             ? localize(
                 locale,

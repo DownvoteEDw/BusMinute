@@ -6,6 +6,7 @@ Application monolithique d’horaires et de suivi en temps réel Alsa, BlaBlaCar
 
 - recherche par numéro de bus, ville ou arrêt ;
 - page de suivi avec horaires prévus, horaires constatés et retard par arrêt ;
+- carte routière repliable avec arrêts et positions GPS Alsa et FlixBus lorsqu’elles sont fournies ;
 - rafraîchissement automatique toutes les 30 secondes ;
 - recherche par ville et gare, même sans circulation active ;
 - pages de ville, gare, départ daté et liaison ;
@@ -79,6 +80,7 @@ Variables disponibles :
 | Variable | Obligatoire | Rôle |
 | --- | --- | --- |
 | `SITE_URL` | oui | origine HTTPS publique utilisée par les métadonnées |
+| `MAP_STYLE_URL` | non | style MapLibre public fourni au navigateur au démarrage du serveur ; CARTO Voyager par défaut |
 | `POSTGRES_PASSWORD` | oui | secret PostgreSQL |
 | `POSTGRES_DB` | non | base, `busminute` par défaut |
 | `POSTGRES_USER` | non | utilisateur, `busminute` par défaut |
@@ -164,6 +166,22 @@ docker compose run --rm --volume C:/data:/data migration node dist/src/cli/impor
 ```
 
 ## Pages et API
+
+### Carte du trajet
+
+Les commandes `npm run dev` et `npm run build` copient automatiquement le worker MapLibre et son module partagé dans les ressources publiques. Ces fichiers générés sont également inclus dans l’image Docker.
+
+La carte conserve la présentation du suivi et utilise MapLibre, chargé seulement lorsque la carte ouverte approche de l’écran. Le fond routier par défaut est CARTO Voyager, avec les attributions du fournisseur. `MAP_STYLE_URL` permet de choisir un autre style compatible ou d’ajouter une clé publique de carte propre au site ; cette URL est transmise au navigateur et ne doit pas contenir de secret serveur. La variable est disponible à l’exécution dans Docker Compose, sans reconstruction pour changer sa valeur.
+
+Les arrêts proviennent des coordonnées GTFS. Le connecteur Alsa expose les coordonnées des véhicules effectivement reçues ; le flux ne fournit pas d’horodatage de mesure GPS, aussi `vehiclePositions[].receivedAt` indique la réception de la réponse, et l’interface affiche « Reçue… ». Les coordonnées absentes, non finies, hors limites et `0,0` sont rejetées. Les plaques d’immatriculation ne sont pas exposées par l’API du trajet.
+
+Le connecteur FlixBus exploite `location.coordinates` et conserve `location.updated_at` dans `vehiclePositions[].recordedAt`, indépendamment de l’heure de réception. Son horodatage GPS sert au vieillissement du repère, même si les horaires viennent d’être actualisés. Le cache du connecteur ne renouvelle pas ces horodatages.
+
+Une position datant de plus de deux minutes, ou conservée après une réponse sans position, est présentée comme dernière position connue. Elle disparaît de la carte après trente minutes. Les trajets terminés et annulés n’affichent aucun véhicule. Sans coordonnées de véhicule, la carte affiche seulement les arrêts ; elle ne déduit jamais une position à partir des horaires. Le flux EstimatedTimetable BlaBlaCar Bus ne fournit pas de coordonnées de véhicule au connecteur : sa carte affiche les arrêts.
+
+La carte se replie, propose la vue de tous les arrêts et le recentrage sur les véhicules, et laisse les horaires disponibles si le fond de carte ou WebGL échoue. Aucune migration de base de données n’est nécessaire : les champs `location` des arrêts et `vehiclePositions` des trajets sont facultatifs pour rester compatibles avec les anciennes publications.
+
+### Adresses
 
 | Adresse | Rôle |
 | --- | --- |

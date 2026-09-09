@@ -1,4 +1,5 @@
 import { AsyncCache } from "../../application/async-cache.js";
+import { mapCoordinates, type JourneyVehiclePosition } from "../../application/journey-map.js";
 
 export interface FlixBusRealtimeDeviation
 {
@@ -27,6 +28,7 @@ export interface FlixBusRealtimeCall
 
 export interface FlixBusRealtimeRide
 {
+    position?: JourneyVehiclePosition | null;
     id: string;
     serviceNumber: string;
     direction: string;
@@ -184,14 +186,14 @@ export class FlixBusRealtimeClient
     }
 }
 
-export function parseRealtimeRides(value: unknown): FlixBusRealtimeRide[]
+export function parseRealtimeRides(value: unknown, receivedAt = new Date()): FlixBusRealtimeRide[]
 {
     const root = record(value);
     const rides = Array.isArray(root?.rides) ? root.rides : [];
-    return rides.map(parseRide).filter((ride): ride is FlixBusRealtimeRide => ride !== null);
+    return rides.map((ride) => parseRide(ride, receivedAt)).filter((ride): ride is FlixBusRealtimeRide => ride !== null);
 }
 
-function parseRide(value: unknown): FlixBusRealtimeRide | null
+function parseRide(value: unknown, receivedAt: Date): FlixBusRealtimeRide | null
 {
     const ride = record(value);
     const line = record(ride?.line);
@@ -209,12 +211,32 @@ function parseRide(value: unknown): FlixBusRealtimeRide | null
 
     return {
         id,
+        position: parsePosition(ride?.location, id, receivedAt),
         serviceNumber,
         direction: textValue(line?.direction) ?? calls[calls.length - 1]?.cityName ?? "",
         nextStopSequence: numberValue(status?.next_stop_sequence),
         hasArrivedAtNextStop: booleanValue(status?.has_arrived_at_next_stop),
         deviation: parseDeviation(status?.deviation),
         calls
+    };
+}
+
+function parsePosition(value: unknown, id: string, receivedAt: Date): JourneyVehiclePosition | null
+{
+    const location = record(value);
+    const rawCoordinates = record(location?.coordinates);
+    const coordinates = mapCoordinates(rawCoordinates?.latitude, rawCoordinates?.longitude);
+    if (!coordinates)
+    {
+        return null;
+    }
+    const updatedAt = textValue(location?.updated_at);
+    const timestamp = updatedAt ? Date.parse(updatedAt) : NaN;
+    return {
+        ...coordinates,
+        id,
+        receivedAt: receivedAt.toISOString(),
+        ...(Number.isFinite(timestamp) ? { recordedAt: new Date(timestamp).toISOString() } : {})
     };
 }
 

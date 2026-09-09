@@ -114,6 +114,30 @@ describe("temps réel Alsa", () =>
         expect(journey.stops[0]?.phase).toBe("passed");
         expect(journey.stops[1]?.expectedArrivalAt).toBe("2026-09-07T10:04:00.000Z");
         expect(journey.stops[1]?.arrivalStatus).toBe("DELAYED");
+        expect(journey.vehiclePositions).toEqual([{
+            id: "alsa-1",
+            latitude: 42.024962864,
+            longitude: -3.764288023,
+            receivedAt: "2026-09-07T09:30:00.000Z"
+        }]);
+        expect(JSON.stringify(journey)).not.toContain("8997MZG");
+        expect(journey.stops[0]?.location).toEqual({ latitude: 40, longitude: -3 });
+    });
+
+    it("conserve tous les véhicules valides et les coordonnées précises des arrêts GTFS", () =>
+    {
+        const realtime = parseAlsaTrackingResponse(trackingPayload(), { flight: "54", originId: "5155", destinationId: "365" }, realtimeRequest())[0]!;
+        realtime.vehicles.push(
+            { registration: null, latitude: 0, longitude: 0 },
+            { registration: null, latitude: 95, longitude: -3 },
+            { registration: null, latitude: 42.1, longitude: -3.7 }
+        );
+        const scheduled = scheduledJourney();
+        scheduled.stops[0]!.location = { latitude: 40.438, longitude: -3.676 };
+        const result = enrichAlsaJourney(scheduled, { status: "live", journey: realtime });
+        expect(result.vehiclePositions).toHaveLength(2);
+        expect(result.stops[0]?.location).toEqual(scheduled.stops[0]!.location);
+        expect(enrichAlsaJourney({ ...scheduled, serviceNumber: "999" }, { status: "live", journey: realtime }).vehiclePositions).toBeUndefined();
     });
 
     it("conserve l’horaire prévu et expose l’absence de suivi pour le véhicule", () =>

@@ -6,6 +6,7 @@ import type
     TripMatchResult
 } from "../domain/models.js";
 import { blablacarBusOperator, type TransitOperator } from "./operators.js";
+import { mapCoordinates, type JourneyVehiclePosition, type MapCoordinates } from "./journey-map.js";
 
 export type JourneyOperationalStatus = "scheduled" | "in_transit" | "arrived" | "cancelled";
 export type JourneyRealtimeStatus =
@@ -18,6 +19,7 @@ export type JourneyStopPhase = "passed" | "current" | "upcoming";
 
 export interface JourneyStopView
 {
+    location?: MapCoordinates | null;
     stopId: string;
     name: string;
     city: string;
@@ -46,6 +48,7 @@ export interface PunctualitySummaryView
 
 export interface JourneyView
 {
+    vehiclePositions?: JourneyVehiclePosition[];
     publicId?: string;
     publicPath?: string;
     journeyRef: string;
@@ -189,6 +192,7 @@ export function buildJourneyView(
 
         return {
             stopId: call.stopPointRef,
+            location: mapCoordinates(feedStop?.latitude, feedStop?.longitude),
             name,
             city: cityName(name),
             order: call.order,
@@ -232,6 +236,7 @@ export function buildJourneyView(
         matchMethod: match.match?.method ?? null,
         scheduledTripId: match.match?.trip.externalId ?? null,
         punctuality: null,
+        vehiclePositions: [],
         stops
     };
 }

@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { mapCoordinates } from "./journey-map.js";
 import type { GtfsFeed, GtfsScheduledTrip, GtfsStop } from "../domain/models.js";
 import { cityName, type JourneyStopPhase, type JourneyStopView, type JourneyView } from "./journey-view.js";
 import
@@ -103,6 +104,7 @@ function buildScheduledJourneyViewWithStops(
 
         return {
             stopId: publicStopId(operator, stopTime.stopExternalId),
+            location: mapCoordinates(stop?.latitude, stop?.longitude),
             name,
             city: cityName(name),
             order: stopTime.sequence,
@@ -151,6 +153,7 @@ function buildScheduledJourneyViewWithStops(
         matchMethod: "GTFS_SCHEDULE",
         scheduledTripId: trip.externalId,
         punctuality: null,
+        vehiclePositions: [],
         stops
     };
 }
