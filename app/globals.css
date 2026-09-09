@@ -2752,6 +2752,7 @@ h1 em {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    padding-bottom: 30px;
 }
 
 .service-dates a {
@@ -2800,8 +2801,9 @@ h1 em {
 
 .journey-share-icon {
     color: var(--coral);
-    font-size: 17px;
-    line-height: 1;
+    flex: 0 0 auto;
+    height: 16px;
+    width: 16px;
 }
 
 .journey-share-feedback {
