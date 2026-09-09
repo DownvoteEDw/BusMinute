@@ -150,15 +150,16 @@
 .journey-map-stop::before
 {
     background: var(--card);
-    border: 2px solid var(--green);
+    border: 3px solid var(--green);
     border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 2px 6px rgba(16, 33, 27, .3);
     content: "";
-    height: 11px;
+    height: 15px;
     left: 50%;
     position: absolute;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 11px;
+    width: 15px;
 }
 
 .journey-map-stop.passed::before
@@ -168,6 +169,7 @@
 
 .journey-map-stop.current::before
 {
+    background: var(--coral);
     border-color: var(--coral);
 }
 

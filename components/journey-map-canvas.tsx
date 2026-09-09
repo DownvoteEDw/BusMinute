@@ -36,8 +36,8 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
     const [ready, setReady] = useState(false);
     const [failed, setFailed] = useState(false);
     const [attempt, setAttempt] = useState(0);
-    const [overview, setOverview] = useState(props.positions.length === 0);
-    const following = useRef(props.positions.length > 0);
+    const [overview, setOverview] = useState(true);
+    const following = useRef(false);
     const { locale, positions, stops, styleUrl } = props;
 
     useEffect(() =>
@@ -54,12 +54,12 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
         try
         {
             const initial = latest.current;
-            const first = initial.positions[0] ?? initial.stops[0];
+            const first = initial.stops[0] ?? initial.positions[0];
             instance = new maplibregl.Map({
                 container: container.current,
                 style: styleUrl || defaultStyleUrl,
                 center: first ? [first.longitude, first.latitude] : [0, 0],
-                zoom: initial.positions.length > 0 ? 10 : 7,
+                zoom: 7,
                 minZoom: 2,
                 maxZoom: 18,
                 attributionControl: false,
@@ -101,10 +101,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
             setReady(true);
             setFailed(false);
             const current = latest.current;
-            if (current.positions.length !== 1)
-            {
-                fitMap(instance, current.positions.length > 1 ? current.positions : current.stops);
-            }
+            fitMap(instance, current.stops.length > 0 ? current.stops : current.positions);
         });
         instance.on("error", () =>
         {
@@ -226,7 +223,7 @@ export default function JourneyMapCanvas(props: JourneyMapCanvasProps)
         following.current = !showOverview;
         if (showOverview)
         {
-            fitMap(instance, [...stops, ...positions]);
+            fitMap(instance, stops.length > 0 ? stops : positions);
         }
         else if (positions.length === 1)
         {
