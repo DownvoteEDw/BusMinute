@@ -81,6 +81,15 @@ interface TimedValue<T>
 
 export class TransitDataService
 {
+    private readonly allowProviderRequests: boolean;
+    private readonly snapshotSource: TransitDataService | undefined;
+
+    public constructor(options: { allowProviderRequests?: boolean; snapshotSource?: TransitDataService } = {})
+    {
+        this.allowProviderRequests = options.allowProviderRequests ?? true;
+        this.snapshotSource = options.snapshotSource;
+    }
+
     private readonly publications = new JourneyPublications();
     private readonly servicePages = new AsyncCache<{ example: JourneyView; journeys: JourneyView[] } | null>(30_000, 200);
     private readonly gtfsImporter = new BlaBlaCarGtfsImporter();
@@ -201,6 +210,65 @@ export class TransitDataService
     public async getCityDirectory(): Promise<CityDirectoryEntryView[]>
     {
         return this.cityDirectoryCache.get("directory", () => this.loadCityDirectory());
+    }
+
+    public async hasCity(slug: string): Promise<boolean>
+    {
+        return (await this.getOperatorFeeds()).some(({ feed }) =>
+        {
+            return feed.stops.some((stop) => citySlug(cityName(stop.name)) === slug);
+        });
+    }
+
+    public async hasStop(stopId: string): Promise<boolean>
+    {
+        const reference = parseStopReference(stopId);
+        return (await this.getOperatorFeeds()).some(({ feed, operator }) =>
+        {
+            return operator.slug === reference.operatorSlug && feed.stops.some((stop) =>
+            {
+                return stop.externalId.toLocaleLowerCase("fr") === reference.externalId.toLocaleLowerCase("fr");
+            });
+        });
+    }
+
+    public async hasRoute(origin: string, destination: string): Promise<boolean>
+    {
+        if (origin !== destination && await this.hasCity(origin) && await this.hasCity(destination))
+        {
+            return true;
+        }
+        return parseStopReference(origin).operatorSlug === parseStopReference(destination).operatorSlug
+            && await this.hasStop(origin) && await this.hasStop(destination);
+    }
+
+    public async getBusServiceIdentity(operator: string, service: string): Promise<{ operatorSlug: string; serviceNumber: string } | null>
+    {
+        if (![blablacarBusOperator.slug, flixBusOperator.slug, alsaOperator.slug].includes(operator) || service.length > 100)
+        {
+            return null;
+        }
+        const published = await this.publications.serviceExample(operator, service);
+        if (published)
+        {
+            return { operatorSlug: published.operatorSlug, serviceNumber: published.serviceNumber };
+        }
+        const source = (await this.getOperatorFeeds()).find((entry) => entry.operator.slug === operator);
+        if (!source)
+        {
+            return null;
+        }
+        const dates = scheduledServiceDates(source.feed);
+        const exists = source.feed.trips.some((trip) =>
+        {
+            if (trip.serviceNumber !== service || trip.stopTimes.length === 0)
+            {
+                return false;
+            }
+            const calendar = source.feed.calendars.find((candidate) => candidate.externalId === trip.serviceExternalId);
+            return calendar && dates.some((date) => isServiceActive(calendar, source.feed.calendarExceptions, date));
+        });
+        return exists ? { operatorSlug: operator, serviceNumber: service } : null;
     }
 
     private async loadCityDirectory(): Promise<CityDirectoryEntryView[]>
@@ -393,7 +461,7 @@ export class TransitDataService
         return this.journeyCache.get(journeyRef, async () =>
         {
             const archived = await this.publications.findByReference(journeyRef);
-            if (archived && isJourneyOutsideIndexingWindow(archived))
+            if (archived && (!this.allowProviderRequests || isJourneyOutsideIndexingWindow(archived)))
             {
                 return archived;
             }
@@ -424,7 +492,7 @@ export class TransitDataService
         {
             journey = (await this.getAllJourneyViews()).find((candidate) => candidate.publicId === id) ?? null;
         }
-        return journey ? this.getJourney(journey.journeyRef) : null;
+        return journey && this.allowProviderRequests ? this.getJourney(journey.journeyRef) : journey;
     }
 
     public async getBusService(operator: string, service: string): Promise<{ example: JourneyView; journeys: JourneyView[] } | null>
@@ -774,11 +842,19 @@ export class TransitDataService
 
     private async getAllJourneyViews(): Promise<JourneyView[]>
     {
+        if (this.snapshotSource)
+        {
+            return this.snapshotSource.getAllJourneyViews();
+        }
         return this.allJourneyViewsCache.get("journeys", () => this.loadAllJourneyViews());
     }
 
     private async getAvailableJourneyViews(): Promise<JourneyView[]>
     {
+        if (this.snapshotSource)
+        {
+            return this.snapshotSource.getAvailableJourneyViews();
+        }
         return this.availableJourneyViewsCache.get("available", async () =>
         {
             const [current, feed] = await Promise.all([this.getAllJourneyViews(), this.getFeed()]);
@@ -804,7 +880,9 @@ export class TransitDataService
             {
                 feed,
                 timetable,
-                views: this.toViews(feed, timetable.journeys, timetable.journeys.length)
+                views: !this.allowProviderRequests && timetable.journeys.length === 0
+                    ? buildScheduledJourneyViews(feed, blablacarBusOperator)
+                    : this.toViews(feed, timetable.journeys, timetable.journeys.length)
             };
         }
 
@@ -902,6 +980,10 @@ export class TransitDataService
 
     private async getAlsaFeed(): Promise<GtfsFeed | null>
     {
+        if (this.snapshotSource)
+        {
+            return this.snapshotSource.getAlsaFeed();
+        }
         return this.alsaFeedRequests.get("feed", () => this.loadAlsaFeed());
     }
 
@@ -940,8 +1022,13 @@ export class TransitDataService
 
             if (process.env.NODE_ENV === "production")
             {
-                return null;
+                return this.alsaDatabaseFeedCache?.value ?? null;
             }
+        }
+
+        if (!this.allowProviderRequests)
+        {
+            return this.alsaDatabaseFeedCache?.value ?? null;
         }
 
         if (!this.alsaGtfsPromise)
@@ -992,6 +1079,10 @@ export class TransitDataService
 
     private async getFlixBusFeed(): Promise<GtfsFeed | null>
     {
+        if (this.snapshotSource)
+        {
+            return this.snapshotSource.getFlixBusFeed();
+        }
         return this.flixBusFeedRequests.get("feed", () => this.loadFlixBusFeed());
     }
 
@@ -1030,8 +1121,13 @@ export class TransitDataService
 
             if (process.env.NODE_ENV === "production" && !process.env.FLIXBUS_GTFS_PATH)
             {
-                return null;
+                return this.flixBusDatabaseFeedCache?.value ?? null;
             }
+        }
+
+        if (!this.allowProviderRequests && !process.env.FLIXBUS_GTFS_PATH)
+        {
+            return this.flixBusDatabaseFeedCache?.value ?? null;
         }
 
         if (!this.flixBusGtfsPromise)
@@ -1054,7 +1150,7 @@ export class TransitDataService
         stopIds: string[]
     ): Promise<JourneyView[]>
     {
-        if (!this.flixBusRealtimeClient.isEnabled() || stopIds.length === 0)
+        if (!this.allowProviderRequests || !this.flixBusRealtimeClient.isEnabled() || stopIds.length === 0)
         {
             return journeys;
         }
@@ -1089,7 +1185,7 @@ export class TransitDataService
 
     private async enrichFlixBusJourney(journey: JourneyView): Promise<JourneyView>
     {
-        if (!this.flixBusRealtimeClient.isEnabled())
+        if (!this.allowProviderRequests || !this.flixBusRealtimeClient.isEnabled())
         {
             return journey;
         }
@@ -1128,7 +1224,7 @@ export class TransitDataService
 
     private async enrichAlsaJourneys(journeys: JourneyView[]): Promise<JourneyView[]>
     {
-        if (!this.alsaRealtimeClient.isEnabled())
+        if (!this.allowProviderRequests || !this.alsaRealtimeClient.isEnabled())
         {
             return journeys;
         }
@@ -1143,7 +1239,7 @@ export class TransitDataService
 
     private async enrichAlsaJourney(journey: JourneyView): Promise<JourneyView>
     {
-        if (!this.alsaRealtimeClient.isEnabled())
+        if (!this.allowProviderRequests || !this.alsaRealtimeClient.isEnabled())
         {
             return journey;
         }
@@ -1203,6 +1299,10 @@ export class TransitDataService
 
     private async getFeed(): Promise<GtfsFeed>
     {
+        if (this.snapshotSource)
+        {
+            return this.snapshotSource.getFeed();
+        }
         return this.feedRequests.get("feed", () => this.loadCurrentFeed());
     }
 
@@ -1235,10 +1335,24 @@ export class TransitDataService
             }
         }
 
+        if (!this.allowProviderRequests && !process.env.GTFS_PATH)
+        {
+            if (this.databaseFeedCache)
+            {
+                return this.databaseFeedCache.value;
+            }
+            throw new Error("Aucun horaire enregistré disponible");
+        }
+
         if (!this.gtfsPromise)
         {
-            this.gtfsPromise = this.loadFeed().catch(async () =>
+            this.gtfsPromise = this.loadFeed().catch(async (error: unknown) =>
             {
+                this.gtfsPromise = null;
+                if (!this.allowProviderRequests)
+                {
+                    throw error;
+                }
                 return this.gtfsImporter.import(this.fixtureGtfsPath());
             });
         }
@@ -1287,6 +1401,10 @@ export class TransitDataService
 
     private async getTimetable(): Promise<SiriEstimatedTimetable>
     {
+        if (this.snapshotSource)
+        {
+            return this.snapshotSource.getTimetable();
+        }
         return this.timetableRequests.get("timetable", () => this.loadCurrentTimetable());
     }
 
@@ -1319,6 +1437,11 @@ export class TransitDataService
             catch
             {
             }
+        }
+
+        if (!this.allowProviderRequests && !process.env.SIRI_PATH)
+        {
+            return this.siriCache?.value ?? { journeys: [], responseTimestamp: new Date(), validUntil: null, version: null };
         }
 
         try
@@ -1494,9 +1617,11 @@ async function exists(path: string): Promise<boolean>
 const transitGlobal = globalThis as typeof globalThis &
 {
     busminuteTransitDataService?: TransitDataService;
+    busminutePageDataService?: TransitDataService;
 };
 
-export const transitDataService = transitGlobal.busminuteTransitDataService ??= new TransitDataService();
+export const transitPageDataService = transitGlobal.busminutePageDataService ??= new TransitDataService({ allowProviderRequests: false });
+export const transitDataService = transitGlobal.busminuteTransitDataService ??= new TransitDataService({ snapshotSource: transitPageDataService });
 
 function buildCityDirectory(operatorFeeds: OperatorFeed[], journeys: JourneyView[]): CityDirectoryEntryView[]
 {

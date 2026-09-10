@@ -1,20 +1,16 @@
 import Link from "next/link";
+import { TransitSection } from "../components/transit-section";
 import { LiveDeparturesBoard } from "../components/live-departures-board";
 import { SearchBox } from "../components/search-box";
-import { countLabel, localize } from "../src/application/i18n";
+import { countLabel, localize, type Locale } from "../src/application/i18n";
 import { requestLocale } from "./request-locale";
-import { transitDataService } from "../src/application/transit-data-service";
+import { transitPageDataService } from "../src/application/transit-data-service";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage()
 {
     const locale = await requestLocale();
-    const [cities, journeys] = await Promise.all(
-    [
-        transitDataService.getFeaturedCities(6),
-        transitDataService.getLiveBoard(7)
-    ]);
 
     return (
         <>
@@ -34,7 +30,9 @@ export default async function HomePage()
                         <span><b>{localize(locale, "Données actualisées", "Updated data", "Información actualizada")}</b> {localize(locale, "Temps réel selon l’opérateur", "Live updates by operator", "Datos en tiempo real según el operador")}</span>
                     </div>
                 </div>
-                <LiveDeparturesBoard initialJourneys={journeys} locale={locale} />
+                <TransitSection locale={locale} className="station-board">
+                    <HomeDepartures locale={locale} />
+                </TransitSection>
             </section>
             <section className="value-strip" aria-label={localize(locale, "Fonctionnalités", "Features", "Funciones")}>
                 <article><span>01</span><h2>{localize(locale, "Retards en direct", "Live delays", "Retrasos en directo")}</h2><p>{localize(locale, "Suivis arrêt par arrêt dès qu’une mise à jour est disponible.", "Tracked stop by stop whenever an update is available.", "Seguimiento parada a parada en cuanto hay una actualización disponible.")}</p></article>
@@ -46,21 +44,37 @@ export default async function HomePage()
                     <div><span className="section-kicker">{localize(locale, "Sans numéro de bus", "No bus number needed", "Sin número de autobús")}</span><h2>{localize(locale, "Rechercher par ville", "Search by city", "Buscar por ciudad")}</h2></div>
                     <Link href="/villes">{localize(locale, "Voir toutes les villes", "View all cities", "Ver todas las ciudades")} <span>→</span></Link>
                 </div>
-                <div className="featured-city-grid">
-                    {cities.map((city) =>
-                    {
-                        return (
-                            <Link href={`/ville/${city.slug}`} key={city.slug}>
-                                <strong>{city.name}</strong>
-                                <span>{countLabel(locale, city.stopCount, "gare", "gares", "station", "stations", "estación", "estaciones")}</span>
-                                <small>{city.liveJourneyCount > 0
-                                    ? countLabel(locale, city.liveJourneyCount, "bus disponible", "bus disponibles", "bus available", "buses available", "autobús disponible", "autobuses disponibles")
-                                    : localize(locale, "Voir les gares", "View stations", "Ver las estaciones")}</small>
-                            </Link>
-                        );
-                    })}
-                </div>
+                <TransitSection locale={locale}>
+                    <FeaturedCities locale={locale} />
+                </TransitSection>
             </section>
         </>
+    );
+}
+
+async function HomeDepartures({ locale }: { locale: Locale })
+{
+    const journeys = await transitPageDataService.getLiveBoard(7);
+    return <LiveDeparturesBoard initialJourneys={journeys} locale={locale} />;
+}
+
+async function FeaturedCities({ locale }: { locale: Locale })
+{
+    const cities = await transitPageDataService.getFeaturedCities(6);
+    return (
+        <div className="featured-city-grid">
+            {cities.map((city) =>
+            {
+                return (
+                    <Link href={`/ville/${city.slug}`} key={city.slug}>
+                        <strong>{city.name}</strong>
+                        <span>{countLabel(locale, city.stopCount, "gare", "gares", "station", "stations", "estación", "estaciones")}</span>
+                        <small>{city.liveJourneyCount > 0
+                            ? countLabel(locale, city.liveJourneyCount, "bus disponible", "bus disponibles", "bus available", "buses available", "autobús disponible", "autobuses disponibles")
+                            : localize(locale, "Voir les gares", "View stations", "Ver las estaciones")}</small>
+                    </Link>
+                );
+            })}
+        </div>
     );
 }

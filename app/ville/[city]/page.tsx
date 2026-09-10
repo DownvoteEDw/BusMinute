@@ -1,3 +1,6 @@
+import { transitMetadata } from "../../transit-metadata";
+import { TransitSection } from "../../../components/transit-section";
+import { TransitPage } from "../../../components/transit-page";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,7 +11,7 @@ import { StructuredData } from "../../../components/structured-data";
 import { countLabel, localeTag, localize, type Locale } from "../../../src/application/i18n";
 import { requestLocale } from "../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../src/application/seo";
-import { transitDataService } from "../../../src/application/transit-data-service";
+import { transitPageDataService } from "../../../src/application/transit-data-service";
 
 interface PageProps
 {
@@ -17,11 +20,17 @@ interface PageProps
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata>
+export async function generateMetadata(props: PageProps): Promise<Metadata>
+{
+    const { city } = await props.params;
+    return transitMetadata(() => loadMetadata(props), `/ville/${encodeURIComponent(city)}`);
+}
+
+async function loadMetadata({ params }: PageProps): Promise<Metadata>
 {
     const locale = await requestLocale();
     const { city } = await params;
-    const board = await transitDataService.getCityBoard(city);
+    const board = await transitPageDataService.getCityBoard(city);
 
     if (!board)
     {
@@ -46,21 +55,29 @@ export default async function CityPage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const { city } = await params;
-    const board = await transitDataService.getCityBoard(city);
+    if (!await transitPageDataService.hasCity(city))
+    {
+        notFound();
+    }
+    return (
+        <TransitPage key={JSON.stringify(await params)} locale={locale} title={localize(locale, "Vos départs", "Your departures", "Tus salidas")}>
+            <CityPageContent params={params} locale={locale} />
+        </TransitPage>
+    );
+}
+
+async function CityPageContent({ params, locale }: PageProps & { locale: Locale })
+{
+    const { city } = await params;
+    const board = await transitPageDataService.getCityBoard(city);
 
     if (!board)
     {
-        notFound();
+        throw new Error("Horaires de la ville indisponibles");
     }
 
     const today = parisDate(new Date());
     const dates = nextDates(today, 3);
-    const initialPage = await transitDataService.getCityJourneyPage(board.slug, today);
-
-    if (!initialPage)
-    {
-        notFound();
-    }
     const structuredData = [
         breadcrumbStructuredData(
         [
@@ -171,13 +188,9 @@ export default async function CityPage({ params }: PageProps)
                     </div>
                 </section>
             )}
-            <section className="journey-list-section">
-                <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available", "Datos en tiempo real disponibles")}</span><h2>{localize(locale, `Bus passant par ${board.name} aujourd’hui`, `Buses calling at ${board.name} today`, `Autobuses que pasan hoy por ${board.name}`)}</h2></div>
-                    <span>{countLabel(locale, initialPage.totalCount, "passage", "passages", "service", "services", "servicio", "servicios")}</span>
-                </div>
-                <CityJourneyList citySlug={board.slug} initialPage={initialPage} locale={locale} serviceDate={today} />
-            </section>
+            <TransitSection locale={locale}>
+                <CityDepartures slug={board.slug} name={board.name} date={today} locale={locale} />
+            </TransitSection>
             <StructuredData value={structuredData} />
         </div>
     );
@@ -243,4 +256,23 @@ function parisDate(value: Date): string
         return parts.find((candidate) => candidate.type === type)?.value ?? "";
     };
     return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+async function CityDepartures({ slug, name, date, locale }: { slug: string; name: string; date: string; locale: Locale })
+{
+    const initialPage = await transitPageDataService.getCityJourneyPage(slug, date);
+    if (!initialPage)
+    {
+        throw new Error("Départs de la ville indisponibles");
+    }
+    return (
+            <section className="journey-list-section">
+                <div className="section-heading-row">
+                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel disponible", "Live data available", "Datos en tiempo real disponibles")}</span><h2>{localize(locale, `Bus passant par ${name} aujourd’hui`, `Buses calling at ${name} today`, `Autobuses que pasan hoy por ${name}`)}</h2></div>
+                    <span>{countLabel(locale, initialPage.totalCount, "passage", "passages", "service", "services", "servicio", "servicios")}</span>
+                </div>
+                <CityJourneyList citySlug={slug} initialPage={initialPage} locale={locale} serviceDate={date} />
+            </section>
+
+    );
 }

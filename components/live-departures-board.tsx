@@ -27,11 +27,13 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
 
     useEffect(() =>
     {
+        const controller = new AbortController();
+        let timer: ReturnType<typeof setTimeout> | undefined;
         const refresh = async (): Promise<void> =>
         {
             try
             {
-                const response = await fetch("/api/board", { cache: "no-store" });
+                const response = await fetch("/api/board", { cache: "no-store", signal: controller.signal });
 
                 if (!response.ok)
                 {
@@ -40,7 +42,7 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
 
                 const data = await response.json() as BoardResponse;
 
-                if (data.journeys)
+                if (data.journeys && !controller.signal.aborted)
                 {
                     setJourneys(data.journeys);
                     setUpdatedAt(data.updatedAt ?? latestUpdate(data.journeys));
@@ -49,10 +51,21 @@ export function LiveDeparturesBoard({ initialJourneys, locale = "fr" }: LiveDepa
             catch
             {
             }
+            finally
+            {
+                if (!controller.signal.aborted)
+                {
+                    timer = setTimeout(() => void refresh(), 30_000);
+                }
+            }
         };
-        const interval = window.setInterval(refresh, 30_000);
+        void refresh();
 
-        return () => window.clearInterval(interval);
+        return () =>
+        {
+            controller.abort();
+            clearTimeout(timer);
+        };
     }, []);
 
     return (

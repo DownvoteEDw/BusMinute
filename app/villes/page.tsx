@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TransitSection } from "../../components/transit-section";
 import { StructuredData } from "../../components/structured-data";
-import { countLabel, localize } from "../../src/application/i18n";
+import { countLabel, localize, type Locale } from "../../src/application/i18n";
 import { requestLocale } from "../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../src/application/seo";
-import { transitDataService } from "../../src/application/transit-data-service";
+import { transitPageDataService } from "../../src/application/transit-data-service";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,27 @@ export async function generateMetadata(): Promise<Metadata>
 export default async function CitiesPage()
 {
     const locale = await requestLocale();
-    const cities = await transitDataService.getCityDirectory();
+
+    return (
+        <div className="page-shell directory-page">
+            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb", "Migas de pan")}>
+                <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><span>{localize(locale, "Villes et gares", "Cities and stations", "Ciudades y estaciones")}</span>
+            </nav>
+            <header className="listing-heading">
+                <span className="section-kicker">{localize(locale, "Explorer le réseau", "Explore the network", "Explora la red")}</span>
+                <h1>{localize(locale, "Toutes les", "All", "Todas las")} <em>{localize(locale, "villes", "cities", "ciudades")}</em></h1>
+                <p>{localize(locale, "Choisissez une ville pour retrouver ses gares et les prochains bus.", "Choose a city to find its stations and upcoming buses.", "Elige una ciudad para ver sus estaciones y los próximos autobuses.")}</p>
+            </header>
+            <TransitSection locale={locale}>
+                <CityDirectory locale={locale} />
+            </TransitSection>
+        </div>
+    );
+}
+
+async function CityDirectory({ locale }: { locale: Locale })
+{
+    const cities = await transitPageDataService.getCityDirectory();
     const structuredData = [
         breadcrumbStructuredData(
         [
@@ -57,15 +78,7 @@ export default async function CitiesPage()
     ];
 
     return (
-        <div className="page-shell directory-page">
-            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb", "Migas de pan")}>
-                <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><span>{localize(locale, "Villes et gares", "Cities and stations", "Ciudades y estaciones")}</span>
-            </nav>
-            <header className="listing-heading">
-                <span className="section-kicker">{localize(locale, "Explorer le réseau", "Explore the network", "Explora la red")}</span>
-                <h1>{localize(locale, "Toutes les", "All", "Todas las")} <em>{localize(locale, "villes", "cities", "ciudades")}</em></h1>
-                <p>{localize(locale, "Choisissez une ville pour retrouver ses gares et les prochains bus.", "Choose a city to find its stations and upcoming buses.", "Elige una ciudad para ver sus estaciones y los próximos autobuses.")}</p>
-            </header>
+        <>
             <section className="city-directory" aria-label={localize(locale, "Villes desservies", "Served cities", "Ciudades con servicio")}>
                 {cities.map((city) =>
                 {
@@ -79,6 +92,6 @@ export default async function CitiesPage()
                 })}
             </section>
             <StructuredData value={structuredData} />
-        </div>
+        </>
     );
 }

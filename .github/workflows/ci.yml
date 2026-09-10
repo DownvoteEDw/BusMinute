@@ -22,6 +22,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run test:streaming
       - run: docker compose -f docker-compose.yaml -f compose.local.yaml up --build --detach
       - run: |
           for attempt in {1..30}

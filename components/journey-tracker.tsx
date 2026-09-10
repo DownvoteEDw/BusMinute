@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { journeyPathSegment } from "../src/application/journey-url";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { shouldRefreshJourney } from "../src/application/journey-refresh";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyStopView, JourneyView } from "../src/application/journey-view";
 import type { PassengerReport, PassengerReportType } from "../src/application/passenger-reports";
@@ -45,6 +46,7 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
     const isCompleted = completed || isJourneyCompleted(journey, new Date(now));
     const [reports, setReports] = useState<PassengerReport[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const refreshController = useRef<AbortController | null>(null);
     const [refreshFailed, setRefreshFailed] = useState(false);
     const [reporting, setReporting] = useState<PassengerReportType | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
@@ -65,14 +67,21 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
 
     useEffect(() =>
     {
-        void refreshReports();
+        void refreshReports().catch(() => {});
     }, []);
 
     useEffect(() =>
     {
-        const interval = !isCompleted && journey.realtimeAvailable
-            && journey.realtimeStatus !== "not_offered"
-            && journey.realtimeStatus !== "outside_tracking_period"
+        if (!isCompleted && shouldRefreshJourney(journey))
+        {
+            void refreshJourney();
+        }
+    }, [journey.journeyRef]);
+
+    useEffect(() =>
+    {
+        const enabled = !isCompleted && shouldRefreshJourney(journey);
+        const interval = enabled
             ? window.setInterval(() => void refreshJourney(), 30_000)
             : null;
         return () =>
@@ -81,20 +90,32 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
             {
                 window.clearInterval(interval);
             }
+            refreshController.current?.abort();
+            refreshController.current = null;
         };
     }, [isCompleted, journey.realtimeAvailable, journey.realtimeStatus]);
 
     async function refreshJourney(): Promise<void>
     {
+        if (refreshController.current)
+        {
+            return;
+        }
+        const controller = new AbortController();
+        refreshController.current = controller;
         setRefreshing(true);
 
         try
         {
-            const response = await fetch(`/api/journeys/${journeyPathSegment(journey.journeyRef)}`, { cache: "no-store" });
+            const response = await fetch(`/api/journeys/${journeyPathSegment(journey.journeyRef)}`, { cache: "no-store", signal: controller.signal });
 
             if (response.ok)
             {
                 const data = await response.json() as JourneyResponse;
+                if (controller.signal.aborted)
+                {
+                    return;
+                }
                 setJourney((previous) => retainLastVehiclePositions(previous, data.journey));
                 setRefreshFailed(false);
             }
@@ -105,11 +126,18 @@ export function JourneyTracker({ initialJourney, locale = "fr", completed = fals
         }
         catch
         {
-            setRefreshFailed(true);
+            if (!controller.signal.aborted)
+            {
+                setRefreshFailed(true);
+            }
         }
         finally
         {
-            setRefreshing(false);
+            if (refreshController.current === controller)
+            {
+                refreshController.current = null;
+                setRefreshing(false);
+            }
         }
     }
 

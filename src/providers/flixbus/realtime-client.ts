@@ -82,11 +82,13 @@ export class FlixBusRealtimeClient
 
     private async loadStationTimetables(stationId: string, from: Date, to: Date): Promise<FlixBusRealtimeRide[]>
     {
-        const apiKey = await this.apiKey();
+        const signal = AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_BUDGET_MS", 5_000));
+        const apiKey = await this.apiKey(signal);
+        signal.throwIfAborted();
         const [departures, arrivals] = await Promise.all(
         [
-            this.loadTimetable(stationId, "departures", from, to, apiKey),
-            this.loadTimetable(stationId, "arrivals", from, to, apiKey)
+            this.loadTimetable(stationId, "departures", from, to, apiKey, signal),
+            this.loadTimetable(stationId, "arrivals", from, to, apiKey, signal)
         ]);
         return deduplicateRides([...departures, ...arrivals]);
     }
@@ -96,7 +98,8 @@ export class FlixBusRealtimeClient
         direction: "departures" | "arrivals",
         from: Date,
         to: Date,
-        apiKey: string
+        apiKey: string,
+        signal: AbortSignal
     ): Promise<FlixBusRealtimeRide[]>
     {
         const apiUrl = process.env.FLIXBUS_REALTIME_API_URL ?? defaultApiUrl;
@@ -113,7 +116,7 @@ export class FlixBusRealtimeClient
                 Accept: "application/json",
                 "Accept-Language": "fr-FR"
             },
-            signal: AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_TIMEOUT_MS", 12_000))
+            signal: AbortSignal.any([signal, AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_TIMEOUT_MS", 12_000))])
         });
 
         if (!response.ok)
@@ -124,7 +127,7 @@ export class FlixBusRealtimeClient
         return parseRealtimeRides(await response.json() as unknown);
     }
 
-    private async apiKey(): Promise<string>
+    private async apiKey(signal: AbortSignal): Promise<string>
     {
         const configured = process.env.FLIXBUS_REALTIME_API_KEY?.trim();
 
@@ -133,7 +136,7 @@ export class FlixBusRealtimeClient
             return configured;
         }
 
-        this.apiKeyPromise ??= this.discoverApiKey().catch((error: unknown) =>
+        this.apiKeyPromise ??= this.discoverApiKey(signal).catch((error: unknown) =>
         {
             this.apiKeyPromise = null;
             throw error;
@@ -141,13 +144,13 @@ export class FlixBusRealtimeClient
         return this.apiKeyPromise;
     }
 
-    private async discoverApiKey(): Promise<string>
+    private async discoverApiKey(signal: AbortSignal): Promise<string>
     {
         const trackerUrl = process.env.FLIXBUS_TRACKER_URL ?? defaultTrackerUrl;
         const trackerResponse = await this.fetcher(trackerUrl,
         {
             headers: { "Accept-Language": "fr-FR" },
-            signal: AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_TIMEOUT_MS", 12_000))
+            signal: AbortSignal.any([signal, AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_TIMEOUT_MS", 12_000))])
         });
 
         if (!trackerResponse.ok)
@@ -164,9 +167,10 @@ export class FlixBusRealtimeClient
         }
 
         const assetUrl = new URL(assetPath, trackerResponse.url || trackerUrl);
+        signal.throwIfAborted();
         const assetResponse = await this.fetcher(assetUrl,
         {
-            signal: AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_TIMEOUT_MS", 12_000))
+            signal: AbortSignal.any([signal, AbortSignal.timeout(readPositiveInteger("FLIXBUS_REALTIME_TIMEOUT_MS", 12_000))])
         });
 
         if (!assetResponse.ok)

@@ -1,3 +1,5 @@
+import { transitMetadata } from "../../../../transit-metadata";
+import { TransitPage } from "../../../../../components/transit-page";
 import { cache } from "react";
 import { ShareJourney } from "../../../../../components/share-journey";
 import { journeyDateLabel } from "../../../../../src/application/journey-date";
@@ -9,10 +11,10 @@ import { JourneyTracker } from "../../../../../components/journey-tracker";
 import { OperatorLogo } from "../../../../../components/operator-logo";
 import { StructuredData } from "../../../../../components/structured-data";
 import { localeTag, localize, type Locale } from "../../../../../src/application/i18n";
-import { citySlug } from "../../../../../src/application/journey-view";
+import { citySlug, type JourneyView } from "../../../../../src/application/journey-view";
 import { requestLocale } from "../../../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData, isJourneyOutsideIndexingWindow, isJourneyCompleted } from "../../../../../src/application/seo";
-import { transitDataService } from "../../../../../src/application/transit-data-service";
+import { transitPageDataService } from "../../../../../src/application/transit-data-service";
 
 interface PageProps
 {
@@ -21,7 +23,13 @@ interface PageProps
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata>
+export async function generateMetadata(props: PageProps): Promise<Metadata>
+{
+    const { journeyRef, service, departure } = await props.params;
+    return transitMetadata(() => loadMetadata(props), `/suivi/${encodeURIComponent(journeyRef)}/${encodeURIComponent(service)}/${encodeURIComponent(departure)}`);
+}
+
+async function loadMetadata({ params }: PageProps): Promise<Metadata>
 {
     const locale = await requestLocale();
     const journey = await resolveJourney(await params);
@@ -85,12 +93,19 @@ export default async function JourneyPage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const journey = await resolveJourney(await params);
-
     if (!journey)
     {
         notFound();
     }
+    return (
+        <TransitPage key={JSON.stringify(await params)} locale={locale} title={localize(locale, "Suivre votre bus", "Track your bus", "Sigue tu autobús")}>
+            <JourneyPageContent journey={journey} locale={locale} />
+        </TransitPage>
+    );
+}
 
+function JourneyPageContent({ journey, locale }: { journey: JourneyView; locale: Locale })
+{
     const originCitySlug = citySlug(journey.originCity);
     const archived = isJourneyCompleted(journey);
     const journeyDate = longDate(journey.serviceDate, locale);
@@ -129,7 +144,7 @@ export default async function JourneyPage({ params }: PageProps)
                 <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities", "Ciudades")}</Link><span>›</span><Link href={`/ville/${originCitySlug}`}>{journey.originCity}</Link><span>›</span><span>Bus {journey.serviceNumber}</span>
             </nav>
             <header className="route-heading">
-                <span className="section-kicker">{archived ? localize(locale, "Horaires enregistrés", "Recorded schedule", "Horarios registrados") : journey.realtimeObserved ? localize(locale, "Suivi en temps réel + voyageurs", "Live tracking + passenger updates", "Seguimiento en tiempo real + avisos de viajeros") : localize(locale, "Horaire prévu + voyageurs", "Scheduled times + passenger updates", "Horarios previstos + avisos de viajeros")}</span>
+                <span className="section-kicker">{archived ? localize(locale, "Horaires enregistrés", "Recorded schedule", "Horarios registrados") : localize(locale, "Horaires et suivi du trajet", "Journey times and tracking", "Horarios y seguimiento del trayecto")}</span>
                 <h1>{journey.originCity} <span>→</span> {journey.destinationCity}</h1>
                 <div className="route-heading-footer">
                     <div className="route-identity">
@@ -169,10 +184,12 @@ function longDate(value: string, locale: Locale): string
     }).format(new Date(`${value}T12:00:00Z`));
 }
 
-const resolveJourney = cache(async (params: { journeyRef: string; service: string; departure: string }) =>
+const loadJourney = cache((id: string) => transitPageDataService.getPublicJourney(id));
+
+async function resolveJourney(params: { journeyRef: string; service: string; departure: string })
 {
     const id = publicJourneyId(params.departure);
-    const journey = id ? await transitDataService.getPublicJourney(id) : null;
+    const journey = id ? await loadJourney(id) : null;
     if (journey)
     {
         const path = `/suivi/${encodeURIComponent(params.journeyRef)}/${encodeURIComponent(params.service)}/${params.departure}`;
@@ -182,7 +199,7 @@ const resolveJourney = cache(async (params: { journeyRef: string; service: strin
         }
     }
     return journey;
-});
+}
 
 function titleForShare(service: string, date: string): string
 {

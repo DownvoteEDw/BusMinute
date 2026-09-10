@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TransitSection } from "../../components/transit-section";
 import { JourneyCard } from "../../components/journey-card";
 import { SearchBox } from "../../components/search-box";
 import { countLabel, localize, type Locale } from "../../src/application/i18n";
 import { requestLocale } from "../request-locale";
-import { transitDataService } from "../../src/application/transit-data-service";
+import { transitPageDataService } from "../../src/application/transit-data-service";
 
 interface PageProps
 {
@@ -27,13 +28,6 @@ export default async function SearchPage({ searchParams }: PageProps)
     const locale = await requestLocale();
     const values = await searchParams;
     const query = typeof values.q === "string" ? values.q : "";
-    const [journeys, places] = query.length >= 2
-        ? await Promise.all(
-        [
-            transitDataService.search(query, 40),
-            transitDataService.searchPlaces(query, 20)
-        ])
-        : [[], []];
 
     return (
         <div className="page-shell listing-page search-page">
@@ -42,6 +36,21 @@ export default async function SearchPage({ searchParams }: PageProps)
                 <h1>{localize(locale, "Trouver", "Find", "Encuentra")} <em>{localize(locale, "votre bus", "your bus", "tu autobús")}</em></h1>
                 <SearchBox compact initialQuery={query} locale={locale} />
             </header>
+            <TransitSection locale={locale} key={`places:${query}`}>
+                <SearchPlaces query={query} locale={locale} />
+            </TransitSection>
+            <TransitSection locale={locale} key={`journeys:${query}`}>
+                <SearchJourneys query={query} locale={locale} />
+            </TransitSection>
+        </div>
+    );
+}
+
+async function SearchPlaces({ query, locale }: { query: string; locale: Locale })
+{
+    const places = query.length >= 2 ? await transitPageDataService.searchPlaces(query, 20) : [];
+    return (
+        <>
             {places.length > 0 && (
                 <section className="place-results-section">
                     <div className="section-heading-row">
@@ -62,17 +71,24 @@ export default async function SearchPage({ searchParams }: PageProps)
                     </div>
                 </section>
             )}
-            <section className="journey-list-section">
-                <div className="section-heading-row">
-                    <h2>{countLabel(locale, journeys.length, "résultat", "résultats", "result", "results", "resultado", "resultados")}</h2>
-                </div>
-                {journeys.length === 0 ? (
-                    <div className="empty-state"><h2>{localize(locale, "Aucun bus trouvé aujourd’hui", "No buses found today", "No hemos encontrado autobuses para hoy")}</h2><p>{localize(locale, "Essayez un numéro, une ville ou un trajet comme Paris → Tours.", "Try a bus number, city or route such as Paris → Tours.", "Prueba con un número, una ciudad o una ruta como París → Tours.")}</p></div>
-                ) : (
-                    <div className="journey-list">{journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} locale={locale} />)}</div>
-                )}
-            </section>
-        </div>
+        </>
+    );
+}
+
+async function SearchJourneys({ query, locale }: { query: string; locale: Locale })
+{
+    const journeys = query.length >= 2 ? await transitPageDataService.search(query, 40) : [];
+    return (
+        <section className="journey-list-section">
+            <div className="section-heading-row">
+                <h2>{countLabel(locale, journeys.length, "résultat", "résultats", "result", "results", "resultado", "resultados")}</h2>
+            </div>
+            {journeys.length === 0 ? (
+                <div className="empty-state"><h2>{localize(locale, "Aucun bus trouvé aujourd’hui", "No buses found today", "No hemos encontrado autobuses para hoy")}</h2><p>{localize(locale, "Essayez un numéro, une ville ou un trajet comme Paris → Tours.", "Try a bus number, city or route such as Paris → Tours.", "Prueba con un número, una ciudad o una ruta como París → Tours.")}</p></div>
+            ) : (
+                <div className="journey-list">{journeys.map((journey) => <JourneyCard journey={journey} key={journey.journeyRef} locale={locale} />)}</div>
+            )}
+        </section>
     );
 }
 

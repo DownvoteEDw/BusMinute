@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { JourneyUpdates } from "./journey-updates";
 import { localize, type Locale } from "../src/application/i18n";
 import type { CityJourneyPageView, JourneyView } from "../src/application/journey-view";
 import { journeyStopInCity } from "../src/application/station-schedule";
@@ -79,7 +80,7 @@ export function CityJourneyList(
     }
 
     return (
-        <>
+        <JourneyUpdates journeys={journeys}>
             <div className="journey-list">
                 {journeys.map((journey) =>
                 {
@@ -103,7 +104,7 @@ export function CityJourneyList(
                 </div>
             )}
             {error && <p className="journey-load-error" role="alert">{error}</p>}
-        </>
+        </JourneyUpdates>
     );
 }
 

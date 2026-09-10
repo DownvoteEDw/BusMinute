@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useUpdatedJourney } from "./journey-updates";
 import { journeyPath } from "../src/application/journey-url";
 import { OperatorLogo } from "./operator-logo";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
@@ -15,8 +18,9 @@ interface JourneyCardProps
     locale?: Locale;
 }
 
-export function JourneyCard({ journey, stopId, eventStopId, originStopId, destinationStopId, locale = "fr" }: JourneyCardProps)
+export function JourneyCard({ journey: initialJourney, stopId, eventStopId, originStopId, destinationStopId, locale = "fr" }: JourneyCardProps)
 {
+    const journey = useUpdatedJourney(initialJourney);
     const event = journeyEvent(journey, stopId ?? eventStopId ?? originStopId, destinationStopId, locale);
     const delaySeconds = event.stop?.delaySeconds ?? journey.delaySeconds;
     const delayState = journeyDelayState(journey, delaySeconds);

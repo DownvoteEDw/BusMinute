@@ -32,12 +32,14 @@ Prérequis : Node.js 22 ou ultérieur.
 
 ```powershell
 npm install
+$env:GTFS_PATH = "tests/fixtures/gtfs-50819"
+$env:SIRI_PATH = "tests/fixtures/siri-50819-2026-08-22.json"
 npm run dev
 ```
 
 Ouvrir [http://localhost:3000](http://localhost:3000), puis rechercher `50819`.
 
-L’application tente de charger les flux officiels. Si ceux-ci sont indisponibles, elle utilise automatiquement l’extrait réel fourni dans `tests/fixtures`.
+Les pages utilisent les données enregistrées par le worker dans PostgreSQL. Elles ne téléchargent pas de flux opérateur pendant le rendu. Sans base de données, les extraits locaux peuvent être sélectionnés explicitement avec `GTFS_PATH=tests/fixtures/gtfs-50819` et `SIRI_PATH=tests/fixtures/siri-50819-2026-08-22.json`.
 
 ## Docker Compose
 
@@ -94,6 +96,7 @@ Variables disponibles :
 | `FLIXBUS_TRACKER_URL` | non | page utilisée pour retrouver la configuration publique du suivi |
 | `FLIXBUS_REALTIME_API_KEY` | non | clé facultative, sinon retrouvée automatiquement |
 | `FLIXBUS_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête FlixBus, `12000` par défaut |
+| `FLIXBUS_REALTIME_BUDGET_MS` | non | durée maximale totale du suivi FlixBus, découverte de configuration comprise, `5000` par défaut |
 | `FLIXBUS_REALTIME_CACHE_SECONDS` | non | durée du cache en mémoire, `30` secondes par défaut |
 | `ALSA_ENABLED` | non | active les horaires Alsa, `true` dans Docker Compose |
 | `ALSA_LOCATIONS_URL` | non | catalogue public des gares Alsa |
@@ -230,6 +233,20 @@ npm run check
 ```
 
 Cette commande compile le cœur TypeScript en mode strict, exécute les tests puis produit le build Next.js de production.
+
+Après le build, vérifier le rendu pendant une réponse opérateur bloquée :
+
+```powershell
+npm run test:streaming
+```
+
+Ce test lance un serveur Next.js de production et bloque une API FlixBus locale, avec un budget volontairement porté à 60 secondes. Il vérifie que les pages d’accueil, recherche, villes, départs, gare, liaison, service et suivi terminent leur HTML et leurs métadonnées pendant que l’API temps réel attend encore. Il vérifie également les vrais statuts HTTP 404/308, les URL canonical, les données structurées et l’indexation des archives avec les agents utilisateur navigateur, Googlebot et Twitterbot. Les publications et serveurs de test sont isolés puis supprimés à la fin. Ce test est exécuté en CI après le build.
+
+Le rendu utilise `transitPageDataService`, qui interdit les requêtes aux opérateurs. Les sections de données sont isolées par Suspense et des frontières d’erreur : la navigation et la recherche restent accessibles pendant le chargement. Les API utilisent les mêmes snapshots et caches GTFS, puis ajoutent le temps réel. Après l’affichage, les panneaux et listes actualisent leurs données par API ; les lots sont limités à 20 trajets et les requêtes sont annulées au démontage. Une réponse lente ne maintient donc pas la page ouverte dans l’attente d’un opérateur. Les lectures locales restent asynchrones et les données structurées SEO sont conservées dans le rendu serveur.
+
+Sur les URL dynamiques, la vérification d’existence et de redirection précède le streaming pour conserver les statuts HTTP 404/308. Elle consulte le catalogue enregistré ou la publication du trajet, sans charger les listes de départs ni contacter un opérateur. Les données des sections se chargent ensuite sous Suspense. Si les métadonnées sont indisponibles, la page garde une canonical et reçoit `noindex, follow`, sans hériter silencieusement de l’indexation par défaut du site.
+
+Le second scénario de `test:streaming` rend le stockage des publications inaccessible : il vérifie la canonical et le `noindex` des sections en erreur, ainsi que le statut 500 lorsqu’une panne empêche de vérifier l’existence d’une URL. Une panne ne doit pas être traitée comme une ressource inexistante (404).
 
 Rejouer uniquement le matching réel :
 

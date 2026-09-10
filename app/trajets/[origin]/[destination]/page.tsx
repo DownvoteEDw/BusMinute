@@ -1,3 +1,6 @@
+import { transitMetadata } from "../../../transit-metadata";
+import { JourneyUpdates } from "../../../../components/journey-updates";
+import { TransitPage } from "../../../../components/transit-page";
 import { CityRoutePage } from "../../../../components/city-route-page";
 import { cityRoutePath } from "../../../../src/application/journey-url";
 import type { Metadata } from "next";
@@ -5,11 +8,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JourneyCard } from "../../../../components/journey-card";
 import { StructuredData } from "../../../../components/structured-data";
-import { countLabel, localize } from "../../../../src/application/i18n";
+import { countLabel, localize, type Locale } from "../../../../src/application/i18n";
 import { cityName, citySlug } from "../../../../src/application/journey-view";
 import { requestLocale } from "../../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../../src/application/seo";
-import { transitDataService } from "../../../../src/application/transit-data-service";
+import { transitPageDataService } from "../../../../src/application/transit-data-service";
 
 interface PageProps
 {
@@ -18,11 +21,17 @@ interface PageProps
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata>
+export async function generateMetadata(props: PageProps): Promise<Metadata>
+{
+    const { origin, destination } = await props.params;
+    return transitMetadata(() => loadMetadata(props), cityRoutePath(origin, destination));
+}
+
+async function loadMetadata({ params }: PageProps): Promise<Metadata>
 {
     const locale = await requestLocale();
     const { origin, destination } = await params;
-    const cityBoard = await transitDataService.getCityRouteBoard(origin, destination);
+    const cityBoard = await transitPageDataService.getCityRouteBoard(origin, destination);
     if (cityBoard)
     {
         return {
@@ -32,7 +41,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             robots: { index: cityBoard.journeys.length > 0, follow: true }
         };
     }
-    const board = await transitDataService.getRouteBoard(origin, destination);
+    const board = await transitPageDataService.getRouteBoard(origin, destination);
 
     if (!board)
     {
@@ -62,16 +71,30 @@ export default async function RoutePage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const { origin, destination } = await params;
-    const cityBoard = await transitDataService.getCityRouteBoard(origin, destination);
+    if (!await transitPageDataService.hasRoute(origin, destination))
+    {
+        notFound();
+    }
+    return (
+        <TransitPage key={JSON.stringify(await params)} locale={locale} title={localize(locale, "Votre trajet", "Your route", "Tu ruta")}>
+            <RoutePageContent params={params} locale={locale} />
+        </TransitPage>
+    );
+}
+
+async function RoutePageContent({ params, locale }: PageProps & { locale: Locale })
+{
+    const { origin, destination } = await params;
+    const cityBoard = await transitPageDataService.getCityRouteBoard(origin, destination);
     if (cityBoard)
     {
         return <CityRoutePage board={cityBoard} origin={origin} destination={destination} locale={locale} />;
     }
-    const board = await transitDataService.getRouteBoard(origin, destination);
+    const board = await transitPageDataService.getRouteBoard(origin, destination);
 
     if (!board)
     {
-        notFound();
+        throw new Error("Horaires du trajet indisponibles");
     }
 
     const originCity = cityName(board.originName);
@@ -108,42 +131,44 @@ export default async function RoutePage({ params }: PageProps)
     ];
 
     return (
-        <div className="page-shell listing-page">
-            <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb", "Migas de pan")}>
-                <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities", "Ciudades")}</Link><span>›</span><Link href={`/ville/${originCitySlug}`}>{originCity}</Link><span>›</span><span>{destinationCity}</span>
-            </nav>
-            <header className="listing-heading route-listing-heading">
-                <span className="section-kicker">{localize(locale, "Horaires et retards", "Times and delays", "Horarios y retrasos")}</span>
-                <h1>{originCity} <span>→</span> <em>{destinationCity}</em></h1>
-                <p>{board.originName}<br />{board.destinationName}</p>
-                <div className="route-station-links">
-                    <Link href={`/gares/${encodeURIComponent(board.originStopId)}`}>{localize(locale, "Gare de départ", "Departure station", "Estación de salida")}</Link>
-                    <Link href={`/ville/${destinationCitySlug}`}>{localize(locale, `Bus à ${destinationCity}`, `Buses in ${destinationCity}`, `Autobuses en ${destinationCity}`)}</Link>
-                </div>
-            </header>
-            <section className="journey-list-section">
-                <div className="section-heading-row">
-                    <div><span className="live-pill light"><i /> {localize(locale, "Temps réel", "Live", "Tiempo real")}</span><h2>{localize(locale, "Bus disponibles", "Available buses", "Autobuses disponibles")}</h2></div>
-                    <span>{countLabel(locale, board.journeys.length, "trajet", "trajets", "journey", "journeys", "trayecto", "trayectos")}</span>
-                </div>
-                {board.journeys.length === 0 ? (
-                    <div className="empty-state"><h2>{localize(locale, "Aucun départ à venir", "No upcoming departures", "No hay próximas salidas")}</h2><p>{localize(locale, "Les prochains horaires apparaîtront automatiquement.", "Upcoming times will appear automatically.", "Los próximos horarios aparecerán automáticamente.")}</p></div>
-                ) : (
-                    <div className="journey-list">{board.journeys.map((journey) =>
-                    {
-                        return (
-                            <JourneyCard
-                                destinationStopId={board.destinationStopId}
-                                journey={journey}
-                                key={journey.journeyRef}
-                                locale={locale}
-                                originStopId={board.originStopId}
-                            />
-                        );
-                    })}</div>
-                )}
-            </section>
-            <StructuredData value={structuredData} />
-        </div>
+        <JourneyUpdates journeys={board.journeys}>
+            <div className="page-shell listing-page">
+                <nav className="breadcrumbs" aria-label={localize(locale, "Fil d’Ariane", "Breadcrumb", "Migas de pan")}>
+                    <Link href="/">{localize(locale, "Accueil", "Home", "Inicio")}</Link><span>›</span><Link href="/villes">{localize(locale, "Villes", "Cities", "Ciudades")}</Link><span>›</span><Link href={`/ville/${originCitySlug}`}>{originCity}</Link><span>›</span><span>{destinationCity}</span>
+                </nav>
+                <header className="listing-heading route-listing-heading">
+                    <span className="section-kicker">{localize(locale, "Horaires et retards", "Times and delays", "Horarios y retrasos")}</span>
+                    <h1>{originCity} <span>→</span> <em>{destinationCity}</em></h1>
+                    <p>{board.originName}<br />{board.destinationName}</p>
+                    <div className="route-station-links">
+                        <Link href={`/gares/${encodeURIComponent(board.originStopId)}`}>{localize(locale, "Gare de départ", "Departure station", "Estación de salida")}</Link>
+                        <Link href={`/ville/${destinationCitySlug}`}>{localize(locale, `Bus à ${destinationCity}`, `Buses in ${destinationCity}`, `Autobuses en ${destinationCity}`)}</Link>
+                    </div>
+                </header>
+                <section className="journey-list-section">
+                    <div className="section-heading-row">
+                        <div><span className="live-pill light"><i /> {localize(locale, "Temps réel", "Live", "Tiempo real")}</span><h2>{localize(locale, "Bus disponibles", "Available buses", "Autobuses disponibles")}</h2></div>
+                        <span>{countLabel(locale, board.journeys.length, "trajet", "trajets", "journey", "journeys", "trayecto", "trayectos")}</span>
+                    </div>
+                    {board.journeys.length === 0 ? (
+                        <div className="empty-state"><h2>{localize(locale, "Aucun départ à venir", "No upcoming departures", "No hay próximas salidas")}</h2><p>{localize(locale, "Les prochains horaires apparaîtront automatiquement.", "Upcoming times will appear automatically.", "Los próximos horarios aparecerán automáticamente.")}</p></div>
+                    ) : (
+                        <div className="journey-list">{board.journeys.map((journey) =>
+                        {
+                            return (
+                                <JourneyCard
+                                    destinationStopId={board.destinationStopId}
+                                    journey={journey}
+                                    key={journey.journeyRef}
+                                    locale={locale}
+                                    originStopId={board.originStopId}
+                                />
+                            );
+                        })}</div>
+                    )}
+                </section>
+                <StructuredData value={structuredData} />
+            </div>
+        </JourneyUpdates>
     );
 }

@@ -21,9 +21,67 @@ describe("temps réel FlixBus", () =>
 
     afterEach(() =>
     {
+        vi.restoreAllMocks();
         vi.useRealTimers();
         restoreEnvironment("FLIXBUS_REALTIME_ENABLED", previousEnabled);
         restoreEnvironment("FLIXBUS_REALTIME_API_KEY", previousApiKey);
+    });
+
+    it("borne toute la recherche, y compris les corps de réponse, et permet une nouvelle tentative", async () =>
+    {
+        vi.useFakeTimers();
+        delete process.env.FLIXBUS_REALTIME_API_KEY;
+        const signals: AbortSignal[] = [];
+        vi.spyOn(AbortSignal, "timeout").mockImplementation((milliseconds) =>
+        {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), milliseconds);
+            return controller.signal;
+        });
+        let slow = true;
+        const client = new FlixBusRealtimeClient(async (input, init) =>
+        {
+            const signal = init!.signal!;
+            signals.push(signal);
+            signal.throwIfAborted();
+            const url = String(input);
+            const body = url.endsWith("/track")
+                ? '<script src="https://tracker.example/assets/index-test.js"></script>'
+                : url.includes("index-test.js")
+                    ? 'var config={WIMR_API_KEY:"test-key"};'
+                    : JSON.stringify(realtimePayload());
+            return new Response(new ReadableStream(
+            {
+                start(controller)
+                {
+                    const complete = () =>
+                    {
+                        signal.removeEventListener("abort", abort);
+                        controller.enqueue(new TextEncoder().encode(body));
+                        controller.close();
+                    };
+                    const abort = () =>
+                    {
+                        clearTimeout(timer);
+                        controller.error(signal.reason);
+                    };
+                    const timer = setTimeout(complete, slow ? 2_000 : 0);
+                    signal.addEventListener("abort", abort, { once: true });
+                }
+            }));
+        });
+        const from = new Date("2026-09-02T07:00:00Z");
+        const to = new Date("2026-09-02T11:00:00Z");
+        const request = client.loadStationRides("paris-stop", from, to);
+        const failed = expect(request).rejects.toThrow("Timeout");
+        await vi.advanceTimersByTimeAsync(5_000);
+        await failed;
+        expect(signals).toHaveLength(4);
+        expect(signals.every((signal) => signal.aborted)).toBe(true);
+        slow = false;
+        const retry = client.loadStationRides("paris-stop", from, to);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(await retry).toHaveLength(1);
     });
 
     it("partage les requêtes simultanées puis actualise les retards après expiration", async () =>

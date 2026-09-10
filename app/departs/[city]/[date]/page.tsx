@@ -1,3 +1,5 @@
+import { transitMetadata } from "../../../transit-metadata";
+import { TransitPage } from "../../../../components/transit-page";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { journeyPath } from "../../../../src/application/journey-url";
@@ -7,7 +9,7 @@ import { StructuredData } from "../../../../components/structured-data";
 import { localeTag, localize, type Locale } from "../../../../src/application/i18n";
 import { requestLocale } from "../../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../../src/application/seo";
-import { transitDataService } from "../../../../src/application/transit-data-service";
+import { transitPageDataService } from "../../../../src/application/transit-data-service";
 
 interface PageProps
 {
@@ -16,7 +18,13 @@ interface PageProps
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata>
+export async function generateMetadata(props: PageProps): Promise<Metadata>
+{
+    const { city, date } = await props.params;
+    return transitMetadata(() => loadMetadata(props), `/departs/${encodeURIComponent(city)}/${encodeURIComponent(date)}`);
+}
+
+async function loadMetadata({ params }: PageProps): Promise<Metadata>
 {
     const locale = await requestLocale();
     const { city, date } = await params;
@@ -26,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         return { title: localize(locale, "Date invalide", "Invalid date", "Fecha no válida"), robots: { index: false, follow: true } };
     }
 
-    const board = await transitDataService.getDepartureBoard(city, date);
+    const board = await transitPageDataService.getDepartureBoard(city, date);
 
     if (!board)
     {
@@ -60,24 +68,33 @@ export default async function DeparturesPage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const { city, date } = await params;
-
-    if (!isValidDate(date))
+    if (!isValidDate(date) || !await transitPageDataService.hasCity(city))
     {
         notFound();
     }
+    return (
+        <TransitPage key={JSON.stringify(await params)} locale={locale} title={localize(locale, "Tableau des départs", "Departure board", "Panel de salidas")}>
+            <DeparturesPageContent params={params} locale={locale} />
+        </TransitPage>
+    );
+}
 
-    const board = await transitDataService.getDepartureBoard(city, date);
+async function DeparturesPageContent({ params, locale }: PageProps & { locale: Locale })
+{
+    const { city, date } = await params;
+
+    const board = await transitPageDataService.getDepartureBoard(city, date);
 
     if (!board)
     {
-        notFound();
+        throw new Error("Tableau des départs indisponible");
     }
 
-    const initialPage = await transitDataService.getCityJourneyPage(board.slug, date);
+    const initialPage = await transitPageDataService.getCityJourneyPage(board.slug, date);
 
     if (!initialPage)
     {
-        notFound();
+        throw new Error("Départs de la ville indisponibles");
     }
 
     const structuredData = [
@@ -134,7 +151,10 @@ export default async function DeparturesPage({ params }: PageProps)
 
 function isValidDate(value: string): boolean
 {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T12:00:00Z`).getTime());
+    const date = new Date(`${value}T12:00:00Z`);
+    return /^\d{4}-\d{2}-\d{2}$/.test(value)
+        && !Number.isNaN(date.getTime())
+        && date.toISOString().slice(0, 10) === value;
 }
 
 function shortDate(value: string, locale: Locale): string
