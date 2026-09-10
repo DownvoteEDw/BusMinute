@@ -295,11 +295,14 @@ function eventTime(stop: JourneyStopView | undefined): number | null
 
 function latestUpdate(ride: FlixBusRealtimeRide): string | null
 {
-    const updates = [ride.deviation, ...ride.calls.flatMap((call) =>
-    {
-        return [call.arrival?.deviation ?? null, call.departure?.deviation ?? null];
-    })].filter((deviation): deviation is FlixBusRealtimeDeviation => deviation !== null)
-        .map((deviation) => deviation.updatedAt)
+    const updates = [
+        ride.position?.recordedAt ?? ride.position?.receivedAt ?? null,
+        ...[ride.deviation, ...ride.calls.flatMap((call) =>
+        {
+            return [call.arrival?.deviation ?? null, call.departure?.deviation ?? null];
+        })].filter((deviation): deviation is FlixBusRealtimeDeviation => deviation !== null)
+            .map((deviation) => deviation.updatedAt)
+    ].filter((value): value is string => value !== null)
         .sort();
     return updates[updates.length - 1] ?? null;
 }

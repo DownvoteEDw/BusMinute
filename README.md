@@ -246,6 +246,8 @@ Le rendu utilise `transitPageDataService`, qui interdit les requêtes aux opéra
 
 Sur les URL dynamiques, la vérification d’existence et de redirection précède le streaming pour conserver les statuts HTTP 404/308. Elle consulte le catalogue enregistré ou la publication du trajet, sans charger les listes de départs ni contacter un opérateur. Les données des sections se chargent ensuite sous Suspense. Si les métadonnées sont indisponibles, la page garde une canonical et reçoit `noindex, follow`, sans hériter silencieusement de l’indexation par défaut du site.
 
+Une circulation dont le temps réel peut encore répondre reste en suivi jusqu’à la confirmation de son arrivée, avec une limite de six heures après la dernière heure d’arrivée connue. Elle n’est donc pas archivée à l’heure théorique lorsqu’un retard est encore possible. La fenêtre SEO de 48 heures après la fin effective du trajet reste inchangée.
+
 Le second scénario de `test:streaming` rend le stockage des publications inaccessible : il vérifie la canonical et le `noindex` des sections en erreur, ainsi que le statut 500 lorsqu’une panne empêche de vérifier l’existence d’une URL. Une panne ne doit pas être traitée comme une ressource inexistante (404).
 
 Rejouer uniquement le matching réel :

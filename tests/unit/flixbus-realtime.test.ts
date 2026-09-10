@@ -240,6 +240,7 @@ describe("temps réel FlixBus", () =>
             receivedAt: "2026-09-02T09:05:00.000Z",
             recordedAt: "2026-09-02T09:00:00.000Z"
         }]);
+        expect(enriched.updatedAt).toBe("2026-09-02T09:00:00.000Z");
         expect(JSON.stringify(enriched)).not.toContain("PRIVATE-PLATE");
         payload.rides[0]!.location = { coordinates: { latitude: 0, longitude: 0 } };
         expect(parseRealtimeRides(payload)[0]?.position).toBeNull();

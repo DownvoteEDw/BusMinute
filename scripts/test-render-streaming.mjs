@@ -160,6 +160,12 @@ try
         const journeyHtml = await journeyResponse.text();
         assert.match(journeyHtml, /tracker-page/);
         assert.match(journeyHtml, /name="description"/);
+        const scheduledEnd = new Date(`${today}T15:00:00Z`).getTime();
+        if (Date.now() > scheduledEnd && Date.now() < scheduledEnd + 6 * 60 * 60 * 1000)
+        {
+            assert.match(journeyHtml, /Horaires et suivi du trajet/);
+            assert.doesNotMatch(journeyHtml, /Horaires enregistrés/);
+        }
         assert.equal(apiFinished, false);
         console.log(`${journeyPath}: journey and SEO rendered before the operator responds`);
         const legacy = await fetch(`${base}/suivi/50819%3A2026-08-22`, { redirect: "manual" });

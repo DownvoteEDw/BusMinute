@@ -7,6 +7,8 @@ export interface BreadcrumbItem
 export interface JourneySeoTiming
 {
     serviceDate: string;
+    realtimeAvailable?: boolean;
+    realtimeStatus?: "live" | "scheduled_only" | "not_offered" | "temporarily_unavailable" | "outside_tracking_period";
     stops: Array<{
         aimedArrivalAt: string | null;
         expectedArrivalAt: string | null;
@@ -18,6 +20,7 @@ export interface JourneySeoTiming
 }
 
 const journeyIndexingGracePeriodMilliseconds = 48 * 60 * 60 * 1000;
+const journeyRealtimeCompletionGracePeriodMilliseconds = 6 * 60 * 60 * 1000;
 
 export function absoluteUrl(path: string): string
 {
@@ -84,5 +87,13 @@ export function isJourneyCompleted(journey: JourneySeoTiming & { status?: string
     const end = last?.actualArrivalAt ?? last?.actualDepartureAt ?? last?.expectedArrivalAt
         ?? last?.expectedDepartureAt ?? last?.aimedArrivalAt ?? last?.aimedDepartureAt;
     const timestamp = new Date(end ?? `${journey.serviceDate}T23:59:59Z`).getTime();
-    return Number.isFinite(timestamp) && timestamp < now.getTime();
+    if (!Number.isFinite(timestamp) || timestamp >= now.getTime())
+    {
+        return false;
+    }
+    const realtimeCanStillUpdate = journey.realtimeAvailable
+        && journey.realtimeStatus !== "not_offered"
+        && journey.realtimeStatus !== "outside_tracking_period";
+    return !realtimeCanStillUpdate
+        || timestamp + journeyRealtimeCompletionGracePeriodMilliseconds < now.getTime();
 }
