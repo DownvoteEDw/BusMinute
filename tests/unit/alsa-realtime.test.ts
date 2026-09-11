@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { enrichAlsaJourney } from "../../src/application/alsa-realtime.js";
+import { WorkQueueFullError } from "../../src/application/bounded-concurrency.js";
 import type { JourneyView } from "../../src/application/journey-view.js";
 import
 {
@@ -189,6 +190,37 @@ describe("temps réel Alsa", () =>
             journey: null
         });
         expect(fetchImplementation).not.toHaveBeenCalled();
+    });
+
+    it("refuse de laisser croître indéfiniment la file des fournisseurs", async () =>
+    {
+        vi.stubEnv("ALSA_REALTIME_ENABLED", "true");
+        vi.stubEnv("ALSA_REALTIME_CONCURRENCY", "1");
+        vi.stubEnv("ALSA_REALTIME_QUEUE_LIMIT", "1");
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>((resolve) =>
+        {
+            release = resolve;
+        });
+        const client = new AlsaRealtimeClient(async () =>
+        {
+            await gate;
+            return new Response(null,
+            {
+                status: 302,
+                headers: { Location: "https://alsa.queue-it.net/" }
+            });
+        }, () => new Date("2026-09-07T09:30:00Z"));
+        const first = client.loadJourney({ ...realtimeRequest(), cacheKey: "first" });
+        await Promise.resolve();
+        const second = client.loadJourney({ ...realtimeRequest(), cacheKey: "second" });
+        await Promise.resolve();
+        const rejected = client.loadJourney({ ...realtimeRequest(), cacheKey: "third" });
+
+        await expect(rejected).rejects.toBeInstanceOf(WorkQueueFullError);
+        release();
+        await expect(first).resolves.toEqual({ status: "temporarily_unavailable", journey: null });
+        await expect(second).resolves.toEqual({ status: "temporarily_unavailable", journey: null });
     });
 
     it("continue de chercher le suivi après minuit pour un trajet de nuit", async () =>

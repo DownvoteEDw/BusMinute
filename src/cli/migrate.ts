@@ -21,6 +21,10 @@ const migrations: Migration[] = [
     {
         id: "003_journey_publications",
         filename: "003_journey_publications.sql"
+    },
+    {
+        id: "004_passenger_report_limits",
+        filename: "004_passenger_report_limits.sql"
     }
 ];
 

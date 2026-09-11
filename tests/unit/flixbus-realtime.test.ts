@@ -9,6 +9,7 @@ import
 
 let previousEnabled: string | undefined;
 let previousApiKey: string | undefined;
+let previousConcurrency: string | undefined;
 
 describe("temps réel FlixBus", () =>
 {
@@ -16,6 +17,7 @@ describe("temps réel FlixBus", () =>
     {
         previousEnabled = process.env.FLIXBUS_REALTIME_ENABLED;
         previousApiKey = process.env.FLIXBUS_REALTIME_API_KEY;
+        previousConcurrency = process.env.FLIXBUS_REALTIME_CONCURRENCY;
         process.env.FLIXBUS_REALTIME_ENABLED = "true";
     });
 
@@ -25,6 +27,7 @@ describe("temps réel FlixBus", () =>
         vi.useRealTimers();
         restoreEnvironment("FLIXBUS_REALTIME_ENABLED", previousEnabled);
         restoreEnvironment("FLIXBUS_REALTIME_API_KEY", previousApiKey);
+        restoreEnvironment("FLIXBUS_REALTIME_CONCURRENCY", previousConcurrency);
     });
 
     it("borne toute la recherche, y compris les corps de réponse, et permet une nouvelle tentative", async () =>
@@ -97,6 +100,32 @@ describe("temps réel FlixBus", () =>
         vi.advanceTimersByTime(31_000);
         await client.loadStationRides("paris-stop", from, to);
         expect(fetcher).toHaveBeenCalledTimes(4);
+    });
+
+    it("borne globalement les appels de plusieurs gares", async () =>
+    {
+        process.env.FLIXBUS_REALTIME_API_KEY = "test-key";
+        process.env.FLIXBUS_REALTIME_CONCURRENCY = "1";
+        let active = 0;
+        let maximumActive = 0;
+        const client = new FlixBusRealtimeClient(async () =>
+        {
+            active += 1;
+            maximumActive = Math.max(maximumActive, active);
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            active -= 1;
+            return Response.json(realtimePayload());
+        });
+        const from = new Date("2026-09-02T07:10:00Z");
+        const to = new Date("2026-09-02T11:10:00Z");
+
+        await Promise.all([
+            client.loadStationRides("paris-stop", from, to),
+            client.loadStationRides("tours-stop", from, to),
+            client.loadStationRides("orleans-stop", from, to)
+        ]);
+
+        expect(maximumActive).toBe(2);
     });
 
     it("récupère après un échec temporaire de découverte de la configuration", async () =>

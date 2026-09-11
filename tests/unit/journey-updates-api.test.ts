@@ -32,6 +32,40 @@ describe("actualisation des trajets après affichage", () =>
         expect(await response.json()).toEqual({ journeys: [{ journeyRef: "available" }] });
         expect(load).toHaveBeenCalledTimes(2);
     });
+
+    it("interrompt un corps JSON trop volumineux", async () =>
+    {
+        const load = vi.spyOn(transitDataService, "getJourney");
+        const response = await POST(new Request("http://localhost/api/journeys/updates",
+        {
+            method: "POST",
+            headers: { "Content-Length": "1" },
+            body: JSON.stringify({ references: [], padding: "x".repeat(17_000) })
+        }));
+
+        expect(response.status).toBe(413);
+        expect(load).not.toHaveBeenCalled();
+    });
+
+    it("ne lance jamais plus de quatre recherches de trajet simultanées", async () =>
+    {
+        let active = 0;
+        let maximumActive = 0;
+        const load = vi.spyOn(transitDataService, "getJourney").mockImplementation(async (reference) =>
+        {
+            active += 1;
+            maximumActive = Math.max(maximumActive, active);
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            active -= 1;
+            return { journeyRef: reference } as JourneyView;
+        });
+        const references = Array.from({ length: 12 }, (_, index) => `journey-${index}`);
+        const response = await POST(request(references));
+
+        expect(response.status).toBe(200);
+        expect(load).toHaveBeenCalledTimes(12);
+        expect(maximumActive).toBe(4);
+    });
 });
 
 function request(references: unknown): Request

@@ -1,4 +1,5 @@
 import { transitDataService } from "../../../../../src/application/transit-data-service.js";
+import { isPublicDepartureDate } from "../../../../../src/application/journey-date.js";
 
 interface RouteProps
 {
@@ -15,8 +16,7 @@ export async function GET(request: Request, { params }: RouteProps): Promise<Res
     const cursor = searchParams.get("cursor")?.trim() || null;
     const requestedLimit = Number.parseInt(searchParams.get("limit") ?? "20", 10);
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(serviceDate)
-        || Number.isNaN(new Date(`${serviceDate}T12:00:00Z`).getTime()))
+    if (!isPublicDepartureDate(serviceDate))
     {
         return Response.json({ error: "Date invalide" }, { status: 400 });
     }

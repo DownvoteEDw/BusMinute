@@ -2,12 +2,12 @@ import
 {
     createPassengerReport,
     isPassengerReportType,
-    listPassengerReports
+    listPassengerReports,
+    PassengerReportRateLimitError
 } from "../../../src/application/passenger-reports.js";
+import { JsonBodyTooLargeError, readJsonBody } from "../../../src/application/http-json.js";
 import { transitDataService } from "../../../src/application/transit-data-service.js";
 import { isJourneyCompleted } from "../../../src/application/seo.js";
-
-const recentSubmissions = new Map<string, number>();
 
 export async function GET(request: Request): Promise<Response>
 {
@@ -23,7 +23,30 @@ export async function GET(request: Request): Promise<Response>
 
 export async function POST(request: Request): Promise<Response>
 {
-    const body = await request.json() as Record<string, unknown>;
+    let body: Record<string, unknown>;
+
+    try
+    {
+        const parsed = await readJsonBody(request);
+
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+        {
+            return Response.json({ error: "Signalement invalide" }, { status: 400 });
+        }
+
+        body = parsed as Record<string, unknown>;
+    }
+    catch (error)
+    {
+        return Response.json(
+        {
+            error: error instanceof JsonBodyTooLargeError ? "Signalement trop volumineux" : "Signalement invalide"
+        },
+        {
+            status: error instanceof JsonBodyTooLargeError ? 413 : 400
+        });
+    }
+
     const journeyRef = typeof body.journeyRef === "string" ? body.journeyRef.trim() : "";
     const stopId = typeof body.stopId === "string" ? body.stopId.trim() || null : null;
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 280) || null : null;
@@ -41,50 +64,41 @@ export async function POST(request: Request): Promise<Response>
     {
         return Response.json({ error: "Circulation introuvable" }, { status: 404 });
     }
+
+    if (stopId && !journey.stops.some((stop) => stop.stopId === stopId))
+    {
+        return Response.json({ error: "Signalement invalide" }, { status: 400 });
+    }
+
     if (isJourneyCompleted(journey))
     {
         return Response.json({ error: "Les signalements sont fermés pour cette circulation terminée." }, { status: 409 });
     }
 
-    const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    const fingerprint = `${forwardedFor}:${request.headers.get("user-agent") ?? "unknown"}`;
-    const rateLimitKey = `${fingerprint}:${journeyRef}`;
-    const previous = recentSubmissions.get(rateLimitKey) ?? 0;
-    const now = Date.now();
-
-    if (now - previous < 10_000)
+    try
     {
-        return Response.json({ error: "Patientez quelques secondes avant un nouveau signalement." }, { status: 429 });
+        const report = await createPassengerReport({
+            journeyRef,
+            stopId,
+            type: body.type,
+            message
+        });
+        return Response.json({ report }, { status: 201 });
     }
-
-    if (recentSubmissions.size >= 10_000)
+    catch (error)
     {
-        for (const [key, submittedAt] of recentSubmissions)
+        if (error instanceof PassengerReportRateLimitError)
         {
-            if (now - submittedAt > 60_000)
+            return Response.json(
             {
-                recentSubmissions.delete(key);
-            }
+                error: "Patientez quelques secondes avant un nouveau signalement."
+            },
+            {
+                status: 429,
+                headers: { "Retry-After": String(error.retryAfterSeconds) }
+            });
         }
 
-        if (recentSubmissions.size >= 10_000)
-        {
-            const oldestKey = recentSubmissions.keys().next().value;
-
-            if (typeof oldestKey === "string")
-            {
-                recentSubmissions.delete(oldestKey);
-            }
-        }
+        throw error;
     }
-
-    recentSubmissions.set(rateLimitKey, now);
-    const report = await createPassengerReport({
-        journeyRef,
-        stopId,
-        type: body.type,
-        message,
-        fingerprint
-    });
-    return Response.json({ report }, { status: 201 });
 }

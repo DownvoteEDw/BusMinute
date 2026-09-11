@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { AsyncCache } from "../../application/async-cache.js";
+import { BoundedConcurrency } from "../../application/bounded-concurrency.js";
 
 export interface AlsaRealtimeEndpoint
 {
@@ -136,8 +137,10 @@ export class AlsaRealtimeClient
     private session: TimedValue<AlsaSession> | null = null;
     private sessionPromise: Promise<AlsaSession> | null = null;
     private generation = 0;
-    private activeRequests = 0;
-    private readonly requestWaiters: Array<() => void> = [];
+    private readonly requestQueue = new BoundedConcurrency(
+        readPositiveInteger("ALSA_REALTIME_CONCURRENCY", 2),
+        readPositiveInteger("ALSA_REALTIME_QUEUE_LIMIT", 100)
+    );
 
     public constructor(
         private readonly fetchImplementation: FetchImplementation = fetch,
@@ -168,9 +171,10 @@ export class AlsaRealtimeClient
             return realtimeLookup("outside_tracking_period");
         }
 
-        const signal = AbortSignal.timeout(readPositiveInteger("ALSA_REALTIME_BUDGET_MS", 5_000));
-        return this.journeyCache.get(request.cacheKey, () => this.withRequestSlot(async () =>
+        return this.journeyCache.get(request.cacheKey, () => this.requestQueue.run(async () =>
         {
+            const signal = AbortSignal.timeout(readPositiveInteger("ALSA_REALTIME_BUDGET_MS", 5_000));
+
             try
             {
                 return await this.loadJourneyOnce(request, signal);
@@ -483,27 +487,6 @@ export class AlsaRealtimeClient
         }
     }
 
-    private async withRequestSlot<T>(operation: () => Promise<T>): Promise<T>
-    {
-        const maximum = readPositiveInteger("ALSA_REALTIME_CONCURRENCY", 2);
-
-        if (this.activeRequests >= maximum)
-        {
-            await new Promise<void>((resolve) => this.requestWaiters.push(resolve));
-        }
-
-        this.activeRequests += 1;
-
-        try
-        {
-            return await operation();
-        }
-        finally
-        {
-            this.activeRequests -= 1;
-            this.requestWaiters.shift()?.();
-        }
-    }
 }
 
 export function parseAlsaTrackingLocations(value: unknown): AlsaTrackingLocation[]

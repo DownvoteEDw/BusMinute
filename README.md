@@ -98,6 +98,8 @@ Variables disponibles :
 | `FLIXBUS_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête FlixBus, `12000` par défaut |
 | `FLIXBUS_REALTIME_BUDGET_MS` | non | durée maximale totale du suivi FlixBus, découverte de configuration comprise, `5000` par défaut |
 | `FLIXBUS_REALTIME_CACHE_SECONDS` | non | durée du cache en mémoire, `30` secondes par défaut |
+| `FLIXBUS_REALTIME_CONCURRENCY` | non | nombre maximal de recherches de suivi FlixBus simultanées, `4` par défaut |
+| `FLIXBUS_REALTIME_QUEUE_LIMIT` | non | nombre maximal de recherches FlixBus en attente, `100` par défaut |
 | `ALSA_ENABLED` | non | active les horaires Alsa, `true` dans Docker Compose |
 | `ALSA_LOCATIONS_URL` | non | catalogue public des gares Alsa |
 | `ALSA_CONNECTIONS_URL` | non | horaires publics de réservation Alsa |
@@ -116,6 +118,7 @@ Variables disponibles :
 | `ALSA_REALTIME_LOCATION_CACHE_SECONDS` | non | durée du cache du catalogue de villes Alsa, `21600` secondes par défaut |
 | `ALSA_REALTIME_SESSION_SECONDS` | non | durée de réutilisation d’une session du localisateur Alsa, `600` secondes par défaut |
 | `ALSA_REALTIME_CONCURRENCY` | non | nombre maximal de recherches de suivi Alsa simultanées, `2` par défaut |
+| `ALSA_REALTIME_QUEUE_LIMIT` | non | nombre maximal de recherches Alsa en attente, `100` par défaut |
 | `ALSA_REALTIME_BEFORE_DEPARTURE_MINUTES` | non | ouverture de la fenêtre de suivi avant le départ, `120` minutes par défaut |
 | `ALSA_REALTIME_AFTER_ARRIVAL_MINUTES` | non | fermeture de la fenêtre de suivi après l’arrivée, `360` minutes par défaut |
 | `SIRI_URL` | non | source SIRI-Lite officielle |

@@ -1,16 +1,34 @@
 import { NextResponse } from "next/server";
+import { JsonBodyTooLargeError, readJsonBody } from "../../../src/application/http-json.js";
 import { isLocale, localeCookieName } from "../../../src/application/i18n";
 
 export async function POST(request: Request): Promise<Response>
 {
-    const body = await request.json().catch(() => null) as { locale?: unknown } | null;
+    let body: { locale?: unknown } | null;
 
-    if (!isLocale(body?.locale))
+    try
+    {
+        body = await readJsonBody(request) as { locale?: unknown } | null;
+    }
+    catch (error)
+    {
+        return Response.json(
+        {
+            error: error instanceof JsonBodyTooLargeError ? "Request too large" : "Unsupported language"
+        },
+        {
+            status: error instanceof JsonBodyTooLargeError ? 413 : 400
+        });
+    }
+
+    const locale = body?.locale;
+
+    if (!isLocale(locale))
     {
         return Response.json({ error: "Unsupported language" }, { status: 400 });
     }
 
-    const response = NextResponse.json({ locale: body.locale });
+    const response = NextResponse.json({ locale });
     response.cookies.set(
     {
         httpOnly: true,
@@ -19,7 +37,7 @@ export async function POST(request: Request): Promise<Response>
         path: "/",
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
-        value: body.locale
+        value: locale
     });
     return response;
 }

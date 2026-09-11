@@ -10,6 +10,7 @@ import { localeTag, localize, type Locale } from "../../../../src/application/i1
 import { requestLocale } from "../../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../../src/application/seo";
 import { transitPageDataService } from "../../../../src/application/transit-data-service";
+import { isPublicDepartureDate } from "../../../../src/application/journey-date";
 
 interface PageProps
 {
@@ -29,7 +30,7 @@ async function loadMetadata({ params }: PageProps): Promise<Metadata>
     const locale = await requestLocale();
     const { city, date } = await params;
 
-    if (!isValidDate(date))
+    if (!isPublicDepartureDate(date))
     {
         return { title: localize(locale, "Date invalide", "Invalid date", "Fecha no válida"), robots: { index: false, follow: true } };
     }
@@ -68,7 +69,7 @@ export default async function DeparturesPage({ params }: PageProps)
 {
     const locale = await requestLocale();
     const { city, date } = await params;
-    if (!isValidDate(date) || !await transitPageDataService.hasCity(city))
+    if (!isPublicDepartureDate(date) || !await transitPageDataService.hasCity(city))
     {
         notFound();
     }
@@ -147,14 +148,6 @@ async function DeparturesPageContent({ params, locale }: PageProps & { locale: L
             <StructuredData value={structuredData} />
         </div>
     );
-}
-
-function isValidDate(value: string): boolean
-{
-    const date = new Date(`${value}T12:00:00Z`);
-    return /^\d{4}-\d{2}-\d{2}$/.test(value)
-        && !Number.isNaN(date.getTime())
-        && date.toISOString().slice(0, 10) === value;
 }
 
 function shortDate(value: string, locale: Locale): string

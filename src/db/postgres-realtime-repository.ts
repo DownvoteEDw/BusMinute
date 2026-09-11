@@ -176,6 +176,10 @@ export class PostgresRealtimeRepository
             `DELETE FROM data_sync_runs
              WHERE started_at < now() - interval '30 days'`
         );
+        await this.pool.query(
+            `DELETE FROM passenger_reports
+             WHERE created_at < now() - interval '7 days'`
+        );
         return result.rowCount ?? 0;
     }
 

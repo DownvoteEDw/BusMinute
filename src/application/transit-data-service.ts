@@ -53,11 +53,14 @@ import
 } from "./scheduled-journeys.js";
 import { distanceMeters, samePhysicalStation } from "./station-identity.js";
 import { AsyncCache } from "./async-cache.js";
-import { JourneyPublications } from "./journey-publications.js";
+import { JourneyPublications, withPublicJourneyUrl } from "./journey-publications.js";
 import { busServicePath, cityRoutePath } from "./journey-url.js";
 import { isJourneyCompleted, isJourneyOutsideIndexingWindow } from "./seo.js";
 import { liveBoardEventTime as boardEventTime } from "./live-board.js";
 import { journeyDateInCity, journeyStopInCity, journeyTimeInCity } from "./station-schedule.js";
+import { isSearchQueryWithinLimits } from "./search-query.js";
+import { isPublicDepartureDate } from "./journey-date.js";
+import { BoundedConcurrency } from "./bounded-concurrency.js";
 
 const officialGtfsUrl = "https://drive.google.com/uc?export=download&id=1VXd01yQl2Mb67C9bkrx0P8sqNIL532_o";
 const officialSiriUrl = "https://open-data.bus.blablacar.com/api/siri-lite/estimated-timetable";
@@ -111,7 +114,8 @@ export class TransitDataService
     private alsaJourneyCache: TimedValue<JourneyView[]> | null = null;
     private readonly allJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000);
     private readonly availableJourneyViewsCache = new AsyncCache<JourneyView[]>(30_000);
-    private readonly datedJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000, 10);
+    private readonly cityDatedJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000, 100);
+    private readonly cityJourneyGenerationQueue = new BoundedConcurrency(4, 100);
     private readonly cityDirectoryCache = new AsyncCache<CityDirectoryEntryView[]>(15_000);
     private readonly cityBoardCache = new AsyncCache<CityBoardView | null>(15_000, 100);
     private readonly stopBoardCache = new AsyncCache<StopBoardView | null>(15_000, 100);
@@ -128,6 +132,11 @@ export class TransitDataService
 
     public async search(query: string, limit = 12): Promise<JourneyView[]>
     {
+        if (!isSearchQueryWithinLimits(query))
+        {
+            return [];
+        }
+
         const normalized = normalizeSearch(query);
 
         if (normalized.length < 2)
@@ -135,13 +144,14 @@ export class TransitDataService
             return [];
         }
 
+        const routeCandidates = routeQueryCandidates(normalized);
         const journeys = await this.getAllJourneyViews();
         return journeys
             .map((journey) =>
             {
                 return {
                     journey,
-                    score: journeyViewSearchScore(journey, normalized)
+                    score: journeyViewSearchScore(journey, normalized, routeCandidates)
                 };
             })
             .filter((candidate) => Number.isFinite(candidate.score))
@@ -150,12 +160,17 @@ export class TransitDataService
                 return first.score - second.score
                     || boardEventTime(first.journey) - boardEventTime(second.journey);
             })
-            .slice(0, limit)
+            .slice(0, Math.max(0, Math.min(limit, 50)))
             .map((candidate) => candidate.journey);
     }
 
     public async searchPlaces(query: string, limit = 8): Promise<PlaceSearchResultView[]>
     {
+        if (!isSearchQueryWithinLimits(query))
+        {
+            return [];
+        }
+
         const normalized = normalizeSearch(query);
 
         if (normalized.length < 2)
@@ -204,7 +219,7 @@ export class TransitDataService
                     || Number(first.type === "stop") - Number(second.type === "stop")
                     || first.label.localeCompare(second.label, "fr");
             })
-            .slice(0, limit);
+            .slice(0, Math.max(0, Math.min(limit, 50)));
     }
 
     public async getCityDirectory(): Promise<CityDirectoryEntryView[]>
@@ -374,6 +389,11 @@ export class TransitDataService
 
     public async getDepartureBoard(slug: string, serviceDate: string): Promise<DepartureBoardView | null>
     {
+        if (!isPublicDepartureDate(serviceDate))
+        {
+            return null;
+        }
+
         const board = await this.getCityBoard(slug);
 
         if (!board)
@@ -381,13 +401,11 @@ export class TransitDataService
             return null;
         }
 
-        const journeys = await this.getJourneysForServiceDate(serviceDate);
-        const datedJourneys = journeys.filter((journey) => journeyDateInCity(journey, slug) === serviceDate)
-            .sort((first, second) => compareJourneyViewsInCity(first, second, slug));
+        const journeys = await this.getJourneysForCityAndServiceDate(slug, serviceDate);
         return {
             ...board,
             serviceDate,
-            journeys: await this.enrichAlsaJourneys(datedJourneys)
+            journeys: journeys.map(withPublicJourneyUrl)
         };
     }
 
@@ -398,14 +416,25 @@ export class TransitDataService
         limit = 20
     ): Promise<CityJourneyPageView | null>
     {
-        const board = await this.getDepartureBoard(slug, serviceDate);
+        if (!isPublicDepartureDate(serviceDate))
+        {
+            return null;
+        }
+
+        const board = await this.getCityBoard(slug);
 
         if (!board)
         {
             return null;
         }
 
-        return paginateCityJourneys(board.journeys, slug, cursor, limit);
+        const journeys = await this.getJourneysForCityAndServiceDate(slug, serviceDate);
+        const page = paginateCityJourneys(journeys, slug, cursor, limit);
+        const enriched = await this.enrichAlsaJourneys(page.journeys);
+        return {
+            ...page,
+            journeys: await this.publications.publish(enriched)
+        };
     }
 
     public async getSeoIndex(): Promise<SeoIndexView>
@@ -893,15 +922,19 @@ export class TransitDataService
         ]);
     }
 
-    private async getJourneysForServiceDate(serviceDate: string): Promise<JourneyView[]>
+    private async getJourneysForCityAndServiceDate(slug: string, serviceDate: string): Promise<JourneyView[]>
     {
-        return this.datedJourneyViewsCache.get(serviceDate, async () =>
+        return this.cityDatedJourneyViewsCache.get(`${slug}:${serviceDate}`, () => this.cityJourneyGenerationQueue.run(async () =>
         {
             const [operatorFeeds, currentJourneys] = await Promise.all([
                 this.getOperatorFeeds(),
                 this.getAllJourneyViews()
             ]);
-            const currentForDate = currentJourneys.filter((journey) => journey.serviceDate === serviceDate);
+            const currentForDate = currentJourneys.filter((journey) =>
+            {
+                return journeyStopInCity(journey, slug)
+                    && journeyDateInCity(journey, slug) === serviceDate;
+            });
             const currentTripKeys = new Set(currentForDate.flatMap((journey) =>
             {
                 return journey.scheduledTripId
@@ -910,14 +943,34 @@ export class TransitDataService
             }));
             const scheduledJourneys = operatorFeeds.flatMap(({ feed, operator }) =>
             {
-                return buildScheduledJourneyViews(feed, operator, [serviceDate]);
+                const cityStopIds = new Set(feed.stops.filter((stop) =>
+                {
+                    return citySlug(cityName(stop.name)) === slug;
+                }).map((stop) => stop.externalId));
+                const cityTrips = feed.trips.filter((trip) =>
+                {
+                    return trip.stopTimes.some((stopTime) => cityStopIds.has(stopTime.stopExternalId));
+                });
+
+                if (cityTrips.length === 0)
+                {
+                    return [];
+                }
+
+                return buildScheduledJourneyViews({ ...feed, trips: cityTrips }, operator, [serviceDate]);
             }).filter((journey) =>
             {
-                return !journey.scheduledTripId
-                    || !currentTripKeys.has(scheduledTripKey(journey.operatorSlug, journey.scheduledTripId, journey.serviceDate));
+                return journeyDateInCity(journey, slug) === serviceDate
+                    && (!journey.scheduledTripId
+                        || !currentTripKeys.has(scheduledTripKey(
+                            journey.operatorSlug,
+                            journey.scheduledTripId,
+                            journey.serviceDate
+                        )));
             });
-            return this.publications.publish([...currentForDate, ...scheduledJourneys]);
-        });
+            return [...currentForDate, ...scheduledJourneys]
+                .sort((first, second) => compareJourneyViewsInCity(first, second, slug));
+        }));
     }
 
     private async getOperatorFeeds(): Promise<OperatorFeed[]>
@@ -1685,7 +1738,11 @@ function normalizeSearch(value: string): string
         .trim();
 }
 
-function journeyViewSearchScore(journey: JourneyView, query: string): number
+function journeyViewSearchScore(
+    journey: JourneyView,
+    query: string,
+    routeCandidates: Array<[string, string]>
+): number
 {
     const serviceNumber = normalizeSearch(journey.serviceNumber);
     const journeyRef = normalizeSearch(journey.journeyRef);
@@ -1700,7 +1757,7 @@ function journeyViewSearchScore(journey: JourneyView, query: string): number
         return 5;
     }
 
-    const routeMatch = findRouteMatch(journey, query);
+    const routeMatch = findRouteMatch(journey, routeCandidates);
 
     if (routeMatch)
     {
@@ -1720,10 +1777,10 @@ function journeyViewSearchScore(journey: JourneyView, query: string): number
 
 function findRouteMatch(
     journey: JourneyView,
-    query: string
+    routeCandidates: Array<[string, string]>
 ): { originIndex: number; destinationIndex: number } | null
 {
-    for (const [origin, destination] of routeQueryCandidates(query))
+    for (const [origin, destination] of routeCandidates)
     {
         const originIndex = journey.stops.findIndex((stop) => stopMatchesPlace(stop, origin));
 

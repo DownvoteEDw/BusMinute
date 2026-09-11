@@ -1,6 +1,24 @@
+import { DateTime } from "luxon";
 import { localeTag, localize, type Locale } from "./i18n.js";
 import type { JourneyView } from "./journey-view.js";
 import { isJourneyCompleted } from "./seo.js";
+
+const maximumPastDepartureDays = 31;
+const maximumFutureDepartureDays = 90;
+
+export function isPublicDepartureDate(value: string, now = new Date()): boolean
+{
+    const date = DateTime.fromISO(value, { zone: "Europe/Paris" });
+
+    if (!date.isValid || date.toISODate() !== value)
+    {
+        return false;
+    }
+
+    const today = DateTime.fromJSDate(now, { zone: "Europe/Paris" }).startOf("day");
+    const dayOffset = date.startOf("day").diff(today, "days").days;
+    return dayOffset >= -maximumPastDepartureDays && dayOffset <= maximumFutureDepartureDays;
+}
 
 export function journeyDateLabel(journey: JourneyView, locale: Locale, now = new Date()): string
 {

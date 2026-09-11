@@ -61,6 +61,8 @@ describe("TransitDataService", () =>
 
     it("alimente recherche, suivi, gare et liaison avec les données normalisées", async () =>
     {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-09-11T12:00:00Z"));
         const service = new TransitDataService();
         const searchResults = await service.search("50819");
         const journey = await service.getJourney("50819:2026-08-22");
@@ -95,6 +97,24 @@ describe("TransitDataService", () =>
         expect(departure?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(page?.journeys[0]?.journeyRef).toBe("50819:2026-08-22");
         expect(page?.totalCount).toBe(1);
+    });
+
+    it("refuse les recherches excessives avant de charger les flux", async () =>
+    {
+        process.env.GTFS_PATH = "fixture-inexistante";
+        const service = new TransitDataService();
+
+        expect(await service.search("paris ".repeat(17))).toEqual([]);
+        expect(await service.searchPlaces("paris ".repeat(17))).toEqual([]);
+    });
+
+    it("refuse les dates hors fenêtre avant de charger les flux", async () =>
+    {
+        process.env.GTFS_PATH = "fixture-inexistante";
+        const service = new TransitDataService();
+
+        expect(await service.getDepartureBoard("paris", "2200-01-01")).toBeNull();
+        expect(await service.getCityJourneyPage("paris", "2200-01-01")).toBeNull();
     });
 
     it("rend les villes et gares découvrables sans connaître un numéro de bus", async () =>

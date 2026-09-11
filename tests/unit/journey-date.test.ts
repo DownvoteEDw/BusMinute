@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { journeyDateLabel } from "../../src/application/journey-date.js";
+import { isPublicDepartureDate, journeyDateLabel } from "../../src/application/journey-date.js";
 import { shouldRefreshJourney } from "../../src/application/journey-refresh.js";
 import { isJourneyCompleted } from "../../src/application/seo.js";
 import type { JourneyView } from "../../src/application/journey-view.js";
@@ -11,6 +11,16 @@ function journey(serviceDate: string, end = `${serviceDate}T22:00:00Z`): Journey
 
 describe("dates et archives visibles", () =>
 {
+    it("borne les tableaux publics à 31 jours passés et 90 jours futurs", () =>
+    {
+        const now = new Date("2026-09-11T12:00:00Z");
+        expect(isPublicDepartureDate("2026-08-11", now)).toBe(true);
+        expect(isPublicDepartureDate("2026-08-10", now)).toBe(false);
+        expect(isPublicDepartureDate("2026-12-10", now)).toBe(true);
+        expect(isPublicDepartureDate("2026-12-11", now)).toBe(false);
+        expect(isPublicDepartureDate("2026-02-30", now)).toBe(false);
+    });
+
     it("affiche aujourd’hui selon la date de Paris, même si UTC est encore la veille", () =>
     {
         expect(journeyDateLabel(journey("2026-09-09"), "fr", new Date("2026-09-08T22:30:00Z"))).toBe("Aujourd’hui");

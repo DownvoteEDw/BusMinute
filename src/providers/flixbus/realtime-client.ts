@@ -1,4 +1,5 @@
 import { AsyncCache } from "../../application/async-cache.js";
+import { BoundedConcurrency } from "../../application/bounded-concurrency.js";
 import { mapCoordinates, type JourneyVehiclePosition } from "../../application/journey-map.js";
 
 export interface FlixBusRealtimeDeviation
@@ -49,6 +50,10 @@ export class FlixBusRealtimeClient
         readPositiveInteger("FLIXBUS_REALTIME_CACHE_SECONDS", 30) * 1000,
         200
     );
+    private readonly requestQueue = new BoundedConcurrency(
+        readPositiveInteger("FLIXBUS_REALTIME_CONCURRENCY", 4),
+        readPositiveInteger("FLIXBUS_REALTIME_QUEUE_LIMIT", 100)
+    );
     private apiKeyPromise: Promise<string> | null = null;
 
     public constructor(private readonly fetcher: Fetcher = fetch)
@@ -77,7 +82,9 @@ export class FlixBusRealtimeClient
         }
 
         const cacheKey = `${stationId}:${hourKey(from)}:${hourKey(to)}`;
-        return this.cache.get(cacheKey, () => this.loadStationTimetables(stationId, from, to));
+        return this.cache.get(cacheKey, () => this.requestQueue.run(
+            () => this.loadStationTimetables(stationId, from, to)
+        ));
     }
 
     private async loadStationTimetables(stationId: string, from: Date, to: Date): Promise<FlixBusRealtimeRide[]>
