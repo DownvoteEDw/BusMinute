@@ -228,7 +228,7 @@ export function buildJourneyView(
         destinationName: destination.name,
         destinationCity: destination.city,
         status,
-        delaySeconds: currentDelay(journey.calls),
+        delaySeconds: currentDelay(stops),
         updatedAt: journey.recordedAtTime.toISOString(),
         cancelled: journey.cancellation,
         completeStopSequence: journey.completeStopSequence,
@@ -306,33 +306,30 @@ function stopPhase(index: number, lastPassedIndex: number, status: JourneyOperat
     return "upcoming";
 }
 
-function currentDelay(calls: SiriCall[]): number | null
+function currentDelay(stops: JourneyStopView[]): number | null
 {
-    for (let index = calls.length - 1; index >= 0; index -= 1)
-    {
-        const call = calls[index];
+    const current = stops.find((stop) => stop.phase === "current");
 
-        if (!call)
+    if (current?.delaySeconds !== null && current?.delaySeconds !== undefined)
+    {
+        return current.delaySeconds;
+    }
+
+    for (let index = stops.length - 1; index >= 0; index -= 1)
+    {
+        const stop = stops[index];
+
+        if (stop?.phase !== "passed" || stop.delaySeconds === null)
         {
             continue;
         }
 
-        const arrival = difference(call.actualArrivalTime ?? call.expectedArrivalTime, call.aimedArrivalTime);
-
-        if (arrival !== null)
-        {
-            return arrival;
-        }
-
-        const departure = difference(call.actualDepartureTime ?? call.expectedDepartureTime, call.aimedDepartureTime);
-
-        if (departure !== null)
-        {
-            return departure;
-        }
+        return stop.delaySeconds;
     }
 
-    return null;
+    const upcoming = stops.find((stop) => stop.phase === "upcoming" && stop.delaySeconds !== null);
+
+    return upcoming?.delaySeconds ?? null;
 }
 
 function callDelay(call: SiriCall): number | null
