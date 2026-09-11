@@ -13,6 +13,7 @@ describe("artefacts de déploiement", () =>
         expect(dockerfile).toContain("npm prune --omit=dev");
         expect(dockerfile).toContain("/app/node_modules ./node_modules");
         expect(dockerfile).toContain("/app/public");
+        expect(dockerfile).toContain("/app/tests/fixtures");
         expect(dockerfile).toContain("/api/health");
         expect(dockerfile).toContain("USER node");
     });
@@ -55,11 +56,17 @@ describe("artefacts de déploiement", () =>
         expect(localCompose).toContain("127.0.0.1:${POSTGRES_PORT:-5432}:5432");
     });
 
-    it("utilise le fichier Compose de production dans GitHub Actions", async () =>
+    it("utilise les données de test embarquées pour le contrôle Docker de la CI", async () =>
     {
         const workflow = await readFile(".github/workflows/ci.yml", "utf8");
+        const ciCompose = await readFile("compose.ci.yaml", "utf8");
 
         expect(workflow).toContain("-f docker-compose.yaml");
         expect(workflow).not.toContain("-f compose.yaml");
+        expect(workflow).toContain("-f compose.ci.yaml");
+        expect(ciCompose).toContain("GTFS_PATH: /app/tests/fixtures/gtfs-50819");
+        expect(ciCompose).toContain("SIRI_PATH: /app/tests/fixtures/siri-50819-2026-08-22.json");
+        expect(ciCompose).toContain("FLIXBUS_GTFS_ENABLED: \"false\"");
+        expect(ciCompose).toContain("ALSA_ENABLED: \"false\"");
     });
 });

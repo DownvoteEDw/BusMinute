@@ -1,0 +1,17 @@
+services:
+  app:
+    environment:
+      GTFS_PATH: /app/tests/fixtures/gtfs-50819
+      SIRI_PATH: /app/tests/fixtures/siri-50819-2026-08-22.json
+      FLIXBUS_GTFS_ENABLED: "false"
+      FLIXBUS_REALTIME_ENABLED: "false"
+      ALSA_ENABLED: "false"
+      ALSA_REALTIME_ENABLED: "false"
+  worker:
+    environment:
+      GTFS_PATH: /app/tests/fixtures/gtfs-50819
+      SIRI_PATH: /app/tests/fixtures/siri-50819-2026-08-22.json
+      FLIXBUS_GTFS_ENABLED: "false"
+      FLIXBUS_REALTIME_ENABLED: "false"
+      ALSA_ENABLED: "false"
+      ALSA_REALTIME_ENABLED: "false"
