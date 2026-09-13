@@ -5,6 +5,7 @@ import { journeyPath } from "../src/application/journey-url";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { countLabel, localize, type Locale } from "../src/application/i18n";
 import type { JourneyView, PlaceSearchResultView } from "../src/application/journey-view";
+import { trackAnalyticsEvent } from "./analytics";
 
 interface SearchBoxProps
 {
@@ -94,12 +95,14 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
 
         if (firstPlace)
         {
+            trackSearchSuccess(firstPlace.type === "stop" ? "station" : "city", "submit");
             router.push(firstPlace.href);
             return;
         }
 
         if (first)
         {
+            trackSearchSuccess("journey", "submit");
             router.push(journeyPath(first));
             return;
         }
@@ -113,12 +116,14 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
     function choose(journey: JourneyView): void
     {
         setOpen(false);
+        trackSearchSuccess("journey", "suggestion");
         router.push(journeyPath(journey));
     }
 
     function choosePlace(place: PlaceSearchResultView): void
     {
         setOpen(false);
+        trackSearchSuccess(place.type === "stop" ? "station" : "city", "suggestion");
         router.push(place.href);
     }
 
@@ -174,6 +179,15 @@ export function SearchBox({ initialQuery = "", compact = false, locale = "fr" }:
             )}
         </div>
     );
+}
+
+function trackSearchSuccess(resultType: "journey" | "city" | "station", source: "submit" | "suggestion"): void
+{
+    trackAnalyticsEvent("search-success",
+    {
+        resultType,
+        source
+    });
 }
 
 function formatDelay(journey: JourneyView, locale: Locale): string

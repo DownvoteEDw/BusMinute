@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { localeTag, localize, type Locale } from "../src/application/i18n";
 import type { JourneyView } from "../src/application/journey-view";
 import { approximateVehiclePosition, isVehiclePositionStale, mapCoordinates, vehiclePositionTime, visibleVehiclePositions } from "../src/application/journey-map";
+import { trackAnalyticsEvent } from "./analytics";
 
 const JourneyMapCanvas = dynamic(() => import("./journey-map-canvas"), { ssr: false });
 
@@ -77,6 +78,20 @@ export function JourneyMap({ journey, locale, completed, refreshFailed, styleUrl
             ? localize(locale, "Position approximative du bus", "Approximate bus location", "Ubicación aproximada del autobús")
             : localize(locale, "Arrêts sur la carte", "Stops on the map", "Paradas en el mapa");
 
+    function toggleMap(): void
+    {
+        if (!open)
+        {
+            trackAnalyticsEvent("map-open",
+            {
+                journeyState: completed ? "completed" : "active",
+                positionType: hasPositions ? "live" : hasApproximatePosition ? "approximate" : "stops"
+            });
+        }
+
+        setOpen(!open);
+    }
+
     if (stops.length === 0 && !hasPositions)
     {
         return null;
@@ -84,7 +99,7 @@ export function JourneyMap({ journey, locale, completed, refreshFailed, styleUrl
 
     return (
         <div className="journey-map" ref={setElement}>
-            <button type="button" className="journey-map-summary" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+            <button type="button" className="journey-map-summary" aria-expanded={open} onClick={toggleMap}>
                 <span className="journey-map-label">{title}</span>
                 {hasPositions && <span className="journey-map-age">{receivedLabel(positionAt, now ?? positionAt, locale, sourceTimestamp)}</span>}
                 <span className="journey-map-disclosure" aria-hidden="true">{open ? localize(locale, "Masquer ↑", "Hide ↑", "Ocultar ↑") : localize(locale, "Afficher ↓", "Show ↓", "Mostrar ↓")}</span>

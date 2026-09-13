@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { localize, type Locale } from "../src/application/i18n";
+import { trackAnalyticsEvent } from "./analytics";
 
 export function ShareJourney({ path, title, locale }: { path: string; title: string; locale: Locale })
 {
@@ -16,11 +17,13 @@ export function ShareJourney({ path, title, locale }: { path: string; title: str
             await navigator.clipboard.writeText(url);
             setSharedUrl(null);
             setFeedback(localize(locale, "Lien copié", "Link copied", "Enlace copiado"));
+            trackAnalyticsEvent("journey-share", { method: "clipboard" });
         }
         catch
         {
             setSharedUrl(url);
             setFeedback(localize(locale, "Copiez ce lien pour partager ce départ.", "Copy this link to share this departure.", "Copia este enlace para compartir esta salida."));
+            trackAnalyticsEvent("journey-share", { method: "fallback" });
         }
     }
 
