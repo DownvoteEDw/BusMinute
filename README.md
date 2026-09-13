@@ -1,30 +1,97 @@
 # BusMinute
 
-Application monolithique d’horaires et de suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus. Elle rapproche les horaires prévus et le temps réel disponible pour présenter les départs, les arrivées et les retards dans une interface web complète.
+[![Validation](https://github.com/DownvoteEDw/BusMinute/actions/workflows/ci.yml/badge.svg)](https://github.com/DownvoteEDw/BusMinute/actions/workflows/ci.yml)
+![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-## Fonctionnalités
+![BusMinute, suivi des bus longue distance](public/og.png)
 
-- recherche par numéro de bus, ville ou arrêt ;
-- page de suivi avec horaires prévus, horaires constatés et retard par arrêt ;
-- carte routière repliable avec arrêts et positions GPS Alsa et FlixBus lorsqu’elles sont fournies ;
-- rafraîchissement automatique toutes les 30 secondes ;
-- recherche par ville et gare, même sans circulation active ;
-- pages de ville, gare, départ daté et liaison ;
-- interface disponible en français, anglais et espagnol ;
-- signalements voyageurs avec persistance PostgreSQL et repli en mémoire ;
-- synchronisation quotidienne des horaires BlaBlaCar Bus, FlixBus et Alsa, et SIRI-Lite BlaBlaCar Bus chaque minute ;
-- suivi en temps réel Alsa, BlaBlaCar Bus et FlixBus avec repli automatique sur l’horaire prévu ;
-- horaires Alsa issus de l’interface publique de réservation et retards issus du localisateur public des bus en circulation ;
-- repli sur l’horaire prévu lorsqu’un véhicule Alsa n’est pas encore en circulation ou ne publie pas de suivi ;
-- état temps réel courant et observations historiques conservés dans PostgreSQL ;
+Application web full-stack de recherche et de suivi des bus longue distance en Europe. BusMinute agrège les horaires et les données temps réel d’Alsa, BlaBlaCar Bus et FlixBus afin de présenter des départs, des retards et des positions de véhicules dans une interface unique.
+
+Ce projet personnel couvre l’ensemble du cycle d’un produit web : intégration de sources externes hétérogènes, modélisation métier, persistance PostgreSQL, API, rendu React, cartographie, SEO, tests et déploiement Docker.
+
+## Aperçu
+
+- recherche par numéro de service, ville, gare ou liaison ;
+- suivi détaillé d’un trajet avec horaires prévus, estimés et constatés ;
+- carte MapLibre avec arrêts et dernière position GPS disponible ;
+- tableaux de départs actualisés automatiquement ;
 - historique de ponctualité par ligne et destination ;
-- import GTFS depuis un dossier ou une archive ZIP ;
-- parser SIRI-Lite `EstimatedTimetable` ;
-- matcher explicable fondé sur le numéro de service, la date, la séquence d’arrêts et les horaires ;
-- API JSON, données structurées, métadonnées sociales, sitemap dynamique et robots.txt ;
-- cas d’intégration réel `50819:2026-08-22`.
+- interface responsive en français, anglais et espagnol ;
+- pages permanentes et URL partageables pour les services et les circulations ;
+- signalements voyageurs persistés et protégés contre les abus.
 
-Le projet n’utilise ni microservice, ni file de messages, ni cache distribué. Le site et le worker partagent le même code, la même image Docker et la même base PostgreSQL.
+## Enjeux techniques traités
+
+### Unifier des données de transport hétérogènes
+
+Les connecteurs isolent les spécificités de chaque opérateur. Le cœur métier rapproche horaires GTFS, mises à jour SIRI-Lite et réponses temps réel à partir du numéro de service, de la date locale, de la séquence des arrêts et des écarts horaires. Le résultat reste explicable et testable, y compris pour les horaires après minuit et les fuseaux propres aux agences.
+
+### Servir des pages rapides sans dépendre des opérateurs
+
+Un worker synchronise les horaires et le flux SIRI-Lite vers PostgreSQL. Le rendu serveur lit uniquement les instantanés persistés et ne contacte jamais directement un opérateur. Les sections lentes sont isolées avec React Suspense et le streaming Next.js, tandis que le navigateur actualise ensuite les données par API. Les enrichissements FlixBus et Alsa passent par des clients bornés en concurrence et en durée.
+
+### Présenter le temps réel sans fausse précision
+
+La carte et la frise distinguent une position récente, une dernière position connue, une estimation approximative et une position indisponible. Les retards déjà constatés sont conservés et les projections ne modifient que les étapes actuelles ou futures.
+
+### Concevoir pour la production
+
+Les entrées publiques sont bornées, les appels concurrents utilisent des files limitées et les connecteurs disposent de délais maximaux et de replis. Les migrations, contrôles de santé, URL canoniques, sitemaps et archives font partie du même produit, pas d’un prototype séparé.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Sources[Sources opérateurs]
+        GTFS[Flux GTFS]
+        SIRI[SIRI-Lite]
+        TRACK[APIs de suivi]
+    end
+
+    subgraph Runtime[Application Node.js]
+        WORKER[Worker de synchronisation]
+        MATCH[Normalisation et matching]
+        NEXT[Next.js App Router]
+        API[API JSON]
+    end
+
+    DB[(PostgreSQL)]
+    WEB[Interface React et MapLibre]
+
+    GTFS --> WORKER
+    SIRI --> WORKER
+    WORKER --> MATCH
+    MATCH --> DB
+    DB --> NEXT
+    DB --> API
+    TRACK --> API
+    NEXT --> WEB
+    API --> WEB
+```
+
+Le site, le worker et les migrations partagent le même code et la même image Docker. Cette architecture monolithique modulaire réduit le coût opérationnel tout en séparant clairement fournisseurs, logique métier, persistance et présentation.
+
+## Stack
+
+| Couche | Technologies |
+| --- | --- |
+| Frontend | React 19, Next.js 16 App Router, TypeScript, CSS, MapLibre GL |
+| Backend | Node.js 22, Route Handlers Next.js, worker asynchrone |
+| Données | PostgreSQL, GTFS, SIRI-Lite, migrations SQL |
+| Qualité | Vitest, TypeScript strict, tests d’intégration, tests HTTP et streaming |
+| Livraison | Docker, Docker Compose, GitHub Actions, Coolify |
+
+## Qualité et validation
+
+La commande `npm run check` compile le cœur en TypeScript strict, exécute les tests puis produit le build Next.js de production. La CI complète cette validation avec :
+
+- des scénarios de rendu quand un fournisseur externe ralentit ou échoue ;
+- des contrôles HTTP sur les statuts, métadonnées, redirections et archives ;
+- le démarrage de la stack PostgreSQL complète avec Docker Compose ;
+- un smoke test de recherche sur un trajet GTFS/SIRI conservé en fixture.
 
 ## Démarrage rapide
 
@@ -39,7 +106,7 @@ npm run dev
 
 Ouvrir [http://localhost:3000](http://localhost:3000), puis rechercher `50819`.
 
-Les pages utilisent les données enregistrées par le worker dans PostgreSQL. Elles ne téléchargent pas de flux opérateur pendant le rendu. Sans base de données, les extraits locaux peuvent être sélectionnés explicitement avec `GTFS_PATH=tests/fixtures/gtfs-50819` et `SIRI_PATH=tests/fixtures/siri-50819-2026-08-22.json`.
+Ce mode utilise les fixtures versionnées et ne nécessite pas PostgreSQL. En production, les pages lisent les données synchronisées par le worker dans la base et ne téléchargent aucun flux opérateur pendant leur rendu.
 
 ## Docker Compose
 
