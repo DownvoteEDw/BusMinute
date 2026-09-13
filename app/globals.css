@@ -2901,18 +2901,137 @@ h1 em {
 }
 
 @media (max-width: 520px) {
-    .route-links {
-        grid-template-columns: 1fr;
+    .tracker-page {
+        padding-left: 16px;
+        padding-right: 16px;
     }
 
-    .route-links > a:nth-child(2) {
-        border-left: 0;
-        border-radius: 0;
-        border-top: 1px solid var(--line);
+    .tracker-page .breadcrumbs {
+        font-size: 11px;
+        gap: 7px;
+        overflow: hidden;
+        padding: 14px 0 8px;
+        white-space: nowrap;
+    }
+
+    .tracker-page .breadcrumbs > * {
+        flex: 0 0 auto;
+    }
+
+    .tracker-page .breadcrumbs > span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .route-heading {
+        padding: 20px 0 22px;
+        position: relative;
+        text-align: center;
+    }
+
+    .route-heading .section-kicker {
+        font-size: 10px;
+    }
+
+    .route-heading h1 {
+        font-size: clamp(34px, 10vw, 44px);
+        margin: 10px 0 14px;
+    }
+
+    .route-heading-footer {
+        align-items: center;
+        gap: 0;
+    }
+
+    .route-identity {
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .route-identity .route-operator-logo {
+        height: 20px;
+        max-width: 108px;
+    }
+
+    .route-heading p {
+        font-size: 14px;
+    }
+
+    .route-links {
+        background: transparent;
+        border: 0;
+        display: block;
+        position: absolute;
+        right: 0;
+        top: 12px;
+        width: auto;
+    }
+
+    .route-links > a {
+        display: none;
     }
 
     .route-links > .journey-share {
+        border: 0;
         grid-column: auto;
+    }
+
+    .route-links .journey-share > button {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        display: grid;
+        gap: 0;
+        height: 40px;
+        place-items: center;
+        min-height: 40px;
+        padding: 0;
+        width: 40px;
+    }
+
+    .route-links .journey-share > button > span {
+        display: none;
+    }
+
+    .route-links .journey-share-icon {
+        height: 18px;
+        width: 18px;
+    }
+
+    .tracker-grid {
+        gap: 18px;
+        padding-top: 18px;
+    }
+
+    .tracker-main,
+    .community-panel {
+        border-radius: 18px;
+    }
+
+    .tracker-summary {
+        align-items: center;
+        gap: 18px;
+        min-height: 0;
+        padding: 22px 18px 20px;
+        text-align: center;
+    }
+
+    .tracker-summary > div:first-child {
+        display: grid;
+        justify-items: center;
+    }
+
+    .tracker-summary > div:first-child > p {
+        margin-top: 9px;
+        max-width: 300px;
+    }
+
+    .big-delay {
+        justify-content: center;
+    }
+
+    .big-delay strong {
+        font-size: 64px;
     }
 }
 
