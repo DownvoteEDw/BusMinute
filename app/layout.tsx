@@ -122,6 +122,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <footer className="site-footer">
                     <span>BusMinute</span>
                     <span>{localize(locale, "Service indépendant, non affilié aux opérateurs.", "Independent service, not affiliated with the operators.", "Servicio independiente, no afiliado a los operadores.")}</span>
+                    <a
+                        href="mailto:contact@bus-minute.xyz"
+                        aria-label={localize(locale, "Contacter BusMinute", "Contact BusMinute", "Contactar con BusMinute")}
+                    >
+                        contact@bus-minute.xyz
+                    </a>
                 </footer>
                 <StructuredData value={structuredData} />
                 <Script

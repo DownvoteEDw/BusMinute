@@ -6,60 +6,60 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-![BusMinute, suivi des bus longue distance](public/og.png)
+![BusMinute long-distance bus tracking](public/og.png)
 
-Application web full-stack de recherche et de suivi des bus longue distance en Europe. BusMinute agrège les horaires et les données temps réel d’Alsa, BlaBlaCar Bus et FlixBus afin de présenter des départs, des retards et des positions de véhicules dans une interface unique.
+Full-stack web application for searching and tracking long-distance buses across Europe. BusMinute aggregates schedules and realtime data from Alsa, BlaBlaCar Bus and FlixBus to display departures, delays and vehicle positions in a single interface.
 
-Ce projet personnel couvre l’ensemble du cycle d’un produit web : intégration de sources externes hétérogènes, modélisation métier, persistance PostgreSQL, API, rendu React, cartographie, SEO, tests et déploiement Docker.
+This personal project covers the entire web product lifecycle: heterogeneous third-party integrations, domain modelling, PostgreSQL persistence, APIs, React rendering, mapping, SEO, testing and Docker deployment.
 
-## Aperçu
+## Overview
 
-- recherche par numéro de service, ville, gare ou liaison ;
-- suivi détaillé d’un trajet avec horaires prévus, estimés et constatés ;
-- carte MapLibre avec arrêts et dernière position GPS disponible ;
-- tableaux de départs actualisés automatiquement ;
-- historique de ponctualité par ligne et destination ;
-- interface responsive en français, anglais et espagnol ;
-- pages permanentes et URL partageables pour les services et les circulations ;
-- signalements voyageurs persistés et protégés contre les abus.
+- search by service number, city, station or route;
+- detailed journey tracking with scheduled, estimated and actual times;
+- MapLibre map with stops and the latest available GPS position;
+- automatically refreshed departure boards;
+- punctuality history by service and destination;
+- responsive interface available in French, English and Spanish;
+- permanent pages and shareable URLs for services and journeys;
+- persistent passenger reports with abuse protection.
 
-## Enjeux techniques traités
+## Engineering highlights
 
-### Unifier des données de transport hétérogènes
+### Unifying heterogeneous transport data
 
-Les connecteurs isolent les spécificités de chaque opérateur. Le cœur métier rapproche horaires GTFS, mises à jour SIRI-Lite et réponses temps réel à partir du numéro de service, de la date locale, de la séquence des arrêts et des écarts horaires. Le résultat reste explicable et testable, y compris pour les horaires après minuit et les fuseaux propres aux agences.
+Provider adapters isolate each operator's specific behaviour. The domain layer reconciles GTFS schedules, SIRI-Lite updates and realtime responses using the service number, local service date, stop sequence and timetable offsets. Matching remains explainable and testable, including after-midnight schedules and agency-specific time zones.
 
-### Servir des pages rapides sans dépendre des opérateurs
+### Serving fast pages without coupling rendering to providers
 
-Un worker synchronise les horaires et le flux SIRI-Lite vers PostgreSQL. Le rendu serveur lit uniquement les instantanés persistés et ne contacte jamais directement un opérateur. Les sections lentes sont isolées avec React Suspense et le streaming Next.js, tandis que le navigateur actualise ensuite les données par API. Les enrichissements FlixBus et Alsa passent par des clients bornés en concurrence et en durée.
+A worker synchronizes schedules and the SIRI-Lite feed into PostgreSQL. Server rendering reads persisted snapshots only and never contacts a provider directly. Slow sections are isolated with React Suspense and Next.js streaming, while the browser subsequently refreshes data through the API. FlixBus and Alsa enrichments use clients with bounded concurrency and time budgets.
 
-### Présenter le temps réel sans fausse précision
+### Showing realtime data without implying false precision
 
-La carte et la frise distinguent une position récente, une dernière position connue, une estimation approximative et une position indisponible. Les retards déjà constatés sont conservés et les projections ne modifient que les étapes actuelles ou futures.
+The map and timeline distinguish a recent position, a last-known position, an approximate estimate and unavailable location data. Observed delays are preserved, while projections affect current and future stops only.
 
-### Concevoir pour la production
+### Designing for production
 
-Les entrées publiques sont bornées, les appels concurrents utilisent des files limitées et les connecteurs disposent de délais maximaux et de replis. Les migrations, contrôles de santé, URL canoniques, sitemaps et archives font partie du même produit, pas d’un prototype séparé.
+Public inputs are bounded, concurrent calls use limited queues, and provider clients enforce timeouts and fallbacks. Database migrations, health checks, canonical URLs, sitemaps and archives are part of the application itself rather than a separate prototype.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Sources[Sources opérateurs]
-        GTFS[Flux GTFS]
+    subgraph Sources[Provider sources]
+        GTFS[GTFS feeds]
         SIRI[SIRI-Lite]
-        TRACK[APIs de suivi]
+        TRACK[Tracking APIs]
     end
 
-    subgraph Runtime[Application Node.js]
-        WORKER[Worker de synchronisation]
-        MATCH[Normalisation et matching]
+    subgraph Runtime[Node.js application]
+        WORKER[Synchronization worker]
+        MATCH[Normalization and matching]
         NEXT[Next.js App Router]
         API[API JSON]
     end
 
     DB[(PostgreSQL)]
-    WEB[Interface React et MapLibre]
+    WEB[React and MapLibre interface]
 
     GTFS --> WORKER
     SIRI --> WORKER
@@ -72,30 +72,30 @@ flowchart LR
     API --> WEB
 ```
 
-Le site, le worker et les migrations partagent le même code et la même image Docker. Cette architecture monolithique modulaire réduit le coût opérationnel tout en séparant clairement fournisseurs, logique métier, persistance et présentation.
+The website, worker and migrations share the same codebase and Docker image. This modular monolith keeps operational overhead low while maintaining clear boundaries between providers, domain logic, persistence and presentation.
 
 ## Stack
 
-| Couche | Technologies |
+| Layer | Technologies |
 | --- | --- |
 | Frontend | React 19, Next.js 16 App Router, TypeScript, CSS, MapLibre GL |
-| Backend | Node.js 22, Route Handlers Next.js, worker asynchrone |
-| Données | PostgreSQL, GTFS, SIRI-Lite, migrations SQL |
-| Qualité | Vitest, TypeScript strict, tests d’intégration, tests HTTP et streaming |
-| Livraison | Docker, Docker Compose, GitHub Actions, Coolify |
+| Backend | Node.js 22, Next.js Route Handlers, asynchronous worker |
+| Data | PostgreSQL, GTFS, SIRI-Lite, SQL migrations |
+| Quality | Vitest, strict TypeScript, integration, HTTP and streaming tests |
+| Delivery | Docker, Docker Compose, GitHub Actions, Coolify |
 
-## Qualité et validation
+## Quality and validation
 
-La commande `npm run check` compile le cœur en TypeScript strict, exécute les tests puis produit le build Next.js de production. La CI complète cette validation avec :
+`npm run check` compiles the core in strict TypeScript mode, runs the test suite and produces a production Next.js build. CI extends this validation with:
 
-- des scénarios de rendu quand un fournisseur externe ralentit ou échoue ;
-- des contrôles HTTP sur les statuts, métadonnées, redirections et archives ;
-- le démarrage de la stack PostgreSQL complète avec Docker Compose ;
-- un smoke test de recherche sur un trajet GTFS/SIRI conservé en fixture.
+- rendering scenarios for slow or unavailable external providers;
+- HTTP checks covering statuses, metadata, redirects and archived journeys;
+- a complete PostgreSQL stack started with Docker Compose;
+- a search smoke test based on a versioned GTFS/SIRI journey fixture.
 
-## Démarrage rapide
+## Quick start
 
-Prérequis : Node.js 22 ou ultérieur.
+Requirement: Node.js 22 or later.
 
 ```powershell
 npm install
@@ -104,20 +104,20 @@ $env:SIRI_PATH = "tests/fixtures/siri-50819-2026-08-22.json"
 npm run dev
 ```
 
-Ouvrir [http://localhost:3000](http://localhost:3000), puis rechercher `50819`.
+Open [http://localhost:3000](http://localhost:3000), then search for `50819`.
 
-Ce mode utilise les fixtures versionnées et ne nécessite pas PostgreSQL. En production, les pages lisent les données synchronisées par le worker dans la base et ne téléchargent aucun flux opérateur pendant leur rendu.
+This mode uses versioned fixtures and does not require PostgreSQL. In production, pages read data synchronized by the worker from the database and never download provider feeds while rendering.
 
 ## Docker Compose
 
-La stack de production contient le site BusMinute, son worker de synchronisation, une migration ponctuelle et PostgreSQL. Les migrations sont appliquées automatiquement avant le démarrage du site et du worker.
+The production stack contains the BusMinute website, its synchronization worker, a one-off migration service and PostgreSQL. Migrations run automatically before the website and worker start.
 
 ```powershell
 Copy-Item .env.example .env
 docker compose -f docker-compose.yaml -f compose.local.yaml up --build -d
 ```
 
-Remplacer impérativement `POSTGRES_PASSWORD` dans `.env` avant le premier démarrage, puis ouvrir [http://localhost:3000](http://localhost:3000).
+Replace `POSTGRES_PASSWORD` in `.env` before the first start, then open [http://localhost:3000](http://localhost:3000).
 
 ```powershell
 docker compose -f docker-compose.yaml -f compose.local.yaml ps
@@ -125,104 +125,104 @@ docker compose -f docker-compose.yaml -f compose.local.yaml logs app
 docker compose -f docker-compose.yaml -f compose.local.yaml logs worker
 ```
 
-Arrêter la stack sans supprimer les données :
+Stop the stack without deleting data:
 
 ```powershell
 docker compose -f docker-compose.yaml -f compose.local.yaml down
 ```
 
-Le volume `busminute-postgres` conserve PostgreSQL entre les déploiements.
+The `busminute-postgres` volume preserves PostgreSQL data between deployments.
 
-## Déploiement GitHub et Coolify
+## GitHub and Coolify deployment
 
-1. Créer un dépôt GitHub privé avec les fichiers du projet.
-2. Dans Coolify, créer une application depuis ce dépôt et choisir le build pack Docker Compose.
-3. Sélectionner `docker-compose.yaml` comme fichier de déploiement.
-4. Définir `SITE_URL` avec le domaine HTTPS public et générer un `POSTGRES_PASSWORD` long.
-5. Associer le domaine au service `app` sur le port `3000`.
-6. Déployer puis vérifier `/api/health`.
+1. Create a GitHub repository containing the project files.
+2. In Coolify, create an application from the repository and select the Docker Compose build pack.
+3. Select `docker-compose.yaml` as the deployment file.
+4. Set `SITE_URL` to the public HTTPS origin and generate a strong `POSTGRES_PASSWORD`.
+5. Attach the domain to the `app` service on port `3000`.
+6. Deploy, then verify `/api/health`.
 
-Coolify utilise uniquement `docker-compose.yaml`. Le fichier `compose.local.yaml` sert au développement et ne doit pas être ajouté au déploiement Coolify.
+Coolify uses `docker-compose.yaml` only. `compose.local.yaml` is intended for local development and must not be added to the Coolify deployment.
 
-Variables disponibles :
+Available variables:
 
-| Variable | Obligatoire | Rôle |
+| Variable | Required | Purpose |
 | --- | --- | --- |
-| `SITE_URL` | oui | origine HTTPS publique utilisée par les métadonnées |
-| `MAP_STYLE_URL` | non | style MapLibre public fourni au navigateur au démarrage du serveur ; CARTO Voyager par défaut |
-| `POSTGRES_PASSWORD` | oui | secret PostgreSQL |
-| `POSTGRES_DB` | non | base, `busminute` par défaut |
-| `POSTGRES_USER` | non | utilisateur, `busminute` par défaut |
-| `DATABASE_SSL` | non | `false` avec le PostgreSQL interne |
-| `GTFS_URL` | non | source GTFS officielle |
-| `FLIXBUS_GTFS_ENABLED` | non | active FlixBus, `true` par défaut |
-| `FLIXBUS_GTFS_URL` | non | source GTFS officielle FlixBus |
-| `FLIXBUS_GTFS_TIMEOUT_MS` | non | délai de téléchargement du GTFS FlixBus, `300000` par défaut |
-| `FLIXBUS_REALTIME_ENABLED` | non | active le suivi FlixBus, `true` par défaut |
-| `FLIXBUS_REALTIME_API_URL` | non | adresse du service de suivi FlixBus |
-| `FLIXBUS_TRACKER_URL` | non | page utilisée pour retrouver la configuration publique du suivi |
-| `FLIXBUS_REALTIME_API_KEY` | non | clé facultative, sinon retrouvée automatiquement |
-| `FLIXBUS_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête FlixBus, `12000` par défaut |
-| `FLIXBUS_REALTIME_BUDGET_MS` | non | durée maximale totale du suivi FlixBus, découverte de configuration comprise, `5000` par défaut |
-| `FLIXBUS_REALTIME_CACHE_SECONDS` | non | durée du cache en mémoire, `30` secondes par défaut |
-| `FLIXBUS_REALTIME_CONCURRENCY` | non | nombre maximal de recherches de suivi FlixBus simultanées, `4` par défaut |
-| `FLIXBUS_REALTIME_QUEUE_LIMIT` | non | nombre maximal de recherches FlixBus en attente, `100` par défaut |
-| `ALSA_ENABLED` | non | active les horaires Alsa, `true` dans Docker Compose |
-| `ALSA_LOCATIONS_URL` | non | catalogue public des gares Alsa |
-| `ALSA_CONNECTIONS_URL` | non | horaires publics de réservation Alsa |
-| `ALSA_TIMEOUT_MS` | non | délai maximal d’une requête Alsa, `30000` par défaut |
-| `ALSA_LOCATION_LIMIT` | non | nombre maximal de lieux principaux découverts, `500` par défaut |
-| `ALSA_SERVICE_DAYS` | non | nombre de jours d’horaires Alsa synchronisés, `3` par défaut |
-| `ALSA_CONCURRENCY` | non | nombre maximal de requêtes Alsa simultanées, `4` par défaut |
-| `ALSA_ORIGIN_BATCH_SIZE` | non | nombre de gares de départ par requête Alsa, `10` par défaut |
-| `ALSA_DESTINATION_BATCH_SIZE` | non | nombre de gares d’arrivée par requête Alsa, `70` par défaut |
-| `ALSA_DESTINATION_COUNTRIES` | non | filtre facultatif de pays, séparés par des virgules |
-| `ALSA_REALTIME_ENABLED` | non | active le suivi Alsa, `true` par défaut |
-| `ALSA_REALTIME_TRACKER_URL` | non | page publique utilisée pour ouvrir une session de suivi Alsa |
-| `ALSA_REALTIME_BUDGET_MS` | non | durée maximale totale d’une recherche de suivi Alsa, `5000` par défaut |
-| `ALSA_REALTIME_TIMEOUT_MS` | non | délai maximal d’une requête de suivi Alsa, `15000` par défaut |
-| `ALSA_REALTIME_CACHE_SECONDS` | non | durée du cache des retards Alsa, `30` secondes par défaut |
-| `ALSA_REALTIME_LOCATION_CACHE_SECONDS` | non | durée du cache du catalogue de villes Alsa, `21600` secondes par défaut |
-| `ALSA_REALTIME_SESSION_SECONDS` | non | durée de réutilisation d’une session du localisateur Alsa, `600` secondes par défaut |
-| `ALSA_REALTIME_CONCURRENCY` | non | nombre maximal de recherches de suivi Alsa simultanées, `2` par défaut |
-| `ALSA_REALTIME_QUEUE_LIMIT` | non | nombre maximal de recherches Alsa en attente, `100` par défaut |
-| `ALSA_REALTIME_BEFORE_DEPARTURE_MINUTES` | non | ouverture de la fenêtre de suivi avant le départ, `120` minutes par défaut |
-| `ALSA_REALTIME_AFTER_ARRIVAL_MINUTES` | non | fermeture de la fenêtre de suivi après l’arrivée, `360` minutes par défaut |
-| `SIRI_URL` | non | source SIRI-Lite officielle |
-| `REALTIME_SYNC_INTERVAL_SECONDS` | non | fréquence SIRI, `60` par défaut |
-| `GTFS_SYNC_INTERVAL_HOURS` | non | fréquence GTFS, `24` par défaut |
-| `HISTORY_RETENTION_DAYS` | non | conservation des observations, `90` jours par défaut |
-| `IMAGE_TAG` | non | étiquette locale de l’image Docker |
+| `SITE_URL` | yes | public HTTPS origin used in metadata |
+| `MAP_STYLE_URL` | no | public MapLibre style sent to the browser at server startup; defaults to CARTO Voyager |
+| `POSTGRES_PASSWORD` | yes | PostgreSQL secret |
+| `POSTGRES_DB` | no | database name; defaults to `busminute` |
+| `POSTGRES_USER` | no | database user; defaults to `busminute` |
+| `DATABASE_SSL` | no | use `false` with the internal PostgreSQL service |
+| `GTFS_URL` | no | official GTFS source |
+| `FLIXBUS_GTFS_ENABLED` | no | enables FlixBus; defaults to `true` |
+| `FLIXBUS_GTFS_URL` | no | official FlixBus GTFS source |
+| `FLIXBUS_GTFS_TIMEOUT_MS` | no | FlixBus GTFS download timeout; defaults to `300000` |
+| `FLIXBUS_REALTIME_ENABLED` | no | enables FlixBus tracking; defaults to `true` |
+| `FLIXBUS_REALTIME_API_URL` | no | FlixBus tracking service URL |
+| `FLIXBUS_TRACKER_URL` | no | page used to discover the public tracking configuration |
+| `FLIXBUS_REALTIME_API_KEY` | no | optional key; discovered automatically when omitted |
+| `FLIXBUS_REALTIME_TIMEOUT_MS` | no | per-request FlixBus timeout; defaults to `12000` |
+| `FLIXBUS_REALTIME_BUDGET_MS` | no | total FlixBus tracking budget including configuration discovery; defaults to `5000` |
+| `FLIXBUS_REALTIME_CACHE_SECONDS` | no | in-memory cache duration; defaults to `30` seconds |
+| `FLIXBUS_REALTIME_CONCURRENCY` | no | maximum concurrent FlixBus tracking lookups; defaults to `4` |
+| `FLIXBUS_REALTIME_QUEUE_LIMIT` | no | maximum queued FlixBus tracking lookups; defaults to `100` |
+| `ALSA_ENABLED` | no | enables Alsa schedules; `true` in Docker Compose |
+| `ALSA_LOCATIONS_URL` | no | public Alsa station catalogue |
+| `ALSA_CONNECTIONS_URL` | no | public Alsa booking schedules |
+| `ALSA_TIMEOUT_MS` | no | Alsa request timeout; defaults to `30000` |
+| `ALSA_LOCATION_LIMIT` | no | maximum number of discovered primary locations; defaults to `500` |
+| `ALSA_SERVICE_DAYS` | no | number of synchronized Alsa schedule days; defaults to `3` |
+| `ALSA_CONCURRENCY` | no | maximum concurrent Alsa requests; defaults to `4` |
+| `ALSA_ORIGIN_BATCH_SIZE` | no | departure stations per Alsa request; defaults to `10` |
+| `ALSA_DESTINATION_BATCH_SIZE` | no | arrival stations per Alsa request; defaults to `70` |
+| `ALSA_DESTINATION_COUNTRIES` | no | optional comma-separated country filter |
+| `ALSA_REALTIME_ENABLED` | no | enables Alsa tracking; defaults to `true` |
+| `ALSA_REALTIME_TRACKER_URL` | no | public page used to start an Alsa tracking session |
+| `ALSA_REALTIME_BUDGET_MS` | no | total Alsa tracking budget; defaults to `5000` |
+| `ALSA_REALTIME_TIMEOUT_MS` | no | Alsa tracking request timeout; defaults to `15000` |
+| `ALSA_REALTIME_CACHE_SECONDS` | no | Alsa delay cache duration; defaults to `30` seconds |
+| `ALSA_REALTIME_LOCATION_CACHE_SECONDS` | no | Alsa city catalogue cache duration; defaults to `21600` seconds |
+| `ALSA_REALTIME_SESSION_SECONDS` | no | Alsa tracker session reuse duration; defaults to `600` seconds |
+| `ALSA_REALTIME_CONCURRENCY` | no | maximum concurrent Alsa tracking lookups; defaults to `2` |
+| `ALSA_REALTIME_QUEUE_LIMIT` | no | maximum queued Alsa tracking lookups; defaults to `100` |
+| `ALSA_REALTIME_BEFORE_DEPARTURE_MINUTES` | no | tracking window before departure; defaults to `120` minutes |
+| `ALSA_REALTIME_AFTER_ARRIVAL_MINUTES` | no | tracking window after arrival; defaults to `360` minutes |
+| `SIRI_URL` | no | official SIRI-Lite source |
+| `REALTIME_SYNC_INTERVAL_SECONDS` | no | SIRI synchronization interval; defaults to `60` seconds |
+| `GTFS_SYNC_INTERVAL_HOURS` | no | GTFS synchronization interval; defaults to `24` hours |
+| `HISTORY_RETENTION_DAYS` | no | observation retention period; defaults to `90` days |
+| `IMAGE_TAG` | no | local Docker image tag |
 
-PostgreSQL n’est pas publié sur Internet. Seul le service `app` est exposé au proxy Coolify. Le contrôle `/api/health` vérifie la connexion à la base, le dernier cycle GTFS/SIRI et la fraîcheur de la donnée temps réel.
+PostgreSQL is not exposed to the Internet. Only the `app` service is exposed through the Coolify proxy. `/api/health` checks the database connection, the latest GTFS/SIRI cycle and realtime data freshness.
 
-## Synchronisation et historique
+## Synchronization and history
 
-Le worker applique le cycle suivant :
+The worker runs the following cycle:
 
 ```text
-Horaires BlaBlaCar Bus + FlixBus + Alsa quotidiens
+BlaBlaCar Bus + FlixBus + Alsa schedules daily
       ↓
-horaires PostgreSQL
+PostgreSQL schedules
       ↓
-SIRI-Lite chaque minute
+SIRI-Lite every minute
       ↓
-matching GTFS ↔ SIRI
+GTFS ↔ SIRI matching
       ↓
-état courant + observations historiques
+current state + historical observations
       ↓
-pages et API BusMinute
+BusMinute pages and APIs
 ```
 
-`trip_stop_realtime` contient le dernier état connu de chaque arrêt. `trip_stop_observations` conserve les états successifs sans doublonner une même observation source. Les anciennes circulations restent accessibles par leur référence, même après leur disparition du flux officiel.
+`trip_stop_realtime` contains the latest known state for each stop. `trip_stop_observations` retains successive states without duplicating the same source observation. Past journeys remain accessible by reference after they disappear from the official feed.
 
-Lancer un seul cycle de synchronisation dans Docker :
+Run a single synchronization cycle in Docker:
 
 ```powershell
 docker compose run --rm -e SYNC_ONCE=true worker
 ```
 
-Lancer le worker directement avec un PostgreSQL configuré :
+Run the worker directly with a configured PostgreSQL instance:
 
 ```powershell
 npm run build:core
@@ -230,71 +230,71 @@ $env:SYNC_ONCE='true'
 npm run worker
 ```
 
-## Import PostgreSQL
+## PostgreSQL import
 
-Importer manuellement un GTFS complet dans une stack en fonctionnement :
+Manually import a complete GTFS feed into a running stack:
 
 ```powershell
 docker compose run --rm --volume C:/data:/data migration node dist/src/cli/import-gtfs.js /data/blablacar-gtfs.zip
 ```
 
-## Pages et API
+## Pages and APIs
 
-### Carte du trajet
+### Journey map
 
-Les commandes `npm run dev` et `npm run build` copient automatiquement le worker MapLibre et son module partagé dans les ressources publiques. Ces fichiers générés sont également inclus dans l’image Docker.
+`npm run dev` and `npm run build` automatically copy the MapLibre worker and its shared module into the public assets. These generated files are also included in the Docker image.
 
-La carte conserve la présentation du suivi et utilise MapLibre, chargé seulement lorsque la carte ouverte approche de l’écran. Le fond routier par défaut est CARTO Voyager, avec les attributions du fournisseur. `MAP_STYLE_URL` permet de choisir un autre style compatible ou d’ajouter une clé publique de carte propre au site ; cette URL est transmise au navigateur et ne doit pas contenir de secret serveur. La variable est disponible à l’exécution dans Docker Compose, sans reconstruction pour changer sa valeur.
+The tracking layout uses MapLibre, which loads only when the expanded map approaches the viewport. CARTO Voyager is the default road map, with provider attribution. `MAP_STYLE_URL` can select another compatible style or add a site-specific public map key; this URL is sent to the browser and must not contain a server secret. The variable is available at Docker Compose runtime and can be changed without rebuilding the image.
 
-Les arrêts proviennent des coordonnées GTFS. Le connecteur Alsa expose les coordonnées des véhicules effectivement reçues ; le flux ne fournit pas d’horodatage de mesure GPS, aussi `vehiclePositions[].receivedAt` indique la réception de la réponse, et l’interface affiche « Reçue… ». Les coordonnées absentes, non finies, hors limites et `0,0` sont rejetées. Les plaques d’immatriculation ne sont pas exposées par l’API du trajet.
+Stops use GTFS coordinates. The Alsa adapter exposes vehicle coordinates only when they are actually received. Because the source does not provide a GPS measurement timestamp, `vehiclePositions[].receivedAt` records the response reception time and the interface labels it accordingly. Missing, non-finite, out-of-range and `0,0` coordinates are rejected. Registration plates are never exposed by the journey API.
 
-Le connecteur FlixBus exploite `location.coordinates` et conserve `location.updated_at` dans `vehiclePositions[].recordedAt`, indépendamment de l’heure de réception. Son horodatage GPS sert au vieillissement du repère, même si les horaires viennent d’être actualisés. Le cache du connecteur ne renouvelle pas ces horodatages.
+The FlixBus adapter reads `location.coordinates` and preserves `location.updated_at` in `vehiclePositions[].recordedAt`, independently of the response time. This GPS timestamp determines marker freshness even when timetable data was refreshed more recently. Adapter caching never renews source timestamps.
 
-Une position datant de plus de deux minutes, ou conservée après une réponse sans position, est présentée comme dernière position connue. Elle disparaît de la carte après trente minutes. Les trajets terminés et annulés n’affichent aucun véhicule. Sans coordonnées de véhicule, la carte affiche seulement les arrêts ; elle ne déduit jamais une position à partir des horaires. Le flux EstimatedTimetable BlaBlaCar Bus ne fournit pas de coordonnées de véhicule au connecteur : sa carte affiche les arrêts.
+A position older than two minutes, or retained after a response without coordinates, is presented as the last-known position. It disappears from the map after thirty minutes. Completed and cancelled journeys display no vehicle. Without vehicle coordinates, the map displays stops only and never infers a position from the timetable. The BlaBlaCar Bus `EstimatedTimetable` feed does not provide vehicle coordinates, so its map displays stops only.
 
-La carte se replie, propose la vue de tous les arrêts et le recentrage sur les véhicules, et laisse les horaires disponibles si le fond de carte ou WebGL échoue. Aucune migration de base de données n’est nécessaire : les champs `location` des arrêts et `vehiclePositions` des trajets sont facultatifs pour rester compatibles avec les anciennes publications.
+The map can be collapsed, fit all stops and recenter on vehicles. Timetables remain available if the base map or WebGL fails. No database migration is required: stop `location` and journey `vehiclePositions` fields are optional to remain compatible with older publications.
 
-### Adresses
+### Routes
 
-| Adresse | Rôle |
+| Path | Purpose |
 | --- | --- |
-| `/` | accueil et recherche |
-| `/recherche?q=50819` | résultats de recherche |
-| `/suivi/50819%3A2026-08-22` | suivi détaillé d’une circulation |
-| `/villes` | annuaire des villes et gares |
-| `/ville/paris` | gares et bus d’une ville |
-| `/departs/paris/2026-08-22` | départs d’une ville à une date donnée |
-| `/gares/XPB` | prochains passages à un arrêt |
-| `/trajets/XPB/XTO` | circulations entre deux arrêts |
-| `/api/search?q=50819` | recherche JSON |
-| `/api/journeys/50819%3A2026-08-22` | circulation JSON |
-| `/api/reports` | lecture et création des signalements |
-| `/api/health` | état du service et de PostgreSQL |
+| `/` | home page and search |
+| `/recherche?q=50819` | search results |
+| `/suivi/50819%3A2026-08-22` | detailed journey tracking |
+| `/villes` | city and station directory |
+| `/ville/paris` | stations and buses in a city |
+| `/departs/paris/2026-08-22` | city departures on a given date |
+| `/gares/XPB` | upcoming calls at a stop |
+| `/trajets/XPB/XTO` | journeys between two stops |
+| `/api/search?q=50819` | JSON search endpoint |
+| `/api/journeys/50819%3A2026-08-22` | JSON journey endpoint |
+| `/api/reports` | passenger report reads and writes |
+| `/api/health` | application and PostgreSQL health |
 
-## URL publiques et migration SEO
+## Public URLs and SEO migration
 
-Les services de bus ont une page permanente `/bus/blablacar-bus/50819`. Une circulation utilise une adresse telle que `/suivi/blablacar-bus/50819/2026-08-22-86066eb7204abf42e320`. Le suffixe distingue les départs ayant le même numéro et la même date. Les anciennes URL `/suivi/<référence>` restent accessibles par redirection HTTP 308 vers leur circulation exacte.
+Bus services have permanent pages such as `/bus/blablacar-bus/50819`. A journey uses a URL such as `/suivi/blablacar-bus/50819/2026-08-22-86066eb7204abf42e320`. The suffix distinguishes departures sharing the same service number and date. Legacy `/suivi/<reference>` URLs remain available through HTTP 308 redirects to the exact journey.
 
-Les liens internes, les URL canoniques et le sitemap des circulations utilisent les nouvelles adresses. Le sous-sitemap `/sitemaps/services.xml` référence les pages permanentes. Les nouvelles liaisons `/trajets/paris/tours` regroupent les gares et opérateurs disponibles ; les pages historiques entre deux gares conservent leurs adresses et leur contenu spécifique.
+Internal links, canonical URLs and the journey sitemap use the new paths. `/sitemaps/services.xml` lists permanent service pages. New routes such as `/trajets/paris/tours` group available stations and operators, while historical station-to-station pages retain their existing paths and specific content.
 
-La migration `003_journey_publications` doit être appliquée avant de démarrer cette version. Le service `migration` de Docker Compose l’applique automatiquement. Hors Compose :
+Migration `003_journey_publications` must run before starting this version. The Docker Compose `migration` service applies it automatically. Outside Compose:
 
 ```powershell
 npm run db:migrate
 npm run db:backfill-links
 ```
 
-La seconde commande sauvegarde les anciennes circulations encore présentes dans `trip_instances`. Elle peut être relancée et doit être exécutée avant une purge de l’historique. Avec l’image Docker construite pour cette version, après la migration :
+The second command publishes historical journeys still present in `trip_instances`. It is safe to rerun and must execute before history is purged. With the Docker image built for this version, run it after the migration:
 
 ```sh
 docker compose run --rm app node dist/src/cli/backfill-journey-links.js
 ```
 
-Les circulations publiées par les listes, les sitemaps et les pages de suivi sont ensuite enregistrées automatiquement dans `journey_publications`, avec leur correspondance et leurs derniers horaires sauvegardés. Cette table est indépendante de la purge des observations temps réel : la conserver dans les sauvegardes PostgreSQL et ne pas la purger avec l’historique. Les données déjà supprimées avant cette migration ne peuvent pas être reconstituées ; une URL inconnue reste une 404, sans redirection vers un autre départ.
+Journeys exposed by lists, sitemaps and tracking pages are then saved automatically in `journey_publications`, together with their mapping and latest timetable snapshot. This table is independent from realtime observation retention: keep it in PostgreSQL backups and never purge it with history. Data removed before this migration cannot be reconstructed; an unknown URL remains a 404 and never redirects to another departure.
 
-Les pages permanentes restent indexables lorsqu’aucun prochain départ n’est annoncé. La règle existante `noindex` des circulations, 48 heures après leur fin, est conservée ; ces archives sont exclues du sitemap des circulations. Les archives affichent leur date, un lien vers les prochains départs et ferment les signalements. Une migration d’URL peut produire des fluctuations temporaires dans Google : conserver les redirections durablement et surveiller les erreurs et les clics dans Search Console après déploiement.
+Permanent pages remain indexable when no upcoming departure is available. Journeys receive `noindex` 48 hours after completion and are removed from the journey sitemap. Archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
 
-Sans PostgreSQL, le développement utilise des snapshots JSON dans un répertoire `busminute-links-*` du dossier temporaire système. Ce stockage local n’est pas destiné à assurer la conservation des URL en production.
+Without PostgreSQL, development uses JSON snapshots in a `busminute-links-*` system temporary directory. This local storage is not intended to preserve production URLs.
 
 ## Validation
 
@@ -302,31 +302,31 @@ Sans PostgreSQL, le développement utilise des snapshots JSON dans un répertoir
 npm run check
 ```
 
-Cette commande compile le cœur TypeScript en mode strict, exécute les tests puis produit le build Next.js de production.
+This command compiles the core in strict TypeScript mode, runs the tests and produces a production Next.js build.
 
-Après le build, vérifier le rendu pendant une réponse opérateur bloquée :
+After the build, verify rendering while a provider response is blocked:
 
 ```powershell
 npm run test:streaming
 ```
 
-Ce test lance un serveur Next.js de production et bloque une API FlixBus locale, avec un budget volontairement porté à 60 secondes. Il vérifie que les pages d’accueil, recherche, villes, départs, gare, liaison, service et suivi terminent leur HTML et leurs métadonnées pendant que l’API temps réel attend encore. Il vérifie également les vrais statuts HTTP 404/308, les URL canonical, les données structurées et l’indexation des archives avec les agents utilisateur navigateur, Googlebot et Twitterbot. Les publications et serveurs de test sont isolés puis supprimés à la fin. Ce test est exécuté en CI après le build.
+This test starts a production Next.js server and blocks a local FlixBus API with an intentionally extended 60-second budget. It verifies that home, search, city, departure, station, route, service and tracking pages finish their HTML and metadata while the realtime API is still pending. It also checks actual HTTP 404/308 statuses, canonical URLs, structured data and archive indexing with browser, Googlebot and Twitterbot user agents. Test publications and servers are isolated and removed afterwards. CI runs this test after the build.
 
-Le rendu utilise `transitPageDataService`, qui interdit les requêtes aux opérateurs. Les sections de données sont isolées par Suspense et des frontières d’erreur : la navigation et la recherche restent accessibles pendant le chargement. Les API utilisent les mêmes snapshots et caches GTFS, puis ajoutent le temps réel. Après l’affichage, les panneaux et listes actualisent leurs données par API ; les lots sont limités à 20 trajets et les requêtes sont annulées au démontage. Une réponse lente ne maintient donc pas la page ouverte dans l’attente d’un opérateur. Les lectures locales restent asynchrones et les données structurées SEO sont conservées dans le rendu serveur.
+Rendering uses `transitPageDataService`, which forbids provider requests. Data sections are isolated with Suspense and error boundaries so navigation and search remain available during loading. APIs use the same snapshots and GTFS caches before adding realtime data. Once rendered, panels and lists refresh through APIs; batches are capped at 20 journeys and requests are aborted on unmount. A slow response therefore never keeps server rendering open while waiting for a provider. Local reads remain asynchronous and SEO structured data stays in the server-rendered output.
 
-Sur les URL dynamiques, la vérification d’existence et de redirection précède le streaming pour conserver les statuts HTTP 404/308. Elle consulte le catalogue enregistré ou la publication du trajet, sans charger les listes de départs ni contacter un opérateur. Les données des sections se chargent ensuite sous Suspense. Si les métadonnées sont indisponibles, la page garde une canonical et reçoit `noindex, follow`, sans hériter silencieusement de l’indexation par défaut du site.
+For dynamic URLs, existence and redirect checks run before streaming to preserve HTTP 404/308 statuses. They query the persisted catalogue or journey publication without loading departure lists or contacting a provider. Section data then loads under Suspense. If metadata is unavailable, the page retains a canonical URL and receives `noindex, follow` instead of silently inheriting the site's default indexing policy.
 
-Une circulation dont le temps réel peut encore répondre reste en suivi jusqu’à la confirmation de son arrivée, avec une limite de six heures après la dernière heure d’arrivée connue. Elle n’est donc pas archivée à l’heure théorique lorsqu’un retard est encore possible. La fenêtre SEO de 48 heures après la fin effective du trajet reste inchangée.
+A journey whose realtime source can still respond remains active until arrival is confirmed, with a six-hour limit after the latest known arrival time. It is therefore not archived at its scheduled time while a delay remains possible. The 48-hour SEO window starts after the journey actually ends.
 
-Le second scénario de `test:streaming` rend le stockage des publications inaccessible : il vérifie la canonical et le `noindex` des sections en erreur, ainsi que le statut 500 lorsqu’une panne empêche de vérifier l’existence d’une URL. Une panne ne doit pas être traitée comme une ressource inexistante (404).
+The second `test:streaming` scenario makes publication storage unavailable. It verifies canonical URLs and `noindex` on failed sections, as well as a 500 status when an outage prevents URL existence checks. An outage must never be treated as a missing resource (404).
 
-Rejouer uniquement le matching réel :
+Replay the real-world matching fixture only:
 
 ```powershell
 npm run match -- tests\fixtures\gtfs-50819 tests\fixtures\siri-50819-2026-08-22.json 50819:2026-08-22
 ```
 
-Résultat attendu :
+Expected result:
 
 ```json
 {
@@ -346,30 +346,30 @@ Résultat attendu :
 
 ## Matching
 
-| Signal | Poids |
+| Signal | Weight |
 | --- | ---: |
-| Numéro de service identique | 35 % |
-| Service actif à la date SIRI | 20 % |
-| Séquence d’arrêts | 30 % |
-| Écart entre horaires GTFS et horaires SIRI visés | 15 % |
+| Identical service number | 35% |
+| Service active on the SIRI date | 20% |
+| Stop sequence | 30% |
+| Offset between GTFS and target SIRI times | 15% |
 
-Les horaires GTFS sont interprétés dans `agency_timezone` et les valeurs supérieures à `24:00:00` sont acceptées. Un score insuffisant produit `unmatched`. Deux meilleurs candidats trop proches produisent `ambiguous`.
+GTFS times are interpreted using `agency_timezone`, and values beyond `24:00:00` are supported. An insufficient score produces `unmatched`; two leading candidates with scores that are too close produce `ambiguous`.
 
 ## Structure
 
 ```text
-app/                 pages et API Next.js
-components/          composants interactifs
-Dockerfile           image autonome de production
-docker-compose.yaml  stack Coolify et production
-compose.local.yaml   ports réservés au développement local
-src/application/     services destinés au front
-src/cli/             migration, import et worker de synchronisation
-src/providers/       importeur GTFS et parser SIRI
-src/services/        matcher GTFS ↔ SIRI
-src/db/              persistance PostgreSQL
-migrations/          schéma PostgreSQL
-tests/               tests et extrait réel 50819
-public/              ressources publiques
-.github/workflows/   validation GitHub automatique
+app/                 Next.js pages and APIs
+components/          interactive components
+Dockerfile           standalone production image
+docker-compose.yaml  production and Coolify stack
+compose.local.yaml   local development ports
+src/application/     application services used by the frontend
+src/cli/             migrations, imports and synchronization worker
+src/providers/       GTFS importers and realtime adapters
+src/services/        GTFS ↔ SIRI matcher
+src/db/              PostgreSQL persistence
+migrations/          PostgreSQL schema
+tests/               tests and real-world 50819 fixture
+public/              public assets
+.github/workflows/   automated GitHub validation
 ```

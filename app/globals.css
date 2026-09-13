@@ -798,6 +798,8 @@ h1 em {
 .site-footer {
     color: var(--muted);
     font-size: 13px;
+    flex-wrap: wrap;
+    gap: 18px;
     padding-bottom: 48px;
     padding-top: 48px;
 }
@@ -805,6 +807,17 @@ h1 em {
 .site-footer span:first-child {
     color: var(--ink);
     font-weight: 850;
+}
+
+.site-footer a {
+    color: var(--green);
+    font-weight: 750;
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .page-shell {
@@ -2372,6 +2385,11 @@ h1 em {
     .site-footer {
         padding-left: 20px;
         padding-right: 20px;
+    }
+
+    .site-footer {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .site-header nav a:first-child {
