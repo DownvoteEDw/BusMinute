@@ -2977,13 +2977,14 @@ h1 em {
     }
 
     .route-links .journey-share > button {
+        align-items: center;
         background: var(--card);
         border: 1px solid var(--line);
         border-radius: 50%;
-        display: grid;
+        display: inline-flex;
         gap: 0;
         height: 40px;
-        place-items: center;
+        justify-content: center;
         min-height: 40px;
         padding: 0;
         width: 40px;
