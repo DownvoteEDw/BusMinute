@@ -117,10 +117,7 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
         case "stops":
             return uniqueSorted(index.stops.map((stop) => `/gares/${encodeURIComponent(stop.stopId)}`));
         case "routes":
-            return uniqueSorted([...(index.cityRoutes ?? []), ...index.routes.map((route) =>
-            {
-                return `/trajets/${encodeURIComponent(route.originStopId)}/${encodeURIComponent(route.destinationStopId)}`;
-            })]);
+            return uniqueSorted(index.cityRoutes ?? []);
         case "services":
             return uniqueSorted(index.services ?? []);
         case "departures":

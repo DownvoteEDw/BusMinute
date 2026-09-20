@@ -28,7 +28,9 @@ describe("sitemaps SEO", () =>
         expect(xml).toContain(publicPath);
         expect(xml).not.toContain("technical");
         expect(buildSitemapSectionXml("https://bus-minute.xyz", "services", current).match(/<url>/g)).toHaveLength(1);
-        expect(buildSitemapSectionXml("https://bus-minute.xyz", "routes", current)).toContain("/trajets/paris/lyon");
+        const routes = buildSitemapSectionXml("https://bus-minute.xyz", "routes", current);
+        expect(routes).toContain("/trajets/paris/lyon");
+        expect(routes).not.toContain("/trajets/XPB/XTO");
     });
     it("publie des liens FlixBus compatibles avec le proxy", () =>
     {
