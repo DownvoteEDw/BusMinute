@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { TransitSection } from "../components/transit-section";
 import { LiveDeparturesBoard } from "../components/live-departures-board";
@@ -7,6 +8,11 @@ import { requestLocale } from "./request-locale";
 import { transitPageDataService } from "../src/application/transit-data-service";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+    alternates: {
+        canonical: "/"
+    }
+};
 
 export default async function HomePage()
 {

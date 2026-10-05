@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -110,6 +110,20 @@ try
     }
     else
     {
+        const wwwRedirect = await new Promise((resolveRedirect, rejectRedirect) =>
+        {
+            const request = httpRequest({
+                hostname: "127.0.0.1",
+                port,
+                path: "/ville/paris?source=www",
+                headers: { Host: "www.bus-minute.xyz" }
+            }, resolveRedirect);
+            request.on("error", rejectRedirect);
+            request.end();
+        });
+        assert.equal(wwwRedirect.statusCode, 308);
+        assert.equal(wwwRedirect.headers.location, "https://bus-minute.xyz/ville/paris?source=www");
+        wwwRedirect.resume();
         const apiController = new AbortController();
         let apiFinished = false;
         const liveRequest = fetch(`${base}/api/board`, { signal: apiController.signal }).then(async (response) =>
@@ -150,6 +164,10 @@ try
             assert.match(html, /site-footer/);
             assert.match(html, marker, path);
             assert.doesNotMatch(html, /NEXT_HTTP_ERROR_FALLBACK|"digest":/);
+            if (path === "/")
+            {
+                assert.ok(html.includes(`<link rel="canonical" href="${base}"`), "homepage canonical");
+            }
             assert.equal(upstreamResponses, 0, `${path}: rendering waited for the operator`);
             assert.equal(apiFinished, false);
             journeyPath ??= html.match(/href="(\/suivi\/flixbus\/9901\/[^" ]+)"/)?.[1];
