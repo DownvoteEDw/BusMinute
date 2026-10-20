@@ -14,12 +14,11 @@ describe("métadonnées en cas de panne", () =>
         expect(unavailable.robots).toEqual({ index: false, follow: true });
     });
 
-    it("conserve la canonical et empêche l'indexation d'un résultat indisponible", async () =>
+    it("laisse remonter une panne pour répondre en 5xx plutôt qu'en noindex", async () =>
     {
         vi.spyOn(console, "error").mockImplementation(() => {});
-        const result = await transitMetadata(async () => { throw new Error("Database unavailable"); }, "/departs/paris/2026-09-10");
-        expect(result.alternates?.canonical).toBe("/departs/paris/2026-09-10");
-        expect(result.robots).toEqual({ index: false, follow: true });
+        const failure = new Error("Database unavailable");
+        await expect(transitMetadata(async () => { throw failure; }, "/departs/paris/2026-09-10")).rejects.toBe(failure);
     });
 
     it("laisse Next.js traiter les 404 et les redirections", async () =>

@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
     agentRules: false,
     allowedDevOrigins: ["127.0.0.1", "localhost"],
+    // Liste par défaut de Next.js + Googlebot : ses métadonnées sont résolues avant le premier octet,
+    // donc une panne de données répond 5xx au lieu d'une page 200 sans titre.
+    htmlLimitedBots: /Googlebot|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight/i,
     async redirects()
     {
         return [

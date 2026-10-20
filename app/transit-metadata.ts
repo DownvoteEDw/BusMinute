@@ -19,10 +19,8 @@ export async function transitMetadata(load: () => Promise<Metadata>, canonical: 
     catch (error)
     {
         unstable_rethrow(error);
+        // Une panne passagère doit rester une erreur 5xx : Google la réessaie, alors qu'un noindex désindexe la page.
         console.error("Métadonnées des horaires indisponibles", error);
-        return {
-            alternates: { canonical },
-            robots: { index: false, follow: true }
-        };
+        throw error;
     }
 }

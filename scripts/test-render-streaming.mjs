@@ -88,23 +88,28 @@ try
 
     if (unavailable)
     {
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
         for (const agent of ["Mozilla/5.0", "Googlebot", "Twitterbot"])
         {
-            for (const path of ["/ville/paris", "/gares/XPB", "/trajets/paris/tours", "/departs/paris/2026-09-10"])
+            for (const path of ["/ville/paris", "/gares/XPB", "/trajets/paris/tours", `/departs/paris/${today}`])
             {
                 const response = await fetch(`${base}${path}`, { headers: { "User-Agent": agent }, signal: AbortSignal.timeout(5_000) });
-                assert.equal(response.status, 200, `${agent}: ${path}`);
                 const html = await response.text();
-                assert.match(html, /site-header/);
-                assert.match(html, /site-footer/);
-                assert.ok(html.includes(`<link rel="canonical" href="${base}${path}"`), `${agent}: canonical ${path}`);
-                assert.match(html, /<meta name="robots" content="noindex, follow"/);
-                assert.doesNotMatch(html, /<meta name="robots" content="index, follow"/);
+                assert.doesNotMatch(html, /<meta name="robots" content="[^"]*follow"/, `${agent}: a storage failure must not change indexing: ${path}`);
+                if (agent === "Mozilla/5.0")
+                {
+                    assert.equal(response.status, 200, `${agent}: ${path}`);
+                    assert.match(html, /site-header/);
+                }
+                else
+                {
+                    assert.equal(response.status, 500, `${agent}: a storage failure must be retried, not deindexed: ${path}`);
+                }
             }
             const failedRoute = await fetch(`${base}/bus/flixbus/9901`, { headers: { "User-Agent": agent }, signal: AbortSignal.timeout(5_000) });
             assert.equal(failedRoute.status, 500, `${agent}: a storage failure must not become a 404`);
             assert.match(await failedRoute.text(), /<meta name="robots" content="noindex"/);
-            console.log(`${agent}: unavailable data preserves canonical/noindex; failed routing returns 500, never 404`);
+            console.log(`${agent}: unavailable data never changes indexing (crawlers get 500 and retry); failed routing returns 500, never 404`);
         }
         assert.equal(upstreamRequests, 0);
     }
