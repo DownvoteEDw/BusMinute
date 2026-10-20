@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TransitSection } from "../components/transit-section";
+import { RouteLinkGrid, ServiceLinkList } from "../components/journey-link-lists";
 import { LiveDeparturesBoard } from "../components/live-departures-board";
 import { SearchBox } from "../components/search-box";
 import { countLabel, localize, type Locale } from "../src/application/i18n";
@@ -54,6 +55,30 @@ export default async function HomePage()
                     <FeaturedCities locale={locale} />
                 </TransitSection>
             </section>
+            <section className="featured-cities popular-links">
+                <div className="featured-cities-heading">
+                    <div><span className="section-kicker">{localize(locale, "Les plus fréquentés", "Most travelled", "Los más frecuentados")}</span><h2>{localize(locale, "Trajets et lignes populaires", "Popular routes and services", "Trayectos y líneas populares")}</h2></div>
+                </div>
+                <TransitSection locale={locale}>
+                    <PopularLinks locale={locale} />
+                </TransitSection>
+            </section>
+        </>
+    );
+}
+
+async function PopularLinks({ locale }: { locale: Locale })
+{
+    const links = await transitPageDataService.getPopularLinks(12);
+    return (
+        <>
+            <RouteLinkGrid routes={links.routes} locale={locale} />
+            {links.services.length > 0 && (
+                <>
+                    <h3>{localize(locale, "Lignes de bus les plus fréquentes", "Most frequent bus services", "Líneas de autobús más frecuentes")}</h3>
+                    <ServiceLinkList services={links.services} />
+                </>
+            )}
         </>
     );
 }

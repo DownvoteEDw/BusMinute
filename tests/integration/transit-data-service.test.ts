@@ -148,17 +148,15 @@ describe("TransitDataService", () =>
         expect(index.stops).toContainEqual({ stopId: "XPB" });
         expect(index.routes).toContainEqual({ originStopId: "XPB", destinationStopId: "XTO" });
         expect(index.departures).toContainEqual({ citySlug: "paris", serviceDate: "2026-08-22" });
-        expect(index.journeys).toContainEqual(expect.objectContaining({ journeyRef: "50819:2026-08-22", publicPath: expect.stringMatching(/^\/suivi\/blablacar-bus\/50819\/2026-08-22-[a-f0-9]{20}$/) }));
         expect(index.services).toContain("/bus/blablacar-bus/50819");
     });
 
-    it("retire les circulations expirées du sitemap et conserve leur page permanente", async () =>
+    it("conserve la page permanente et l'archive d'une circulation expirée", async () =>
     {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
         const service = new TransitDataService();
         const index = await service.getSeoIndex();
-        expect(index.journeys.some((journey) => journey.journeyRef === "50819:2026-08-22")).toBe(false);
         expect(index.services).toContain("/bus/blablacar-bus/50819");
         const archived = await service.getJourney("50819:2026-08-22");
         expect(archived?.publicId).toMatch(/^[a-f0-9]{20}$/);

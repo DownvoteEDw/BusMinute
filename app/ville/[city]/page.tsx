@@ -5,12 +5,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CityJourneyList } from "../../../components/city-journey-list";
+import { RouteLinkGrid, ServiceLinkList } from "../../../components/journey-link-lists";
 import { OperatorLogo } from "../../../components/operator-logo";
 import { SearchBox } from "../../../components/search-box";
 import { StructuredData } from "../../../components/structured-data";
 import { countLabel, localeTag, localize, type Locale } from "../../../src/application/i18n";
 import { requestLocale } from "../../request-locale";
 import { absoluteUrl, breadcrumbStructuredData } from "../../../src/application/seo";
+import { journeyLinks } from "../../../src/application/journey-links";
 import { transitPageDataService } from "../../../src/application/transit-data-service";
 
 interface PageProps
@@ -78,6 +80,7 @@ async function CityPageContent({ params, locale }: PageProps & { locale: Locale 
 
     const today = parisDate(new Date());
     const dates = nextDates(today, 3);
+    const links = journeyLinks(board.journeys, [board.slug], 12);
     const structuredData = [
         breadcrumbStructuredData(
         [
@@ -191,6 +194,21 @@ async function CityPageContent({ params, locale }: PageProps & { locale: Locale 
             <TransitSection locale={locale}>
                 <CityDepartures slug={board.slug} name={board.name} date={today} locale={locale} />
             </TransitSection>
+            {links.routes.length > 0 && (
+                <section className="route-suggestions-section">
+                    <div className="section-heading-row">
+                        <h2>{localize(locale, `Destinations au départ de ${board.name}`, `Destinations from ${board.name}`, `Destinos desde ${board.name}`)}</h2>
+                        <span>{countLabel(locale, links.routes.length, "destination", "destinations", "destination", "destinations", "destino", "destinos")}</span>
+                    </div>
+                    <RouteLinkGrid routes={links.routes} locale={locale} />
+                </section>
+            )}
+            {links.services.length > 0 && (
+                <section className="date-links-section">
+                    <h2>{localize(locale, `Lignes de bus à ${board.name}`, `Bus services in ${board.name}`, `Líneas de autobús en ${board.name}`)}</h2>
+                    <ServiceLinkList services={links.services} />
+                </section>
+            )}
             <StructuredData value={structuredData} />
         </div>
     );

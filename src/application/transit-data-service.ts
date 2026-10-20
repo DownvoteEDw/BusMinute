@@ -54,6 +54,7 @@ import
 import { distanceMeters, samePhysicalStation } from "./station-identity.js";
 import { AsyncCache } from "./async-cache.js";
 import { JourneyPublications, withPublicJourneyUrl } from "./journey-publications.js";
+import { journeyLinks, type JourneyLinksView } from "./journey-links.js";
 import { busServicePath, cityRoutePath } from "./journey-url.js";
 import { isJourneyCompleted, isJourneyOutsideIndexingWindow } from "./seo.js";
 import { liveBoardEventTime as boardEventTime } from "./live-board.js";
@@ -117,6 +118,7 @@ export class TransitDataService
     private readonly cityDatedJourneyViewsCache = new AsyncCache<JourneyView[]>(15_000, 100);
     private readonly cityJourneyGenerationQueue = new BoundedConcurrency(4, 100);
     private readonly cityDirectoryCache = new AsyncCache<CityDirectoryEntryView[]>(15_000);
+    private readonly popularLinksCache = new AsyncCache<JourneyLinksView>(60_000);
     private readonly cityBoardCache = new AsyncCache<CityBoardView | null>(15_000, 100);
     private readonly stopBoardCache = new AsyncCache<StopBoardView | null>(15_000, 100);
     private readonly journeyCache = new AsyncCache<JourneyView | null>(15_000, 200);
@@ -308,6 +310,15 @@ export class TransitDataService
             .slice(0, limit);
     }
 
+    public async getPopularLinks(limit = 12): Promise<JourneyLinksView>
+    {
+        return this.popularLinksCache.get("popular", async () =>
+        {
+            const [cities, journeys] = await Promise.all([this.getFeaturedCities(6), this.getAllJourneyViews()]);
+            return journeyLinks(journeys, cities.map((city) => city.slug), limit);
+        });
+    }
+
     public async getCityBoard(slug: string): Promise<CityBoardView | null>
     {
         return this.cityBoardCache.get(slug, () => this.loadCityBoard(slug));
@@ -478,8 +489,6 @@ export class TransitDataService
             }),
             routes: [...routes.values()],
             departures: [...departures.values()],
-            journeys: journeys.filter((journey) => !isJourneyOutsideIndexingWindow(journey))
-                .map((journey) => ({ journeyRef: journey.journeyRef, publicPath: journey.publicPath })),
             services: (await this.publications.listServices()).map(busServicePath),
             cityRoutes: journeys.map((journey) => cityRoutePath(citySlug(journey.originCity), citySlug(journey.destinationCity)))
         };

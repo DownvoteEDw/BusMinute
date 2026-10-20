@@ -275,7 +275,7 @@ The map can be collapsed, fit all stops and recenter on vehicles. Timetables rem
 
 Bus services have permanent pages such as `/bus/blablacar-bus/50819`. A journey uses a URL such as `/suivi/blablacar-bus/50819/2026-08-22-86066eb7204abf42e320`. The suffix distinguishes departures sharing the same service number and date. Legacy `/suivi/<reference>` URLs remain available through HTTP 308 redirects to the exact journey.
 
-Internal links, canonical URLs and the journey sitemap use the new paths. `/sitemaps/services.xml` lists permanent service pages. New routes such as `/trajets/paris/tours` group available stations and operators, while historical station-to-station pages retain their existing paths and specific content.
+Internal links and canonical URLs use the new paths. `/sitemaps/services.xml` lists permanent service pages. New routes such as `/trajets/paris/tours` group available stations and operators, while historical station-to-station pages retain their existing paths and specific content. The home page and city pages link to the busiest routes and bus services so that search engines reach permanent pages first.
 
 Migration `003_journey_publications` must run before starting this version. The Docker Compose `migration` service applies it automatically. Outside Compose:
 
@@ -290,9 +290,9 @@ The second command publishes historical journeys still present in `trip_instance
 docker compose run --rm app node dist/src/cli/backfill-journey-links.js
 ```
 
-Journeys exposed by lists, sitemaps and tracking pages are then saved automatically in `journey_publications`, together with their mapping and latest timetable snapshot. This table is independent from realtime observation retention: keep it in PostgreSQL backups and never purge it with history. Data removed before this migration cannot be reconstructed; an unknown URL remains a 404 and never redirects to another departure.
+Journeys exposed by lists and tracking pages are then saved automatically in `journey_publications`, together with their mapping and latest timetable snapshot. This table is independent from realtime observation retention: keep it in PostgreSQL backups and never purge it with history. Data removed before this migration cannot be reconstructed; an unknown URL remains a 404 and never redirects to another departure.
 
-Permanent pages remain indexable when no upcoming departure is available. Journeys receive `noindex` 48 hours after completion and are removed from the journey sitemap. Archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
+Permanent pages remain indexable when no upcoming departure is available. Dated journey pages only live for a few days, so they are always `noindex, follow` and absent from sitemaps: permanent `/bus/` and `/trajets/` pages carry search visibility. Archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
 
 Without PostgreSQL, development uses JSON snapshots in a `busminute-links-*` system temporary directory. This local storage is not intended to preserve production URLs.
 
@@ -314,11 +314,11 @@ This test starts a production Next.js server and blocks a local FlixBus API with
 
 Rendering uses `transitPageDataService`, which forbids provider requests. Data sections are isolated with Suspense and error boundaries so navigation and search remain available during loading. APIs use the same snapshots and GTFS caches before adding realtime data. Once rendered, panels and lists refresh through APIs; batches are capped at 20 journeys and requests are aborted on unmount. A slow response therefore never keeps server rendering open while waiting for a provider. Local reads remain asynchronous and SEO structured data stays in the server-rendered output.
 
-For dynamic URLs, existence and redirect checks run before streaming to preserve HTTP 404/308 statuses. They query the persisted catalogue or journey publication without loading departure lists or contacting a provider. Section data then loads under Suspense. If metadata is unavailable, the page retains a canonical URL and receives `noindex, follow` instead of silently inheriting the site's default indexing policy.
+For dynamic URLs, existence and redirect checks run before streaming to preserve HTTP 404/308 statuses. They query the persisted catalogue or journey publication without loading departure lists or contacting a provider. Section data then loads under Suspense. If metadata is unavailable, the error propagates: crawlers receive an HTTP 500 and retry later. A transient outage must never answer `noindex`, which tells Google to drop the page. Googlebot is listed in `htmlLimitedBots` so its metadata resolves before the first byte and the status code can still change.
 
-A journey whose realtime source can still respond remains active until arrival is confirmed, with a six-hour limit after the latest known arrival time. It is therefore not archived at its scheduled time while a delay remains possible. The 48-hour SEO window starts after the journey actually ends.
+A journey whose realtime source can still respond remains active until arrival is confirmed, with a six-hour limit after the latest known arrival time. It is therefore not archived at its scheduled time while a delay remains possible. The 48-hour archive window starts after the journey actually ends.
 
-The second `test:streaming` scenario makes publication storage unavailable. It verifies canonical URLs and `noindex` on failed sections, as well as a 500 status when an outage prevents URL existence checks. An outage must never be treated as a missing resource (404).
+The second `test:streaming` scenario makes publication storage unavailable. It verifies that crawlers receive a 500 status instead of `noindex`, that browsers keep the page shell, and that an outage preventing URL existence checks returns 500. An outage must never be treated as a missing resource (404).
 
 Replay the real-world matching fixture only:
 

@@ -13,7 +13,7 @@ import { StructuredData } from "../../../../../components/structured-data";
 import { localeTag, localize, type Locale } from "../../../../../src/application/i18n";
 import { citySlug, type JourneyView } from "../../../../../src/application/journey-view";
 import { requestLocale } from "../../../../request-locale";
-import { absoluteUrl, breadcrumbStructuredData, isJourneyOutsideIndexingWindow, isJourneyCompleted } from "../../../../../src/application/seo";
+import { absoluteUrl, breadcrumbStructuredData, isJourneyCompleted } from "../../../../../src/application/seo";
 import { transitPageDataService } from "../../../../../src/application/transit-data-service";
 
 interface PageProps
@@ -69,8 +69,9 @@ async function loadMetadata({ params }: PageProps): Promise<Metadata>
         alternates: {
             canonical: journeyPath(journey)
         },
+        // Une circulation datée ne vit que quelques jours : la page permanente /bus/ porte le référencement.
         robots: {
-            index: !isJourneyOutsideIndexingWindow(journey),
+            index: false,
             follow: true
         },
         openGraph: {

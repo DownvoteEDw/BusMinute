@@ -795,6 +795,20 @@ h1 em {
     text-transform: uppercase;
 }
 
+.popular-links {
+    padding-top: 0;
+}
+
+.popular-links .route-suggestion-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.popular-links h3 {
+    font-size: 20px;
+    letter-spacing: -.04em;
+    margin: 34px 0 16px;
+}
+
 .site-footer {
     color: var(--muted);
     font-size: 13px;
@@ -2207,13 +2221,15 @@ h1 em {
     margin: 0 0 16px;
 }
 
-.date-links {
+.date-links,
+.service-links {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
 }
 
 .date-links a,
+.service-links a,
 .route-station-links a {
     background: var(--card);
     border: 1px solid var(--line);
@@ -2459,7 +2475,8 @@ h1 em {
     }
 
     .featured-city-grid,
-    .city-directory {
+    .city-directory,
+    .popular-links .route-suggestion-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -2467,6 +2484,10 @@ h1 em {
 @media (max-width: 520px) {
     .site-header nav {
         gap: 12px;
+    }
+
+    .popular-links .route-suggestion-grid {
+        grid-template-columns: 1fr;
     }
 
     .site-header nav a:first-child {

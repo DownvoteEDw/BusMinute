@@ -1,5 +1,4 @@
 import type { SeoIndexView } from "./journey-view.js";
-import { journeyPath } from "./journey-url.js";
 import { transitDataService } from "./transit-data-service.js";
 
 export const sitemapSectionNames = [
@@ -8,8 +7,7 @@ export const sitemapSectionNames = [
     "stops",
     "routes",
     "departures",
-    "services",
-    "journeys"
+    "services"
 ] as const;
 
 export type SitemapSection = typeof sitemapSectionNames[number];
@@ -124,11 +122,6 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
             return uniqueSorted(index.departures.map((departure) =>
             {
                 return `/departs/${departure.citySlug}/${departure.serviceDate}`;
-            }));
-        case "journeys":
-            return uniqueSorted(index.journeys.map((journey) =>
-            {
-                return journeyPath(journey);
             }));
     }
 }

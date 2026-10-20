@@ -173,6 +173,11 @@ try
             {
                 assert.ok(html.includes(`<link rel="canonical" href="${base}"`), "homepage canonical");
             }
+            if (path === "/" || path === "/ville/paris")
+            {
+                assert.match(html, /href="\/bus\/[^"]+"/, `${path}: link to a permanent service page`);
+                assert.match(html, /href="\/trajets\/paris\/[^"]+"/, `${path}: link to a permanent route page`);
+            }
             assert.equal(upstreamResponses, 0, `${path}: rendering waited for the operator`);
             assert.equal(apiFinished, false);
             journeyPath ??= html.match(/href="(\/suivi\/flixbus\/9901\/[^" ]+)"/)?.[1];
@@ -225,7 +230,7 @@ try
                 assert.equal(response.headers.get("location"), target);
                 await response.text();
             }
-            for (const [path, indexable] of [[journeyPath, true], [archivedPath, false], ["/bus/blablacar-bus/50819", true]])
+            for (const [path, indexable] of [[journeyPath, false], [archivedPath, false], ["/bus/blablacar-bus/50819", true]])
             {
                 const response = await request(path);
                 assert.equal(response.status, 200, `${agent}: ${path}`);

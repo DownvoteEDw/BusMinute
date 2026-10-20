@@ -156,7 +156,6 @@ export interface SeoIndexView
     stops: Array<{ stopId: string }>;
     routes: Array<{ originStopId: string; destinationStopId: string }>;
     departures: Array<{ citySlug: string; serviceDate: string }>;
-    journeys: Array<{ journeyRef: string; publicPath?: string }>;
     services?: string[];
     cityRoutes?: string[];
 }
