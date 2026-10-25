@@ -58,8 +58,9 @@ async function loadMetadata({ params }: PageProps): Promise<Metadata>
         alternates: {
             canonical: `/departs/${board.slug}/${date}`
         },
+        // Une date expire : la page permanente /ville/ porte le référencement.
         robots: {
-            index: board.journeys.length > 0,
+            index: false,
             follow: true
         }
     };

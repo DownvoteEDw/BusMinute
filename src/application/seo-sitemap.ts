@@ -6,7 +6,6 @@ export const sitemapSectionNames = [
     "cities",
     "stops",
     "routes",
-    "departures",
     "services"
 ] as const;
 
@@ -118,11 +117,6 @@ function sitemapPaths(section: SitemapSection, index: SeoIndexView): string[]
             return uniqueSorted(index.cityRoutes ?? []);
         case "services":
             return uniqueSorted(index.services ?? []);
-        case "departures":
-            return uniqueSorted(index.departures.map((departure) =>
-            {
-                return `/departs/${departure.citySlug}/${departure.serviceDate}`;
-            }));
     }
 }
 

@@ -456,7 +456,6 @@ export class TransitDataService
         ]);
         const cities = buildCityDirectory(operatorFeeds, journeys);
         const routes = new Map<string, { originStopId: string; destinationStopId: string }>();
-        const departures = new Map<string, { citySlug: string; serviceDate: string }>();
 
         for (const journey of journeys)
         {
@@ -472,13 +471,6 @@ export class TransitDataService
                     destinationStopId: destination.stopId
                 });
             }
-
-            for (const stop of journey.stops)
-            {
-                const slug = citySlug(stop.city);
-                const key = `${slug}:${journey.serviceDate}`;
-                departures.set(key, { citySlug: slug, serviceDate: journey.serviceDate });
-            }
         }
 
         return {
@@ -488,7 +480,6 @@ export class TransitDataService
                 return feed.stops.map((stop) => ({ stopId: publicStopId(operator, stop.externalId) }));
             }),
             routes: [...routes.values()],
-            departures: [...departures.values()],
             services: (await this.publications.listServices()).map(busServicePath),
             cityRoutes: journeys.map((journey) => cityRoutePath(citySlug(journey.originCity), citySlug(journey.destinationCity)))
         };

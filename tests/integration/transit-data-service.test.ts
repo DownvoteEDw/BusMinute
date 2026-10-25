@@ -147,7 +147,6 @@ describe("TransitDataService", () =>
         expect(index.cities).toContainEqual({ slug: "paris" });
         expect(index.stops).toContainEqual({ stopId: "XPB" });
         expect(index.routes).toContainEqual({ originStopId: "XPB", destinationStopId: "XTO" });
-        expect(index.departures).toContainEqual({ citySlug: "paris", serviceDate: "2026-08-22" });
         expect(index.services).toContain("/bus/blablacar-bus/50819");
     });
 

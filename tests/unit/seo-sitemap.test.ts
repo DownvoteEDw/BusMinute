@@ -12,8 +12,7 @@ import
 const index: SeoIndexView = {
     cities: [{ slug: "paris" }, { slug: "orleans" }, { slug: "paris" }],
     stops: [{ stopId: "XPB" }, { stopId: "X&OS" }],
-    routes: [{ originStopId: "XPB", destinationStopId: "XTO" }],
-    departures: [{ citySlug: "paris", serviceDate: "2026-08-22" }]
+    routes: [{ originStopId: "XPB", destinationStopId: "XTO" }]
 };
 
 describe("sitemaps SEO", () =>
@@ -26,6 +25,7 @@ describe("sitemaps SEO", () =>
         expect(routes).toContain("/trajets/paris/lyon");
         expect(routes).not.toContain("/trajets/XPB/XTO");
         expect(parseSitemapSection("journeys.xml")).toBeNull();
+        expect(parseSitemapSection("departures.xml")).toBeNull();
         expect(buildSitemapIndexXml("https://bus-minute.xyz")).not.toContain("/suivi/");
     });
 

@@ -292,7 +292,7 @@ docker compose run --rm app node dist/src/cli/backfill-journey-links.js
 
 Journeys exposed by lists and tracking pages are then saved automatically in `journey_publications`, together with their mapping and latest timetable snapshot. This table is independent from realtime observation retention: keep it in PostgreSQL backups and never purge it with history. Data removed before this migration cannot be reconstructed; an unknown URL remains a 404 and never redirects to another departure.
 
-Permanent pages remain indexable when no upcoming departure is available. Dated journey pages only live for a few days, so they are always `noindex, follow` and absent from sitemaps: permanent `/bus/` and `/trajets/` pages carry search visibility. Archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
+Permanent pages remain indexable when no upcoming departure is available. Dated journey pages (`/suivi/…`) and dated departure boards (`/departs/<city>/<date>`) only live for a few days, so they are always `noindex, follow` and absent from sitemaps: permanent `/bus/`, `/trajets/` and `/ville/` pages carry search visibility. Archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
 
 Without PostgreSQL, development uses JSON snapshots in a `busminute-links-*` system temporary directory. This local storage is not intended to preserve production URLs.
 
