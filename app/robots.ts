@@ -8,7 +8,8 @@ export default function robots(): MetadataRoute.Robots
         rules: {
             userAgent: "*",
             allow: "/",
-            disallow: ["/api/", "/recherche"]
+            // Les préchargements Next.js (?_rsc=) ne sont pas des pages : ils consommaient l'essentiel du crawl.
+            disallow: ["/api/", "/recherche", "/*_rsc="]
         },
         sitemap: `${origin}/sitemap.xml`
     };
