@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from "next/navigation";
-import { journeyPath, journeyRefFromPath } from "../../../src/application/journey-url";
+import { journeyRefFromPath } from "../../../src/application/journey-url";
+import { journeyRedirectPath } from "../../../src/application/seo";
 import { transitPageDataService } from "../../../src/application/transit-data-service";
 
 export const dynamic = "force-dynamic";
@@ -13,5 +14,5 @@ export default async function LegacyJourneyPage({ params }: { params: Promise<{ 
     {
         notFound();
     }
-    permanentRedirect(journeyPath(journey));
+    permanentRedirect(journeyRedirectPath(journey));
 }

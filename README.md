@@ -273,7 +273,7 @@ The map can be collapsed, fit all stops and recenter on vehicles. Timetables rem
 
 ## Public URLs and SEO migration
 
-Bus services have permanent pages such as `/bus/blablacar-bus/50819`. A journey uses a URL such as `/suivi/blablacar-bus/50819/2026-08-22-86066eb7204abf42e320`. The suffix distinguishes departures sharing the same service number and date. Legacy `/suivi/<reference>` URLs remain available through HTTP 308 redirects to the exact journey.
+Bus services have permanent pages such as `/bus/blablacar-bus/50819`. A journey uses a URL such as `/suivi/blablacar-bus/50819/2026-08-22-86066eb7204abf42e320`. The suffix distinguishes departures sharing the same service number and date. Legacy `/suivi/<reference>` URLs redirect with HTTP 308 to the exact journey. Seven days after a journey ends, both its dated URL and its legacy URL redirect with HTTP 308 to the service page.
 
 Internal links and canonical URLs use the new paths. `/sitemaps/services.xml` lists permanent service pages. New routes such as `/trajets/paris/tours` group available stations and operators, while historical station-to-station pages retain their existing paths and specific content. The home page and city pages link to the busiest routes and bus services so that search engines reach permanent pages first.
 
@@ -292,7 +292,7 @@ docker compose run --rm app node dist/src/cli/backfill-journey-links.js
 
 Journeys exposed by lists and tracking pages are then saved automatically in `journey_publications`, together with their mapping and latest timetable snapshot. This table is independent from realtime observation retention: keep it in PostgreSQL backups and never purge it with history. Data removed before this migration cannot be reconstructed; an unknown URL remains a 404 and never redirects to another departure.
 
-Permanent pages remain indexable when no upcoming departure is available. Dated journey pages (`/suivi/…`) and dated departure boards (`/departs/<city>/<date>`) only live for a few days, so they are always `noindex, follow` and absent from sitemaps: permanent `/bus/`, `/trajets/` and `/ville/` pages carry search visibility. Archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
+Permanent pages remain indexable when no upcoming departure is available. Dated journey pages (`/suivi/…`) and dated departure boards (`/departs/<city>/<date>`) only live for a few days, so they are always `noindex, follow` and absent from sitemaps: permanent `/bus/`, `/trajets/` and `/ville/` pages carry search visibility. During the seven days before the redirect, archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
 
 Without PostgreSQL, development uses JSON snapshots in a `busminute-links-*` system temporary directory. This local storage is not intended to preserve production URLs.
 
@@ -310,7 +310,7 @@ After the build, verify rendering while a provider response is blocked:
 npm run test:streaming
 ```
 
-This test starts a production Next.js server and blocks a local FlixBus API with an intentionally extended 60-second budget. It verifies that home, search, city, departure, station, route, service and tracking pages finish their HTML and metadata while the realtime API is still pending. It also checks actual HTTP 404/308 statuses, canonical URLs, structured data and archive indexing with browser, Googlebot and Twitterbot user agents. Test publications and servers are isolated and removed afterwards. CI runs this test after the build.
+This test starts a production Next.js server and blocks a local FlixBus API with an intentionally extended 60-second budget. It verifies that home, search, city, departure, station, route, service and tracking pages finish their HTML and metadata while the realtime API is still pending. It also checks actual HTTP 404/308 statuses, canonical URLs, structured data and expired journey redirects with browser, Googlebot and Twitterbot user agents. Test publications and servers are isolated and removed afterwards. CI runs this test after the build.
 
 Rendering uses `transitPageDataService`, which forbids provider requests. Data sections are isolated with Suspense and error boundaries so navigation and search remain available during loading. APIs use the same snapshots and GTFS caches before adding realtime data. Once rendered, panels and lists refresh through APIs; batches are capped at 20 journeys and requests are aborted on unmount. A slow response therefore never keeps server rendering open while waiting for a provider. Local reads remain asynchronous and SEO structured data stays in the server-rendered output.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isJourneyOutsideIndexingWindow, type JourneySeoTiming } from "../../src/application/seo.js";
+import { isJourneyOutsideIndexingWindow, journeyRedirectPath, type JourneySeoTiming } from "../../src/application/seo.js";
 
 describe("SEO des circulations", () =>
 {
@@ -24,6 +24,20 @@ describe("SEO des circulations", () =>
 
         expect(isJourneyOutsideIndexingWindow(journey, new Date("2026-09-08T03:59:59Z"))).toBe(false);
         expect(isJourneyOutsideIndexingWindow(journey, new Date("2026-09-08T04:00:01Z"))).toBe(true);
+    });
+
+    it("garde la page datée pendant sept jours puis redirige vers la page de la ligne", () =>
+    {
+        const journey = {
+            ...journeyAt("2026-09-04T12:00:00Z"),
+            journeyRef: "3177:2026-09-04",
+            publicPath: "/suivi/blablacar-bus/3177/2026-09-04-0123456789abcdef0123",
+            operatorSlug: "blablacar-bus",
+            serviceNumber: "3177"
+        };
+
+        expect(journeyRedirectPath(journey, new Date("2026-09-11T11:59:59Z"))).toBe(journey.publicPath);
+        expect(journeyRedirectPath(journey, new Date("2026-09-11T12:00:01Z"))).toBe("/bus/blablacar-bus/3177");
     });
 });
 

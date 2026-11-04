@@ -198,8 +198,9 @@ try
         console.log(`${journeyPath}: journey and SEO rendered before the operator responds`);
         const legacy = await fetch(`${base}/suivi/50819%3A2026-08-22`, { redirect: "manual" });
         assert.equal(legacy.status, 308);
-        const archivedPath = legacy.headers.get("location");
-        assert.ok(archivedPath);
+        assert.equal(legacy.headers.get("location"), "/bus/blablacar-bus/50819");
+        const expiredPublicId = createHash("sha256").update("50819:2026-08-22").digest("hex").slice(0, 20);
+        const expiredJourneyPath = `/suivi/blablacar-bus/50819/2026-08-22-${expiredPublicId}`;
         for (const agent of ["Mozilla/5.0", "Googlebot", "Twitterbot"])
         {
             const request = (path) => fetch(`${base}${path}`,
@@ -222,7 +223,8 @@ try
             for (const [path, target] of [
                 [journeyPath.replace("/9901/", "/incorrect/"), journeyPath],
                 ["/bus/flixbus/j~9901", "/bus/flixbus/9901"],
-                ["/suivi/50819%3A2026-08-22", archivedPath]
+                ["/suivi/50819%3A2026-08-22", "/bus/blablacar-bus/50819"],
+                [expiredJourneyPath, "/bus/blablacar-bus/50819"]
             ])
             {
                 const response = await request(path);
@@ -230,7 +232,7 @@ try
                 assert.equal(response.headers.get("location"), target);
                 await response.text();
             }
-            for (const [path, indexable] of [[journeyPath, false], [archivedPath, false], ["/bus/blablacar-bus/50819", true]])
+            for (const [path, indexable] of [[journeyPath, false], ["/bus/blablacar-bus/50819", true]])
             {
                 const response = await request(path);
                 assert.equal(response.status, 200, `${agent}: ${path}`);
@@ -242,7 +244,7 @@ try
             }
             assert.equal(apiFinished, false);
             assert.equal(upstreamResponses, 0);
-            console.log(`${agent}: HTTP 404/308, canonical URLs, structured data and archive indexing verified`);
+            console.log(`${agent}: HTTP 404/308, canonical URLs, structured data and expired journey redirects verified`);
         }
         releaseTimetable();
         const live = await liveRequest;

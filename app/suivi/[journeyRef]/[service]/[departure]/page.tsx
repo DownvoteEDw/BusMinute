@@ -13,7 +13,7 @@ import { StructuredData } from "../../../../../components/structured-data";
 import { localeTag, localize, type Locale } from "../../../../../src/application/i18n";
 import { citySlug, type JourneyView } from "../../../../../src/application/journey-view";
 import { requestLocale } from "../../../../request-locale";
-import { absoluteUrl, breadcrumbStructuredData, isJourneyCompleted } from "../../../../../src/application/seo";
+import { absoluteUrl, breadcrumbStructuredData, isJourneyCompleted, journeyRedirectPath } from "../../../../../src/application/seo";
 import { transitPageDataService } from "../../../../../src/application/transit-data-service";
 
 interface PageProps
@@ -194,9 +194,10 @@ async function resolveJourney(params: { journeyRef: string; service: string; dep
     if (journey)
     {
         const path = `/suivi/${encodeURIComponent(params.journeyRef)}/${encodeURIComponent(params.service)}/${params.departure}`;
-        if (path !== journeyPath(journey))
+        const target = journeyRedirectPath(journey);
+        if (path !== target)
         {
-            permanentRedirect(journeyPath(journey));
+            permanentRedirect(target);
         }
     }
     return journey;
