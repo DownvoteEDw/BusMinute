@@ -145,7 +145,9 @@ function punctualitySentence(journey: JourneyView, locale: Locale): string | nul
     const minutes = Math.round(punctuality.averageDelaySeconds / 60);
     const average = minutes > 0
         ? localize(locale, `${minutes} min de retard en moyenne à l’arrivée`, `${minutes} min late on average at arrival`, `${minutes} min de retraso medio en la llegada`)
-        : localize(locale, "à l’heure en moyenne à l’arrivée", "on time on average at arrival", "puntual de media en la llegada");
+        : minutes < 0
+            ? localize(locale, `${-minutes} min d’avance en moyenne à l’arrivée`, `${-minutes} min early on average at arrival`, `${-minutes} min de adelanto medio en la llegada`)
+            : localize(locale, "à l’heure en moyenne à l’arrivée", "on time on average at arrival", "puntual de media en la llegada");
     return localize(
         locale,
         `Sur ${punctuality.windowDays} jours : ${average}, ${punctuality.onTimePercentage} % des arrivées à moins de ${punctuality.thresholdMinutes} min d’écart.`,

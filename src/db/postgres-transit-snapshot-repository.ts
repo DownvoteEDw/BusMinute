@@ -10,6 +10,11 @@ import type
 } from "../domain/models.js";
 import type { PunctualitySummaryView } from "../application/journey-view.js";
 
+// La source enregistre parfois une arrivée à des heures de l'horaire : ces écarts fausseraient toute la moyenne.
+const earliestPlausibleDelaySeconds = -3_600;
+const latestPlausibleDelaySeconds = 43_200;
+const minimumPunctualitySampleSize = 5;
+
 interface OperatorRow
 {
     id: string;
@@ -354,12 +359,16 @@ export class PostgresTransitSnapshotRepository
             SELECT COUNT(*)::integer AS sample_size,
                    ROUND(AVG(delay_seconds)) AS average_delay_seconds,
                    ROUND(100 * AVG(CASE WHEN ABS(delay_seconds) <= $5 * 60 THEN 1.0 ELSE 0.0 END)) AS on_time_percentage
-            FROM latest_arrivals`,
-            [this.operatorSlug, serviceNumber, destinationStopId, windowDays, thresholdMinutes]
+            FROM latest_arrivals
+            WHERE delay_seconds BETWEEN $6 AND $7`,
+            [
+                this.operatorSlug, serviceNumber, destinationStopId, windowDays, thresholdMinutes,
+                earliestPlausibleDelaySeconds, latestPlausibleDelaySeconds
+            ]
         );
         const row = result.rows[0];
 
-        if (!row || row.sample_size === 0 || row.average_delay_seconds === null || row.on_time_percentage === null)
+        if (!row || row.sample_size < minimumPunctualitySampleSize || row.average_delay_seconds === null || row.on_time_percentage === null)
         {
             return null;
         }

@@ -84,10 +84,12 @@ describe("persistance du temps réel", () =>
     it("calcule la ponctualité observée d’une ligne", async () =>
     {
         let sql = "";
+        let values: unknown[] = [];
         const pool = {
-            async query(text: string)
+            async query(text: string, parameters: unknown[])
             {
                 sql = text;
+                values = parameters;
                 return {
                     rowCount: 1,
                     rows: [
@@ -112,6 +114,19 @@ describe("persistance du temps réel", () =>
         });
         expect(sql).toContain("trip_stop_realtime");
         expect(sql).not.toContain("trip_stop_observations");
+        expect(values.slice(-2)).toEqual([-3_600, 43_200]);
+    });
+
+    it("n’affiche pas de ponctualité sur un échantillon trop petit", async () =>
+    {
+        const pool = {
+            async query()
+            {
+                return { rowCount: 1, rows: [{ sample_size: 4, average_delay_seconds: "-44340", on_time_percentage: "0" }] };
+            }
+        } as unknown as Pool;
+
+        expect(await new PostgresTransitSnapshotRepository(pool).loadPunctuality("51028", "XMA")).toBeNull();
     });
 
     it("limite les tableaux en direct aux données des cinq dernières minutes", async () =>
