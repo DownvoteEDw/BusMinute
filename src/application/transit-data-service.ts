@@ -69,6 +69,7 @@ const siriLifetimeMilliseconds = 45_000;
 const liveBoardLifetimeMilliseconds = 30_000;
 const databaseFeedLifetimeMilliseconds = 300_000;
 const punctualityLifetimeMilliseconds = 600_000;
+const punctualityBudgetMilliseconds = 1_500;
 const scheduledJourneyLifetimeMilliseconds = 300_000;
 
 interface OperatorFeed
@@ -130,7 +131,7 @@ export class TransitDataService
     private databaseRepository: PostgresTransitSnapshotRepository | null = null;
     private flixBusDatabaseRepository: PostgresTransitSnapshotRepository | null = null;
     private alsaDatabaseRepository: PostgresTransitSnapshotRepository | null = null;
-    private readonly punctualityCache = new Map<string, TimedValue<PunctualitySummaryView | null>>();
+    private readonly punctualityCache = new AsyncCache<PunctualitySummaryView | null>(punctualityLifetimeMilliseconds, 2_000);
 
     public async search(query: string, limit = 12): Promise<JourneyView[]>
     {
@@ -521,7 +522,11 @@ export class TransitDataService
         {
             journey = (await this.getAllJourneyViews()).find((candidate) => candidate.publicId === id) ?? null;
         }
-        return journey && this.allowProviderRequests ? this.getJourney(journey.journeyRef) : journey;
+        if (!journey)
+        {
+            return null;
+        }
+        return this.allowProviderRequests ? this.getJourney(journey.journeyRef) : this.attachPunctuality(journey);
     }
 
     public async getBusService(operator: string, service: string): Promise<{ example: JourneyView; journeys: JourneyView[] } | null>
@@ -544,7 +549,12 @@ export class TransitDataService
             const journeys = published.filter((journey) => !isJourneyCompleted(journey))
                 .sort((a, b) => boardEventTime(a) - boardEventTime(b));
             const example = journeys[0] ?? published[0] ?? await this.publications.serviceExample(operator, service);
-            return example ? { example, journeys } : null;
+            if (!example)
+            {
+                return null;
+            }
+            const featured = await this.attachPunctuality(example);
+            return { example: featured, journeys: journeys.map((journey) => journey === example ? featured : journey) };
         });
     }
 
@@ -1573,33 +1583,26 @@ export class TransitDataService
 
     private async attachPunctuality(journey: JourneyView): Promise<JourneyView>
     {
-        const repository = this.getDatabaseRepository();
+        const repository = journey.operatorSlug === blablacarBusOperator.slug ? this.getDatabaseRepository() : null;
 
         if (!repository)
         {
             return journey;
         }
 
-        const key = `${journey.serviceNumber}:${journey.destinationStopId}`;
-        const cached = this.punctualityCache.get(key);
-
-        if (cached && cached.expiresAt > Date.now())
+        const request = this.punctualityCache.get(`${journey.serviceNumber}:${journey.destinationStopId}`, () =>
         {
-            return { ...journey, punctuality: cached.value };
-        }
+            return repository.loadPunctuality(journey.serviceNumber, journey.destinationStopId);
+        });
 
         try
         {
-            const punctuality = await repository.loadPunctuality(
-                journey.serviceNumber,
-                journey.destinationStopId
-            );
-            this.punctualityCache.set(key,
-            {
-                value: punctuality,
-                expiresAt: Date.now() + punctualityLifetimeMilliseconds
-            });
-            return { ...journey, punctuality };
+            // Une base lente ne doit jamais retarder une page : la statistique arrivera à l'affichage suivant.
+            const punctuality = await Promise.race([
+                request,
+                new Promise<undefined>((resolve) => setTimeout(resolve, punctualityBudgetMilliseconds))
+            ]);
+            return punctuality === undefined ? journey : { ...journey, punctuality };
         }
         catch
         {

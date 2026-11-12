@@ -333,22 +333,23 @@ export class PostgresTransitSnapshotRepository
             average_delay_seconds: number | string | null;
             on_time_percentage: number | string | null;
         }>(
+            // Le dernier état de chaque arrêt suffit : parcourir tout l'historique des observations prenait plus d'une minute.
             `WITH latest_arrivals AS
             (
                 SELECT DISTINCT ON (instance.id)
                        instance.id,
-                       EXTRACT(EPOCH FROM (observation.actual_arrival_at - observation.aimed_arrival_at)) AS delay_seconds
+                       EXTRACT(EPOCH FROM (realtime.actual_arrival_at - realtime.aimed_arrival_at)) AS delay_seconds
                 FROM trip_instances instance
                 JOIN operators operator ON operator.id = instance.operator_id
-                JOIN trip_stop_observations observation ON observation.trip_instance_id = instance.id
-                JOIN stops stop ON stop.id = observation.stop_id
+                JOIN trip_stop_realtime realtime ON realtime.trip_instance_id = instance.id
+                JOIN stops stop ON stop.id = realtime.stop_id
                 WHERE operator.slug = $1
                   AND instance.service_number = $2
                   AND stop.external_id = $3
                   AND instance.service_date >= current_date - make_interval(days => $4)
-                  AND observation.actual_arrival_at IS NOT NULL
-                  AND observation.aimed_arrival_at IS NOT NULL
-                ORDER BY instance.id, observation.source_updated_at DESC
+                  AND realtime.actual_arrival_at IS NOT NULL
+                  AND realtime.aimed_arrival_at IS NOT NULL
+                ORDER BY instance.id, realtime.stop_sequence DESC
             )
             SELECT COUNT(*)::integer AS sample_size,
                    ROUND(AVG(delay_seconds)) AS average_delay_seconds,

@@ -275,6 +275,8 @@ The map can be collapsed, fit all stops and recenter on vehicles. Timetables rem
 
 Bus services have permanent pages such as `/bus/blablacar-bus/50819`. A journey uses a URL such as `/suivi/blablacar-bus/50819/2026-08-22-86066eb7204abf42e320`. The suffix distinguishes departures sharing the same service number and date. Legacy `/suivi/<reference>` URLs redirect with HTTP 308 to the exact journey. Seven days after a journey ends, both its dated URL and its legacy URL redirect with HTTP 308 to the service page.
 
+A service page is the tracking page of its next departure: stop-by-stop times, delays and map, followed by the other upcoming departures. Without an upcoming departure it shows the last known journey. For BlaBlaCar Bus it also shows the observed arrival punctuality, rendered on the server. That statistic reads the latest state of each stop (`trip_stop_realtime`), never the full observation history, and a slow database cannot delay a page: after 1.5 seconds the page renders without it.
+
 Internal links and canonical URLs use the new paths. `/sitemaps/services.xml` lists permanent service pages. New routes such as `/trajets/paris/tours` group available stations and operators, while historical station-to-station pages retain their existing paths and specific content. The home page and city pages link to the busiest routes and bus services so that search engines reach permanent pages first.
 
 Migration `003_journey_publications` must run before starting this version. The Docker Compose `migration` service applies it automatically. Outside Compose:

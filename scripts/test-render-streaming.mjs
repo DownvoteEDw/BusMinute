@@ -178,6 +178,10 @@ try
                 assert.match(html, /href="\/bus\/[^"]+"/, `${path}: link to a permanent service page`);
                 assert.match(html, /href="\/trajets\/paris\/[^"]+"/, `${path}: link to a permanent route page`);
             }
+            if (path === "/bus/flixbus/9901")
+            {
+                assert.match(html, /route-timeline/, `${path}: stop-by-stop times of the next departure`);
+            }
             assert.equal(upstreamResponses, 0, `${path}: rendering waited for the operator`);
             assert.equal(apiFinished, false);
             journeyPath ??= html.match(/href="(\/suivi\/flixbus\/9901\/[^" ]+)"/)?.[1];

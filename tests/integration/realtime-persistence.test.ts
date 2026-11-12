@@ -83,9 +83,11 @@ describe("persistance du temps réel", () =>
 
     it("calcule la ponctualité observée d’une ligne", async () =>
     {
+        let sql = "";
         const pool = {
-            async query()
+            async query(text: string)
             {
+                sql = text;
                 return {
                     rowCount: 1,
                     rows: [
@@ -108,6 +110,8 @@ describe("persistance du temps réel", () =>
             windowDays: 90,
             thresholdMinutes: 15
         });
+        expect(sql).toContain("trip_stop_realtime");
+        expect(sql).not.toContain("trip_stop_observations");
     });
 
     it("limite les tableaux en direct aux données des cinq dernières minutes", async () =>
