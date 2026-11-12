@@ -296,6 +296,15 @@ Journeys exposed by lists and tracking pages are then saved automatically in `jo
 
 Permanent pages remain indexable when no upcoming departure is available. Dated journey pages (`/suivi/…`) and dated departure boards (`/departs/<city>/<date>`) only live for a few days, so they are always `noindex, follow` and absent from sitemaps: permanent `/bus/`, `/trajets/` and `/ville/` pages carry search visibility. During the seven days before the redirect, archives display their date, link to upcoming departures and disable passenger reports. URL migrations can temporarily affect Google visibility, so redirects must remain in place and Search Console should be monitored after deployment.
 
+Bing and the other IndexNow search engines can be told about the permanent pages directly:
+
+```powershell
+npm run seo:indexnow -- --dry-run
+npm run seo:indexnow
+```
+
+The script reads the live sitemaps and submits every listed page. The key is the name of the `public/<key>.txt` file, which must be deployed first: IndexNow fetches it to check site ownership. Run it after deploying new kinds of pages; routine timetable updates do not need it.
+
 Without PostgreSQL, development uses JSON snapshots in a `busminute-links-*` system temporary directory. This local storage is not intended to preserve production URLs.
 
 ## Validation

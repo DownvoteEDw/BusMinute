@@ -14,6 +14,7 @@
     "test": "vitest run --exclude \"blablabus-core/**\"",
     "test:streaming": "node scripts/test-render-streaming.mjs && node scripts/test-render-streaming.mjs --unavailable",
     "seo:jev-audit": "node scripts/audit-seo-links.mjs",
+    "seo:indexnow": "node scripts/submit-indexnow.mjs",
     "check": "npm run build:core && npm run test && npm run build",
     "match": "npm run build:core --silent && node dist/src/cli/match.js",
     "db:migrate": "npm run build:core --silent && node dist/src/cli/migrate.js",
